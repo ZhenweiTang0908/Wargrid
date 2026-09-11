@@ -159,6 +159,8 @@ function UnitPiece({ team }: { team: Team }) {
   const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canLijianTarget = state.lijianMode && team !== 'player' && unit.hp > 0 && unit.gender === 'male' && !state.lijianTargets.includes(team)
   const lijianSelected = state.lijianTargets.includes(team)
+  const canChainTarget = selectedKind === 'ironChain' && unit.hp > 0
+  const chainSelected = state.chainTargets.includes(team)
   const canTarget = canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || selectedKind === 'dismantle' ||
@@ -192,10 +194,11 @@ function UnitPiece({ team }: { team: Team }) {
       position={worldPosition(unit.position)}
       onClick={e => {
         e.stopPropagation()
-        if (canLijianTarget) state.selectLijianTarget(team)
+        if (canChainTarget) state.selectChainTarget(team)
+        else if (canLijianTarget) state.selectLijianTarget(team)
         else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
-      onPointerEnter={() => { if (canTarget) document.body.style.cursor = 'crosshair' }}
+      onPointerEnter={() => { if (canTarget || canChainTarget) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
     >
       {canTarget && (
@@ -207,6 +210,10 @@ function UnitPiece({ team }: { team: Team }) {
       {lijianSelected && <mesh position-y={.07} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[.58, .67, 32]} />
         <meshBasicMaterial color="#e98ac5" transparent opacity={.95} side={THREE.DoubleSide} />
+      </mesh>}
+      {chainSelected && <mesh position-y={.08} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[.69, .77, 32]} />
+        <meshBasicMaterial color="#6de5ed" transparent opacity={.95} side={THREE.DoubleSide} />
       </mesh>}
       {unit.chained && <mesh position-y={.34} rotation-x={Math.PI / 2}>
         <torusGeometry args={[.58, .055, 8, 24]} />
@@ -688,6 +695,8 @@ function App() {
         {state.turnStage === 'play' && canGuose && <button className={`secondary skill-action ${state.selectedAsGuose ? 'active' : ''}`} onClick={() => state.activateGuose()}><Swords />国色</button>}
         {state.turnStage === 'play' && canLijian && <button className={`secondary skill-action ${state.lijianMode ? 'active' : ''}`} onClick={() => state.activateLijian()}><Swords />{state.lijianTargets.length ? `离间 ${state.lijianTargets.length}/2` : '离间'}</button>}
         {state.turnStage === 'play' && selectedCard?.kind === 'ironChain' && <button className="secondary" onClick={() => dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCard.id, recast: true })}><RotateCcw />重铸</button>}
+        {state.turnStage === 'play' && selectedCard?.kind === 'ironChain' && !state.chainTargets.includes('player') && state.chainTargets.length < 2 && <button className="secondary" onClick={() => state.selectChainTarget('player')}><Swords />选自己</button>}
+        {state.turnStage === 'play' && selectedCard?.kind === 'ironChain' && state.chainTargets.length > 0 && <button className="secondary active" onClick={() => state.playIronChain()}><Swords />结算 {state.chainTargets.length}/2</button>}
         {state.turnStage === 'play' && state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
         <button className="end-turn" disabled={state.phase !== 'player' || !discardReady} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />{state.turnStage === 'discard' ? '确认弃牌' : '结束回合'}</button>
       </div>

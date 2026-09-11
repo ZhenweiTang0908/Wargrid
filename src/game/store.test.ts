@@ -530,6 +530,23 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('集智'))).toBe(false)
   })
 
+  it('lets the player choose one or two Iron Chain targets including themselves', () => {
+    const chain = card('ironChain')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [chain] } } }))
+    useGameStore.getState().selectCard(chain.id)
+    useGameStore.getState().selectChainTarget('player')
+    useGameStore.getState().selectChainTarget('east')
+    expect(useGameStore.getState().chainTargets).toEqual(['player', 'east'])
+    useGameStore.getState().playIronChain()
+    const state = useGameStore.getState()
+    expect(state.units.player.chained).toBe(true)
+    expect(state.units.east.chained).toBe(true)
+    expect(state.units.north.chained).toBe(false)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.chainTargets).toEqual([])
+    expect(state.discard).toContainEqual(chain)
+  })
+
   it('lets a player-selected Zhao Yun use slash as dodge', () => {
     useGameStore.getState().selectGeneral('longdan')
     const enemySlash = card('slash', 'club'), converted = card('slash', 'heart')
