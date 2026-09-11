@@ -465,8 +465,20 @@ describe('standard card scenarios', () => {
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.units.east.hp).toBe(2)
     expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.animation).toBe('fireHit')
+    expect(state.units.north.animation).toBe('fireHit')
     expect(state.units.east.chained).toBe(false)
     expect(state.units.north.chained).toBe(false)
+  })
+
+  it('shows thunder impact state after a thunder slash on wet terrain', () => {
+    const thunderSlash = card('thunderSlash', 'spade')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 0, y: 1 }, hand: [thunderSlash] }, east: { ...state.units.east, position: { x: 0, y: 2 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: thunderSlash.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(2)
+    expect(state.units.east.animation).toBe('thunderHit')
+    expect(state.history.some(entry => entry.includes('湿地导雷'))).toBe(true)
   })
 
   it('toggles iron chains and transmits elemental damage through linked units', () => {

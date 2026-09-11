@@ -172,10 +172,11 @@ function UnitPiece({ team }: { team: Team }) {
     group.current.position.lerp(target, Math.min(1, delta * 7))
     const idle = Math.sin(clock.elapsedTime * 2.2 + (team === 'player' ? 0 : team === 'north' ? 1 : team === 'east' ? 2 : 3)) * .035
     group.current.position.y = idle + (unit.animation === 'heal' ? Math.abs(Math.sin(clock.elapsedTime * 10)) * .12 : 0)
-    const desiredScale = unit.animation === 'hit' ? .9 + Math.abs(Math.sin(clock.elapsedTime * 25)) * .12 : 1
+    const elementalHit = unit.animation === 'fireHit' || unit.animation === 'thunderHit'
+    const desiredScale = unit.animation === 'hit' || elementalHit ? .9 + Math.abs(Math.sin(clock.elapsedTime * 25)) * .12 : 1
     group.current.scale.lerp(new THREE.Vector3(desiredScale, desiredScale, desiredScale), delta * 10)
     if (unit.animation === 'attack') group.current.rotation.y = Math.sin(clock.elapsedTime * 18) * .18
-    else if (unit.animation === 'hit') group.current.rotation.z = Math.sin(clock.elapsedTime * 34) * .09
+    else if (unit.animation === 'hit' || elementalHit) group.current.rotation.z = Math.sin(clock.elapsedTime * 34) * (elementalHit ? .14 : .09)
     else { group.current.rotation.y *= Math.max(0, 1 - delta * 10); group.current.rotation.z *= Math.max(0, 1 - delta * 10) }
   })
 
@@ -205,6 +206,16 @@ function UnitPiece({ team }: { team: Team }) {
         <torusGeometry args={[.58, .055, 8, 24]} />
         <meshStandardMaterial color="#80d8dc" emissive="#167782" emissiveIntensity={1.4} metalness={.75} roughness={.25} />
       </mesh>}
+      {unit.animation === 'fireHit' && <group position-y={.78}>
+        <pointLight color="#ff5528" intensity={3.2} distance={2.4} />
+        <Sparkles count={22} scale={[.9, 1.5, .9]} size={3.2} speed={1.8} color="#ff7a32" />
+        <mesh scale={[.55, .9, .55]}><sphereGeometry args={[.55, 10, 8]} /><meshBasicMaterial color="#ff3d16" transparent opacity={.16} depthWrite={false} /></mesh>
+      </group>}
+      {unit.animation === 'thunderHit' && <group position-y={.86}>
+        <pointLight color="#7ebdff" intensity={3.8} distance={2.7} />
+        <Sparkles count={28} scale={[1, 1.65, 1]} size={2.6} speed={2.4} color="#9ed7ff" />
+        {[0, 1, 2].map(index => <mesh key={index} position={[(index - 1) * .23, .05 - index * .12, .18]} rotation-z={(index - 1) * .22}><boxGeometry args={[.035, 1.25, .035]} /><meshBasicMaterial color="#c8edff" /></mesh>)}
+      </group>}
       <EquippedGear unit={unit} />
       <mesh position-y={.18} castShadow>
         <cylinderGeometry args={[.38, .45, .28, 12]} />

@@ -231,7 +231,10 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
     if (!finalAmount) {
       const message = `${working.units[id].name}所处水域熄灭了火焰${transmitted}`
       working = { ...working, message, history: log(working, message) }
-    } else working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`) }
+    } else {
+      working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`) }
+      working = { ...working, units: { ...working.units, [id]: { ...working.units[id], animation: nature === 'fire' ? 'fireHit' : 'thunderHit' } } }
+    }
     if (working.pendingResponse || working.winner) break
   }
   return working
