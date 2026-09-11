@@ -69,6 +69,14 @@ const targetsFor = (state: GameState, team: Team) => {
   return alive.sort((a, b) => a.hp - b.hp || (a.identity === 'lord' ? 1 : -1))
 }
 const primaryTarget = (state: GameState, team: Team) => targetsFor(state, team)[0]?.id ?? team
+const alliesFor = (state: GameState, team: Team) => {
+  const actor = state.units[team]
+  return Object.values(state.units).filter(unit => unit.hp > 0 && (
+    unit.id === team ||
+    ((actor.identity === 'lord' || actor.identity === 'loyalist') && (unit.identity === 'lord' || unit.identity === 'loyalist')) ||
+    (actor.identity === 'rebel' && unit.identity === 'rebel')
+  ))
+}
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
 function triggerLianying(state: GameState, team: Team): GameState {
   const unit = state.units[team]
@@ -1075,6 +1083,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (get().pendingResponse) return
     }
     state = get(); ai = state.units[aiId]
+    if (ai.skills.includes('qingnang') && !ai.skillUsed && ai.hand.length) {
+      const patient = alliesFor(state, aiId).filter(unit => unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+      const payment = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]
+      if (patient && payment) {
+        const message = `${ai.name}发动【青囊】，弃置【${CARD_LABEL[payment.kind]}】令${patient.name}回复 1 点体力`
+        const healer = { ...ai, hand: ai.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' as const }
+        const units = patient.id === aiId ? { ...state.units, [aiId]: { ...healer, hp: healer.hp + 1, animation: 'heal' as const } } : { ...state.units, [aiId]: healer, [patient.id]: { ...patient, hp: patient.hp + 1, animation: 'heal' as const } }
+        set({ units, discard: [...state.discard, payment], message, history: log(state, message) })
+        await wait(280); state = get(); ai = state.units[aiId]
+      }
+    }
+    if (ai.skills.includes('zhiheng') && !ai.skillUsed && ai.hand.length) {
+      const lacksSlash = !responseCard(ai, 'slash')
+      const exchange = ai.hand.filter(card => card.kind !== 'peach' && card.kind !== 'dodge' && card.kind !== 'slash').slice(0, ai.hand.length > ai.hp ? 2 : lacksSlash ? 1 : 0)
+      if (exchange.length) {
+        const exchangeIds = new Set(exchange.map(card => card.id)), draw = drawCards(state.deck, [...state.discard, ...exchange], exchange.length)
+        const message = `${ai.name}发动【制衡】，弃置并重摸 ${exchange.length} 张牌`
+        set({ units: { ...state.units, [aiId]: { ...ai, hand: [...ai.hand.filter(card => !exchangeIds.has(card.id)), ...draw.drawn], skillUsed: true, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) })
+        await wait(280); state = get(); ai = state.units[aiId]
+      }
+    }
     const cache = state.mapObjects.find(item => !item.claimed && (item.kind !== 'healingShrine' || ai.hp < ai.maxHp) && Math.abs(ai.position.x - item.position.x) + Math.abs(ai.position.y - item.position.y) <= 1)
     const payment = ai.hand.find(card => card.kind === 'dodge' || card.kind === 'slash') ?? ai.hand[ai.hand.length - 1]
     if (cache && payment) {

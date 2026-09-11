@@ -1272,4 +1272,30 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toEqual([reward])
     expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
   })
+
+  it('lets AI Hua Tuo heal the weakest allied character through Qingnang', async () => {
+    const payment = card('nullify')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'qingnang', skills: ['qingnang', 'jijiu'], position: state.controlPoint, hp: 2, maxHp: 4, hand: [payment] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.history.some(entry => entry.includes('青囊'))).toBe(true)
+  })
+
+  it('lets AI Sun Quan exchange an unhelpful card through Zhiheng', async () => {
+    const oldCard = card('nullify'), freshCard = card('nullify', 'heart')
+    useGameStore.setState(state => ({ deck: [freshCard], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'zhiheng', skills: ['zhiheng', 'jiuyuan'], position: state.controlPoint, hand: [oldCard] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.skillUsed).toBe(true)
+    expect(state.units.north.hand).toContainEqual(freshCard)
+    expect(state.history.some(entry => entry.includes('制衡'))).toBe(true)
+  })
 })
