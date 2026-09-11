@@ -1,5 +1,6 @@
 export type Team = 'player' | 'north' | 'east' | 'west'
 export type Identity = 'lord' | 'loyalist' | 'rebel' | 'renegade'
+export type Faction = 'wei' | 'shu' | 'wu' | 'qun'
 export type Suit = 'spade' | 'heart' | 'club' | 'diamond'
 export type CardKind =
   | 'slash' | 'dodge' | 'peach' | 'wine'
@@ -26,6 +27,7 @@ export interface Unit {
   title: string
   team: Team
   identity: Identity
+  faction: Faction
   revealed: boolean
   position: Position
   hp: number
@@ -73,6 +75,7 @@ export interface GameState {
   selectedAsSlash: boolean
   spearMode: boolean
   spearSelection: string[]
+  jijiangSource: Team | null
   discardSelection: string[]
   reachable: Position[]
   pathPreview: Position[]
@@ -84,7 +87,7 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'MOVE'; unit: Team; to: Position }
-  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean; materialIds?: string[] }
+  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean; materialIds?: string[]; lordAssist?: Team }
   | { type: 'END_TURN' }
   | { type: 'RESTART' }
 

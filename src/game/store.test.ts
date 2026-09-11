@@ -76,6 +76,25 @@ describe('standard card scenarios', () => {
     expect(state.units.player.attacksUsed).toBe(2)
   })
 
+  it('lets a Shu lord borrow slash from a Shu loyalist through Jijiang', () => {
+    const offered = card('slash', 'diamond')
+    useGameStore.setState(state => ({
+      deck: [card('peach', 'heart')],
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [] }, north: { ...state.units.north, hand: [offered] }, east: { ...state.units.east, position: { x: 4, y: 2 }, hand: [] } },
+    }))
+    useGameStore.getState().activateJijiang()
+    let state = useGameStore.getState()
+    expect(state.jijiangSource).toBe('north')
+    expect(state.selectedAsSlash).toBe(true)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: offered.id, target: 'east', asSlash: true, lordAssist: 'north' })
+    state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.discard).toContainEqual(offered)
+    expect(state.jijiangSource).toBeNull()
+  })
+
   it('lets Huang Yueying draw through Jizhi after using an instant trick', () => {
     useGameStore.getState().selectGeneral('jizhi')
     const trick = card('drawTwo'), insight = card('peach', 'heart'), bonusA = card('slash'), bonusB = card('dodge')
@@ -301,7 +320,7 @@ describe('standard card scenarios', () => {
     const slash = card('slash'), dodge = card('dodge', 'heart', 2)
     useGameStore.setState(state => ({
       currentUnit: 'east', phase: 'ai',
-      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, hand: [dodge] } },
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, faction: 'wei', position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, faction: 'wei', hand: [dodge] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
     expect(useGameStore.getState().pendingResponse?.required).toBe('dodge')
@@ -310,6 +329,19 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(5)
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.message).toContain('护驾')
+  })
+
+  it('does not allow Hujia without matching Wei factions', () => {
+    const slash = card('slash'), dodge = card('dodge', 'heart', 2)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, faction: 'shu', position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, faction: 'shu', hand: [dodge] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hand).toContainEqual(dodge)
   })
 
   it('waits for the player to choose a dodge response', () => {

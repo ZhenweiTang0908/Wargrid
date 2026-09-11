@@ -4,7 +4,7 @@ import { CircleHelp, RotateCcw, SkipForward, Swords, Volume2, VolumeX, X } from 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
-import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type GeneralSkill, type Position, type Team } from './types'
+import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team } from './types'
 import { canSlash, combatDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
@@ -113,7 +113,7 @@ function UnitPiece({ team }: { team: Team }) {
       position={worldPosition(unit.position)}
       onClick={e => {
         e.stopPropagation()
-        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, materialIds: state.spearMode ? state.spearSelection : undefined })
+        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
       onPointerEnter={() => { if (canTarget) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
@@ -231,15 +231,17 @@ function PlayerStatus({ team }: { team: Team }) {
   const score = useGameStore(s => s.scores[team])
   const portraits: Record<GeneralSkill, string> = { wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png' }
   const skillCopy = { wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈 · 受伤获得来源牌', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智 · 锦囊结算时摸牌' } as const
+  const factionLabel: Record<Faction, string> = { wei: '魏', shu: '蜀', wu: '吴', qun: '群' }
+  const lordSkill = unit.identity === 'lord' ? unit.faction === 'shu' ? ' · 激将' : unit.faction === 'wei' ? ' · 护驾' : '' : ''
   return (
     <section className={`status ${team}`}>
       <div className="avatar"><img src={portraits[unit.skill]} alt="" /><span>{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</span></div>
       <div className="status-copy">
-        <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
+        <div className="name-row"><strong>{unit.name}</strong><span>{factionLabel[unit.faction]} · {team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
         <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span>{unit.chained && <span>⛓ 连环</span>}</div>
         <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.equipment.offensiveMount ? ` · ${CARD_LABEL[unit.equipment.offensiveMount.kind]}` : ''}{unit.equipment.defensiveMount ? ` · ${CARD_LABEL[unit.equipment.defensiveMount.kind]}` : ''}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
-        <div className="skill-line">{skillCopy[unit.skill]}</div>
+        <div className="skill-line">{skillCopy[unit.skill]}{lordSkill}</div>
       </div>
     </section>
   )
@@ -328,6 +330,7 @@ function App() {
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < 1
+  const canJijiang = state.units.player.identity === 'lord' && state.units.player.faction === 'shu' && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => card.kind === 'slash') || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge'))))
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
   const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired
@@ -365,6 +368,7 @@ function App() {
       <div className="turn-actions">
         {state.turnStage === 'play' && canWusheng && <button className={`secondary skill-action ${state.selectedAsSlash ? 'active' : ''}`} onClick={() => state.activateWusheng()}><Swords />武圣</button>}
         {state.turnStage === 'play' && canSpear && <button className={`secondary skill-action ${state.spearMode ? 'active' : ''}`} onClick={() => state.activateSpear()}><Swords />丈八</button>}
+        {state.turnStage === 'play' && canJijiang && <button className={`secondary skill-action ${state.jijiangSource ? 'active' : ''}`} onClick={() => state.activateJijiang()}><Swords />激将</button>}
         {state.turnStage === 'play' && state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
         <button className="end-turn" disabled={state.phase !== 'player' || !discardReady} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />{state.turnStage === 'discard' ? '确认弃牌' : '结束回合'}</button>
       </div>

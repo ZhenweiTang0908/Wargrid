@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -10,18 +10,19 @@ interface GameStore extends GameState {
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
   activateSpear: () => void
+  activateJijiang: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill'>> = {
-  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng' },
-  longdan: { name: '赵云', title: '少年将军', skill: 'longdan' },
-  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie' },
-  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback' },
-  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao' },
-  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi' },
+const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'faction'>> = {
+  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', faction: 'shu' },
+  longdan: { name: '赵云', title: '少年将军', skill: 'longdan', faction: 'shu' },
+  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', faction: 'wei' },
+  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', faction: 'wei' },
+  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', faction: 'shu' },
+  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', faction: 'shu' },
 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
@@ -43,9 +44,9 @@ const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === 
 const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => card.kind === required) ?? (unit.skill === 'longdan' ? unit.hand.find(card => card.kind === (required === 'slash' ? 'dodge' : 'slash')) : undefined)
 const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => card.kind === required ? `打出【${CARD_LABEL[required]}】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
-  if (state.units[targetId].identity !== 'lord') return null
+  if (state.units[targetId].identity !== 'lord' || state.units[targetId].faction !== 'wei') return null
   for (const unit of Object.values(state.units)) {
-    const dodge = unit.identity === 'loyalist' && unit.hp > 0 ? responseCard(unit, 'dodge') : undefined
+    const dodge = unit.identity === 'loyalist' && unit.faction === 'wei' && unit.hp > 0 ? responseCard(unit, 'dodge') : undefined
     if (dodge) return { unit, dodge }
   }
   return null
@@ -320,7 +321,7 @@ function beginTurn(state: GameState, team: Team): GameState {
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
   const draw = drawCards(working.deck, working.discard, 2)
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' }
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -362,17 +363,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (action.type === 'PLAY_CARD') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
+      const assistant = action.lordAssist ? state.units[action.lordAssist] : undefined
+      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.faction === 'shu' && assistant.identity === 'loyalist' && assistant.faction === 'shu'
+      const assistedCard = validJijiang ? responseCard(assistant, 'slash') : undefined
+      if (action.lordAssist && (!assistedCard || assistedCard.id !== action.cardId)) return
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
         ? unit.hand.filter(card => action.materialIds!.includes(card.id)) : []
       if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
-      const removed = takeCard(unit.hand, action.cardId); if (!removed.card) return
+      const removed = takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
-      const virtualSlash = action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge'))
+      const virtualSlash = !!validJijiang || (action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
       const kind = virtualSlash ? 'slash' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
-      const remainingHand = spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
-      let base: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' } }, discard: [...state.discard, ...playedCards], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [] }
+      const remainingHand = assistant ? unit.hand : spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
+      const unitsAfterPlay = assistant
+        ? { ...state.units, [action.unit]: { ...unit, animation: 'cast' as const }, [assistant.id]: { ...assistant, hand: removed.hand, animation: 'cast' as const } }
+        : { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' as const } }
+      let base: GameState = { ...state, units: unitsAfterPlay, discard: [...state.discard, ...playedCards], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null }
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
         const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
@@ -479,7 +487,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       let turnState = state
       if (state.turnStage !== 'discard' && excess > 0) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
-        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
+        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null, reachable: [], pathPreview: [], message, history: log(state, message) }); return
       }
       if (state.turnStage === 'discard') {
         if (state.discardSelection.length !== excess) return
@@ -579,7 +587,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
-    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], message: '已取消选牌' }); return }
+    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null, message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id); if (!card) return
     if (state.spearMode) {
       const selected = state.spearSelection.includes(id)
@@ -604,6 +612,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.phase !== 'player' || state.turnStage !== 'play' || state.units.player.equipment.weapon?.kind !== 'spear' || state.units.player.hand.length < 2) return
     const spearMode = !state.spearMode
     set({ spearMode, spearSelection: [], selectedCardId: null, selectedAsSlash: false, message: spearMode ? '【丈八蛇矛】请选择两张手牌' : '已取消丈八蛇矛' })
+  },
+  activateJijiang: () => {
+    const state = get(), lord = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || lord.identity !== 'lord' || lord.faction !== 'shu' || lord.attacksUsed >= slashLimit(lord)) return
+    const helper = Object.values(state.units).find(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && responseCard(unit, 'slash'))
+    if (!helper) { set({ message: '没有蜀势力忠臣可以响应【激将】' }); return }
+    const offered = responseCard(helper, 'slash')!
+    set({ selectedCardId: offered.id, selectedAsSlash: true, spearMode: false, spearSelection: [], jijiangSource: helper.id, message: `${helper.name}响应【激将】，请选择攻击范围内的敌将` })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
