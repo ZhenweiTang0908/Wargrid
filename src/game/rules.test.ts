@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, createDeck, createInitialState, drawCards, findPath, movementCost, pathDistance, reachableCells, scoreControlPoint, slashLimit } from './rules'
+import { attackRange, canPeach, canSlash, createDeck, createInitialState, determineWinner, drawCards, findPath, movementCost, pathDistance, reachableCells, scoreControlPoint, slashLimit } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -27,12 +27,12 @@ describe('board rules', () => {
   it('uses shortest walkable distance for attacks', () => {
     const state = createInitialState(fixedDeck())
     state.units.player.position = { x: 4, y: 2 }
-    expect(pathDistance(state, state.units.player.position, state.units.enemy.position, 'player')).toBe(2)
+    expect(pathDistance(state, state.units.player.position, state.units.north.position, 'player')).toBe(2)
     state.units.player.position = { x: 4, y: 1 }
-    expect(pathDistance(state, state.units.player.position, state.units.enemy.position, 'player')).toBe(1)
-    expect(canSlash(state, state.units.player, state.units.enemy)).toBe(true)
+    expect(pathDistance(state, state.units.player.position, state.units.north.position, 'player')).toBe(1)
+    expect(canSlash(state, state.units.player, state.units.north)).toBe(true)
     state.units.player.attacksUsed = 1
-    expect(canSlash(state, state.units.player, state.units.enemy)).toBe(false)
+    expect(canSlash(state, state.units.player, state.units.north)).toBe(false)
   })
 })
 
@@ -74,11 +74,31 @@ describe('card and victory rules', () => {
     const occupying: GameState = {
       ...state,
       units: { ...state.units, player: { ...state.units.player, position: state.controlPoint } },
-      scores: { player: 2, enemy: 0 },
+      scores: { player: 2, north: 0, east: 0, west: 0 },
     }
     const result = scoreControlPoint(occupying, 'player')
     expect(result.scores.player).toBe(3)
     expect(result.winner).toBe('player')
     expect(result.phase).toBe('finished')
+  })
+})
+
+describe('identity victory rules', () => {
+  it('awards rebels victory when the lord dies while others remain', () => {
+    const state = createInitialState(fixedDeck())
+    const units = { ...state.units, player: { ...state.units.player, hp: 0 } }
+    expect(determineWinner(units)).toBe('east')
+  })
+
+  it('awards the lord camp when rebels and renegade are gone', () => {
+    const state = createInitialState(fixedDeck())
+    const units = { ...state.units, east: { ...state.units.east, hp: 0 }, west: { ...state.units.west, hp: 0 } }
+    expect(determineWinner(units)).toBe('player')
+  })
+
+  it('awards the renegade only as the sole survivor', () => {
+    const state = createInitialState(fixedDeck())
+    const units = Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hp: id === 'west' ? 1 : 0 }])) as typeof state.units
+    expect(determineWinner(units)).toBe('west')
   })
 })

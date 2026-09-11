@@ -4,7 +4,7 @@ import { CircleHelp, RotateCcw, SkipForward, Swords, Volume2, VolumeX, X } from 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
-import { CARD_COPY, CARD_LABEL, SUIT_GLYPH, type Card, type Position, type Team } from './types'
+import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Position, type Team } from './types'
 import { canSlash, samePosition, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
@@ -61,9 +61,11 @@ function UnitPiece({ team }: { team: Team }) {
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
-  const color = team === 'player' ? '#35b8d4' : '#e25845'
+  const pieceColors: Record<Team, string> = { player: '#35b8d4', north: '#6fcf8a', east: '#e25845', west: '#a87ddd' }
+  const darkColors: Record<Team, string> = { player: '#14748a', north: '#287549', east: '#972f2b', west: '#5b377a' }
+  const color = pieceColors[team]
   const selectedKind = selectedAsSlash ? 'slash' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
-  const canTarget = team === 'enemy' && !!selectedCardId && !!selectedKind && (
+  const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     selectedKind === 'duel' || selectedKind === 'dismantle' ||
     selectedKind === 'indulgence' ||
@@ -79,7 +81,7 @@ function UnitPiece({ team }: { team: Team }) {
   useFrame(({ clock }, delta) => {
     if (!group.current) return
     group.current.position.lerp(target, Math.min(1, delta * 7))
-    const idle = Math.sin(clock.elapsedTime * 2.2 + (team === 'enemy' ? 1 : 0)) * .035
+    const idle = Math.sin(clock.elapsedTime * 2.2 + (team === 'player' ? 0 : team === 'north' ? 1 : team === 'east' ? 2 : 3)) * .035
     group.current.position.y = idle + (unit.animation === 'heal' ? Math.abs(Math.sin(clock.elapsedTime * 10)) * .12 : 0)
     const desiredScale = unit.animation === 'hit' ? .9 + Math.abs(Math.sin(clock.elapsedTime * 25)) * .12 : 1
     group.current.scale.lerp(new THREE.Vector3(desiredScale, desiredScale, desiredScale), delta * 10)
@@ -91,7 +93,7 @@ function UnitPiece({ team }: { team: Team }) {
       position={worldPosition(unit.position)}
       onClick={e => {
         e.stopPropagation()
-        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: 'enemy', asSlash: selectedAsSlash })
+        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash })
       }}
       onPointerEnter={() => { if (canTarget) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
@@ -108,7 +110,7 @@ function UnitPiece({ team }: { team: Team }) {
       </mesh>
       <mesh position-y={.7} castShadow>
         <cylinderGeometry args={[.28, .34, .8, 10]} />
-        <meshStandardMaterial color={team === 'player' ? '#14748a' : '#972f2b'} roughness={.55} />
+        <meshStandardMaterial color={darkColors[team]} roughness={.55} />
       </mesh>
       <mesh position-y={1.2} castShadow>
         <sphereGeometry args={[.29, 16, 12]} />
@@ -133,7 +135,7 @@ function UnitPiece({ team }: { team: Team }) {
       </group>
       <mesh position={[0, .78, .18]} rotation-x={-.18}>
         <planeGeometry args={[.62, .88]} />
-        <meshStandardMaterial color={team === 'player' ? '#173c43' : '#501e1c'} side={THREE.DoubleSide} roughness={.9} />
+        <meshStandardMaterial color={darkColors[team]} side={THREE.DoubleSide} roughness={.9} />
       </mesh>
       {unit.animation === 'heal' && <Sparkles count={28} scale={1.35} size={4} speed={1} color="#78e89b" position-y={.7} />}
       {unit.hp <= 0 && <mesh position-y={.5}><sphereGeometry args={[.8]} /><meshBasicMaterial color="#000" transparent opacity={.6} /></mesh>}
@@ -156,7 +158,9 @@ function Battlefield() {
         <group position-y={-.05}>
           {cells.map(p => <Tile key={`${p.x}-${p.y}`} position={p} />)}
           <UnitPiece team="player" />
-          <UnitPiece team="enemy" />
+          <UnitPiece team="north" />
+          <UnitPiece team="east" />
+          <UnitPiece team="west" />
         </group>
         <RoundedBox args={[10.4, .35, 10.4]} radius={.12} smoothness={2} position-y={-.28} receiveShadow>
           <meshStandardMaterial color="#091c21" roughness={.9} metalness={.12} />
@@ -178,9 +182,9 @@ function PlayerStatus({ team }: { team: Team }) {
   const score = useGameStore(s => s.scores[team])
   return (
     <section className={`status ${team}`}>
-      <div className="avatar">{team === 'player' ? '苍' : '赤'}</div>
+      <div className="avatar">{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</div>
       <div className="status-copy">
-        <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' ? '玩家' : 'AI'}</span></div>
+        <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
         <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span></div>
         <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
@@ -225,6 +229,7 @@ function App() {
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
+  const currentName = state.units[state.currentUnit]?.name
   const closeTutorial = () => { localStorage.setItem('wargrid-tutorial', 'seen'); setTutorial(false) }
 
   useEffect(() => {
@@ -236,7 +241,7 @@ function App() {
   return <main className="game-shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>第 {state.turn} 回合</small></div></div>
-      <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? '敌方回合' : '战局结束'}</div>
+      <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
         <button className="icon-button" onClick={() => setTutorial(true)} aria-label="查看规则"><CircleHelp /></button>
         <button className="icon-button" onClick={() => setSound(v => !v)} aria-label="切换音效">{sound ? <Volume2 /> : <VolumeX />}</button>
@@ -245,7 +250,7 @@ function App() {
     </header>
 
     <aside className="status-left"><PlayerStatus team="player" /></aside>
-    <aside className="status-right"><PlayerStatus team="enemy" /></aside>
+    <aside className="ai-roster"><PlayerStatus team="north" /><PlayerStatus team="east" /><PlayerStatus team="west" /></aside>
     <div className="battlefield"><Battlefield /></div>
 
     <div className="message-bar"><span className="message-pip" />{state.message}</div>
@@ -268,7 +273,7 @@ function App() {
       <span className="eyebrow">战局结束</span>
       <div className="result-seal">{state.winner === 'player' ? '胜' : '败'}</div>
       <h1>{state.winner === 'player' ? '中枢已归我方' : '赤军占据了战场'}</h1>
-      <p>历经 {state.turn} 回合 · 据点比分 {state.scores.player} : {state.scores.enemy}</p>
+      <p>历经 {state.turn} 轮 · 获胜身份：{IDENTITY_LABEL[state.units[state.winner].identity]}</p>
       <button className="primary" onClick={() => dispatch({ type: 'RESTART' })}><RotateCcw />再战一局</button>
     </section></div>}
 

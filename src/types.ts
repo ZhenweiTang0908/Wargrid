@@ -1,4 +1,5 @@
-export type Team = 'player' | 'enemy'
+export type Team = 'player' | 'north' | 'east' | 'west'
+export type Identity = 'lord' | 'loyalist' | 'rebel' | 'renegade'
 export type Suit = 'spade' | 'heart' | 'club' | 'diamond'
 export type CardKind =
   | 'slash' | 'dodge' | 'peach' | 'wine'
@@ -21,6 +22,8 @@ export interface Unit {
   name: string
   title: string
   team: Team
+  identity: Identity
+  revealed: boolean
   position: Position
   hp: number
   maxHp: number
@@ -47,6 +50,8 @@ export interface GameState {
   turnStage: TurnStage
   turn: number
   scores: Record<Team, number>
+  turnOrder: Team[]
+  currentUnit: Team
   selectedUnit: Team | null
   selectedCardId: string | null
   selectedAsSlash: boolean
@@ -80,3 +85,4 @@ export const CARD_COPY: Record<CardKind, string> = {
 }
 
 export const SUIT_GLYPH: Record<Suit, string> = { spade: '♠', heart: '♥', club: '♣', diamond: '♦' }
+export const IDENTITY_LABEL: Record<Identity, string> = { lord: '主公', loyalist: '忠臣', rebel: '反贼', renegade: '内奸' }

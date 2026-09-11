@@ -125,15 +125,30 @@ export function scoreControlPoint(state: GameState, team: Team): GameState {
   return { ...state, scores: { ...state.scores, [team]: score }, winner: score >= 3 ? team : state.winner, phase: score >= 3 ? 'finished' : state.phase, message: score >= 3 ? `${unit.name}占领中枢，赢得战局！` : `${unit.name}占领中枢，获得 1 分` }
 }
 
+export function determineWinner(units: Record<Team, Unit>): Team | null {
+  const alive = Object.values(units).filter(unit => unit.hp > 0)
+  const lordAlive = alive.some(unit => unit.identity === 'lord')
+  const rebelsAlive = alive.some(unit => unit.identity === 'rebel')
+  const renegadeAlive = alive.some(unit => unit.identity === 'renegade')
+  if (!lordAlive) {
+    if (alive.length === 1 && alive[0].identity === 'renegade') return alive[0].id
+    return Object.values(units).find(unit => unit.identity === 'rebel')?.id ?? 'east'
+  }
+  if (!rebelsAlive && !renegadeAlive) return Object.values(units).find(unit => unit.identity === 'lord')?.id ?? 'player'
+  return null
+}
+
 export function createInitialState(deck = createDeck()): GameState {
   const state: GameState = {
     size: BOARD_SIZE, terrain: TERRAIN, obstacles: OBSTACLES, controlPoint: CONTROL_POINT,
     units: {
-      player: { id: 'player', name: '关云', title: '义绝千军', team: 'player', position: { x: 4, y: 8 }, hp: 4, maxHp: 4, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
-      enemy: { id: 'enemy', name: '夏侯烈', title: '独眼苍狼', team: 'enemy', position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'resolve', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      player: { id: 'player', name: '关云', title: '义绝千军', team: 'player', identity: 'lord', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      north: { id: 'north', name: '赵翎', title: '龙胆孤骑', team: 'north', identity: 'loyalist', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'resolve', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      east: { id: 'east', name: '夏侯烈', title: '独眼苍狼', team: 'east', identity: 'rebel', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'resolve', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      west: { id: 'west', name: '司马玄', title: '鹰视狼顾', team: 'west', identity: 'renegade', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'resolve', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
     },
-    deck: deck.slice(8), discard: [], phase: 'player', turnStage: 'play', turn: 1,
-    scores: { player: 0, enemy: 0 }, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false,
+    deck: deck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
+    scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false,
     reachable: [], pathPreview: [], winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
   }
   state.reachable = reachableCells(state, state.units.player)

@@ -12,20 +12,20 @@ describe('standard card scenarios', () => {
   it('places indulgence into the target judgement area', () => {
     const delayed = card('indulgence', 'heart', 6)
     useGameStore.setState(state => ({
-      units: { ...state.units, player: { ...state.units.player, hand: [delayed] }, enemy: { ...state.units.enemy, hand: [] } },
+      units: { ...state.units, player: { ...state.units.player, hand: [delayed] }, north: { ...state.units.north, hand: [] } },
     }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: delayed.id, target: 'enemy' })
-    expect(useGameStore.getState().units.enemy.judgement).toEqual([delayed])
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: delayed.id, target: 'north' })
+    expect(useGameStore.getState().units.north.judgement).toEqual([delayed])
     expect(useGameStore.getState().discard.some(c => c.id === delayed.id)).toBe(false)
   })
 
   it('automatically nullifies a hostile tactic', () => {
     const duel = card('duel'), nullify = card('nullify', 'club', 12)
-    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel] }, enemy: { ...state.units.enemy, hand: [nullify] } } }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'enemy' })
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel] }, north: { ...state.units.north, hand: [nullify] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
     const state = useGameStore.getState()
-    expect(state.units.enemy.hp).toBe(4)
-    expect(state.units.enemy.hand).toHaveLength(0)
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['duel', 'nullify']))
   })
 
@@ -33,25 +33,28 @@ describe('standard card scenarios', () => {
     const slash = card('slash', 'heart'), peach = card('peach', 'heart', 3)
     useGameStore.setState(state => ({
       units: {
+        ...state.units,
         player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
-        enemy: { ...state.units.enemy, position: { x: 4, y: 0 }, hp: 1, hand: [peach] },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [peach] },
       },
     }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'enemy' })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
     const state = useGameStore.getState()
-    expect(state.units.enemy.hp).toBe(1)
-    expect(state.units.enemy.hand).toHaveLength(1)
-    expect(state.units.enemy.hand[0].kind).toBe('slash')
+    expect(state.units.north.hp).toBe(1)
+    expect(state.units.north.hand).toHaveLength(1)
+    expect(state.units.north.hand[0].kind).toBe('slash')
     expect(state.winner).toBeNull()
   })
 
   it('resolves arrows with an automatic dodge response', () => {
     const arrows = card('arrows'), dodge = card('dodge', 'diamond', 2)
-    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [arrows] }, enemy: { ...state.units.enemy, hand: [dodge] } } }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'enemy' })
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [arrows] }, north: { ...state.units.north, hand: [dodge] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'north' })
     const state = useGameStore.getState()
-    expect(state.units.enemy.hp).toBe(4)
-    expect(state.units.enemy.hand).toHaveLength(0)
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.west.hp).toBe(3)
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['arrows', 'dodge']))
   })
 
@@ -59,13 +62,14 @@ describe('standard card scenarios', () => {
     const redTrick = card('drawTwo', 'diamond', 9)
     useGameStore.setState(state => ({
       units: {
+        ...state.units,
         player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [redTrick] },
-        enemy: { ...state.units.enemy, position: { x: 4, y: 0 }, hand: [] },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] },
       },
     }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: redTrick.id, target: 'enemy', asSlash: true })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: redTrick.id, target: 'north', asSlash: true })
     const state = useGameStore.getState()
-    expect(state.units.enemy.hp).toBe(3)
+    expect(state.units.north.hp).toBe(3)
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.discard).toContainEqual(redTrick)
   })
