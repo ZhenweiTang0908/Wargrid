@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, RoundedBox, Sparkles } from '@react-three/drei'
-import { CircleHelp, RotateCcw, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
+import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
@@ -105,6 +105,9 @@ function UnitPiece({ team }: { team: Team }) {
     group.current.position.y = idle + (unit.animation === 'heal' ? Math.abs(Math.sin(clock.elapsedTime * 10)) * .12 : 0)
     const desiredScale = unit.animation === 'hit' ? .9 + Math.abs(Math.sin(clock.elapsedTime * 25)) * .12 : 1
     group.current.scale.lerp(new THREE.Vector3(desiredScale, desiredScale, desiredScale), delta * 10)
+    if (unit.animation === 'attack') group.current.rotation.y = Math.sin(clock.elapsedTime * 18) * .18
+    else if (unit.animation === 'hit') group.current.rotation.z = Math.sin(clock.elapsedTime * 34) * .09
+    else { group.current.rotation.y *= Math.max(0, 1 - delta * 10); group.current.rotation.z *= Math.max(0, 1 - delta * 10) }
   })
 
   return (
@@ -206,6 +209,9 @@ function UnitPiece({ team }: { team: Team }) {
         <meshStandardMaterial color={darkColor} side={THREE.DoubleSide} roughness={.9} />
       </mesh>
       {unit.animation === 'heal' && <Sparkles count={28} scale={1.35} size={4} speed={1} color="#78e89b" position-y={.7} />}
+      {unit.animation === 'attack' && <Sparkles count={22} scale={1.25} size={3.5} speed={1.5} color="#ffb347" position-y={.75} />}
+      {unit.animation === 'hit' && <Sparkles count={18} scale={1.15} size={3.2} speed={1.8} color="#ff5549" position-y={.7} />}
+      {unit.animation === 'cast' && <Sparkles count={24} scale={1.3} size={3.3} speed={1.1} color="#69d9e8" position-y={.8} />}
       {unit.hp <= 0 && <mesh position-y={.5}><sphereGeometry args={[.8]} /><meshBasicMaterial color="#000" transparent opacity={.6} /></mesh>}
     </group>
   )
@@ -345,10 +351,27 @@ function ResponseWindow() {
   </section></div>
 }
 
+function BattleReport({ close }: { close: () => void }) {
+  const state = useGameStore()
+  return <div className="overlay report-overlay"><section className="battle-report panel">
+    <button className="icon-button close" onClick={close} aria-label="关闭战报"><X /></button>
+    <span className="eyebrow">战局记录</span>
+    <h1>战报</h1>
+    <div className="pile-summary">
+      <div><strong>{state.deck.length}</strong><span>牌堆</span></div>
+      <div><strong>{state.discard.length}</strong><span>弃牌堆</span></div>
+      <div><strong>{Object.values(state.units).filter(unit => unit.hp > 0).length}</strong><span>存活武将</span></div>
+      <div><strong>{state.turn}</strong><span>当前轮次</span></div>
+    </div>
+    <ol className="history-list">{state.history.map((entry, index) => <li key={`${entry}-${index}`}><b>{String(index + 1).padStart(2, '0')}</b><span>{entry}</span></li>)}</ol>
+  </section></div>
+}
+
 function App() {
   const state = useGameStore()
   const dispatch = useGameStore(s => s.dispatch)
   const [sound, setSound] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
@@ -372,6 +395,7 @@ function App() {
       <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>第 {state.turn} 回合</small></div></div>
       <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
+        <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>
         <button className="icon-button" onClick={() => setTutorial(true)} aria-label="查看规则"><CircleHelp /></button>
         <button className="icon-button" onClick={() => setSound(v => !v)} aria-label="切换音效">{sound ? <Volume2 /> : <VolumeX />}</button>
         <button className="icon-button" onClick={() => dispatch({ type: 'RESTART' })} aria-label="重新开始"><RotateCcw /></button>
@@ -404,6 +428,7 @@ function App() {
     {!state.generalSelected && <GeneralSelect />}
     {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
+    {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>
       <div className="result-seal">{state.winner === 'player' ? '胜' : '败'}</div>
