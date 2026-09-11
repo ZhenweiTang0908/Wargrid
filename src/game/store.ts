@@ -4,6 +4,7 @@ import { attackRange, canPeach, canSlash, combatDistance, createInitialState, de
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
+  respond: (cardId: string | null) => void
   selectCard: (id: string | null) => void
   activateWusheng: () => void
   hoverCell: (position: Position | null) => void
@@ -63,11 +64,11 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   return { units, deck: draw?.deck ?? deck, discard, winner, phase: winner ? 'finished' : state.phase, message: finalMessage, history: log(state, `${resolveSkill ? `${finalMessage}；发动【刚烈】摸一张牌` : finalMessage}${rewardText}`) }
 }
 
-function resolveSlash(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> {
+function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null): Partial<GameState> {
   const attacker = state.units[attackerId], target = state.units[targetId]
   const slashCard = state.discard[state.discard.length - 1]
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
-  const dodge = !shieldBlocks ? target.hand.find(c => c.kind === 'dodge') : undefined
+  const dodge = !shieldBlocks ? (manualResponse === undefined ? target.hand.find(c => c.kind === 'dodge') : manualResponse ?? undefined) : undefined
   const guard = !shieldBlocks && !dodge ? loyalGuard(state, targetId) : null
   const updatedAttacker = { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' as const }
   if (shieldBlocks || dodge || guard) {
@@ -97,7 +98,8 @@ function resolveDuel(state: GameState, initiator: Team, targetId: Team): Partial
 function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians'): Partial<GameState> {
   let working = state
   const responseKind = kind === 'arrows' ? 'dodge' : 'slash'
-  for (const targetId of working.turnOrder) {
+  const orderedTargets = [...working.turnOrder.filter(id => id !== 'player'), 'player' as Team]
+  for (const targetId of orderedTargets) {
     if (targetId === actorId || working.units[targetId].hp <= 0) continue
     const target = working.units[targetId]
     const nullify = target.hand.find(c => c.kind === 'nullify')
@@ -105,6 +107,10 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       const message = `${target.name}以【无懈可击】抵消【${CARD_LABEL[kind]}】`
       working = { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...working.discard, nullify], message, history: log(working, message) }
       continue
+    }
+    if (targetId === 'player' && actorId !== 'player') {
+      const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，请打出【${CARD_LABEL[responseKind]}】响应`
+      return { ...working, pendingResponse: { effect: kind, source: actorId, target: targetId, required: responseKind, prompt }, message: prompt, history: log(working, prompt) }
     }
     const response = target.hand.find(c => c.kind === responseKind)
     const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
@@ -155,7 +161,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState() }); return }
-    const state = get(); if (state.phase === 'finished') return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -214,6 +220,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (kind === 'slash') {
         if (!canSlash(state, unit, target)) return
+        if (targetId === 'player' && action.unit !== 'player') {
+          const slashCard = base.discard[base.discard.length - 1]
+          const shieldBlocks = target.equipment.armor?.kind === 'shield' && (slashCard.suit === 'spade' || slashCard.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
+          if (!shieldBlocks) {
+            const prompt = `${unit.name}对你使用【杀】，请选择是否打出【闪】`
+            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', prompt }, message: prompt, history: log(state, prompt) }); return
+          }
+        }
         set(resolveSlash(base, action.unit, targetId)); return
       }
       if (kind === 'duel') { set(resolveDuel(base, action.unit, targetId)); return }
@@ -250,8 +264,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const nextUnit = nextSeat(next, 'player'); next = beginTurn({ ...next, turnStage: 'finish' }, nextUnit); set(next); void get().runAI()
     }
   },
+  respond: cardId => {
+    const state = get(), pending = state.pendingResponse
+    if (!pending || pending.target !== 'player') return
+    const card = cardId ? state.units.player.hand.find(candidate => candidate.id === cardId && candidate.kind === pending.required) : undefined
+    if (cardId && !card) return
+    let base: GameState = { ...state, pendingResponse: null }
+    if (card) {
+      const player = base.units.player
+      const message = `${player.name}打出【${CARD_LABEL[card.kind]}】响应【${CARD_LABEL[pending.effect]}】`
+      base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
+      if (pending.effect === 'slash') {
+        const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card)
+        base = { ...base, ...resolved }
+      }
+    } else if (pending.effect === 'slash') {
+      base = { ...base, ...resolveSlash(base, pending.source, 'player', null), pendingResponse: null }
+    } else {
+      const guard = pending.required === 'dodge' ? loyalGuard(base, 'player') : null
+      if (guard) {
+        const message = `${guard.unit.name}发动【护驾】保护主公`
+        base = { ...base, units: { ...base.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(candidate => candidate.id !== guard.dodge.id), animation: 'cast' } }, discard: [...base.discard, guard.dodge], message, history: log(base, message) }
+      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能响应【${CARD_LABEL[pending.effect]}】，受到 1 点伤害`), pendingResponse: null }
+    }
+    set(base)
+    if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
+  },
   selectCard: id => {
-    const state = get(); if (state.phase !== 'player') return
+    const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, selectedAsSlash: false, message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id); if (!card) return
     if (card.kind === 'dodge') { set({ message: '【闪】会在受到【杀】时自动打出' }); return }
@@ -271,7 +311,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai') return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
@@ -287,6 +327,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id }); await wait(280)
+      if (get().pendingResponse) return
     }
     state = get(); ai = state.units[aiId]
     let target = targetsFor(state, aiId)[0]
@@ -305,6 +346,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'slash' && !canSlash(state, ai, target)) continue
       if (kind === 'snatch' && combatDistance(state, ai, target) > 1) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id }); await wait(420); state = get(); ai = state.units[aiId]
+      if (state.pendingResponse) return
       if (state.phase === 'finished') return
     }
     state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = scoreControlPoint(next, aiId)

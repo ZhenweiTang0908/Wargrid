@@ -39,6 +39,14 @@ export interface Unit {
   animation: AnimationKind
 }
 
+export interface PendingResponse {
+  effect: 'slash' | 'arrows' | 'barbarians'
+  source: Team
+  target: Team
+  required: 'dodge' | 'slash'
+  prompt: string
+}
+
 export interface GameState {
   size: number
   terrain: Terrain[]
@@ -58,6 +66,7 @@ export interface GameState {
   selectedAsSlash: boolean
   reachable: Position[]
   pathPreview: Position[]
+  pendingResponse: PendingResponse | null
   winner: Team | null
   message: string
   history: string[]
@@ -79,7 +88,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
 }
 
 export const CARD_COPY: Record<CardKind, string> = {
-  slash: '攻击范围内造成 1 点伤害', dodge: '受到【杀】时自动响应', peach: '回复 1 点体力',
+  slash: '攻击范围内造成 1 点伤害', dodge: '响应【杀】或【万箭齐发】', peach: '回复 1 点体力',
   wine: '本回合下一张【杀】伤害 +1', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
   qinggang: '攻击范围 2，攻击无视护甲', shield: '使黑色【杀】失效',

@@ -217,9 +217,30 @@ function Tutorial({ close }: { close: () => void }) {
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
       <div><b>02</b><strong>战棋</strong><p>每回合移动 3 点。水域消耗 2 点，武器会改变攻击距离。</p></div>
-      <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；锦囊与判定自动结算。</p></div>
+      <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
+  </section></div>
+}
+
+function ResponseWindow() {
+  const pending = useGameStore(s => s.pendingResponse)
+  const hand = useGameStore(s => s.units.player.hand)
+  const respond = useGameStore(s => s.respond)
+  if (!pending) return null
+  const responses = hand.filter(card => card.kind === pending.required)
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">响应时机</span>
+    <h1>{pending.prompt}</h1>
+    <p>选择一张【{CARD_LABEL[pending.required]}】打出，或放弃响应并承受效果。</p>
+    <div className="response-cards">
+      {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
+        <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>打出响应</small>
+      </button>)}
+      {!responses.length && <span className="no-response">手牌中没有【{CARD_LABEL[pending.required]}】</span>}
+    </div>
+    <button className="decline-response" onClick={() => respond(null)}>放弃响应</button>
   </section></div>
 }
 
@@ -270,6 +291,7 @@ function App() {
     </footer>
 
     {tutorial && <Tutorial close={closeTutorial} />}
+    {!tutorial && state.pendingResponse && <ResponseWindow />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>
       <div className="result-seal">{state.winner === 'player' ? '胜' : '败'}</div>

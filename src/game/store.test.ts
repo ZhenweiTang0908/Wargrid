@@ -81,10 +81,47 @@ describe('standard card scenarios', () => {
       units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, hand: [dodge] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse?.required).toBe('dodge')
+    useGameStore.getState().respond(null)
     const state = useGameStore.getState()
     expect(state.units.player.hp).toBe(5)
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.message).toContain('护驾')
+  })
+
+  it('waits for the player to choose a dodge response', () => {
+    const slash = card('slash', 'club'), dodge = card('dodge', 'diamond', 6)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge] }, north: { ...state.units.north, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    let state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'slash', required: 'dodge' })
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toContainEqual(dodge)
+
+    useGameStore.getState().respond(dodge.id)
+    state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard.filter(discarded => discarded.id === dodge.id)).toHaveLength(1)
+    expect(state.units.east.attacksUsed).toBe(1)
+  })
+
+  it('applies slash damage when the player declines to respond', () => {
+    const slash = card('slash', 'heart')
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.east.attacksUsed).toBe(1)
   })
 
   it('rewards the killer with three cards for defeating a rebel', () => {

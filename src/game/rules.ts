@@ -157,7 +157,7 @@ export function createInitialState(deck = createDeck()): GameState {
     },
     deck: deck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
     scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false,
-    reachable: [], pathPreview: [], winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
+    reachable: [], pathPreview: [], pendingResponse: null, winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
   }
   state.reachable = reachableCells(state, state.units.player)
   return state
