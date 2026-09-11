@@ -189,6 +189,32 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('急救')
   })
 
+  it('lets Zhou Yu draw three cards through Yingzi', () => {
+    useGameStore.getState().selectGeneral('yingzi')
+    const first = card('slash'), second = card('dodge'), third = card('peach')
+    const state = useGameStore.getState()
+    state.deck = [first, second, third]
+    state.units.player = { ...state.units.player, hand: [] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hand).toEqual([first, second, third])
+    expect(result.history.some(entry => entry.includes('英姿'))).toBe(true)
+  })
+
+  it('lets Zhou Yu give a card and resolve Fanjian suit guessing', () => {
+    useGameStore.getState().selectGeneral('yingzi')
+    const gift = card('dodge', 'club', 9)
+    useGameStore.setState(state => ({ turn: 1, units: { ...state.units, player: { ...state.units.player, hand: [gift] }, east: { ...state.units.east, hand: [] } } }))
+    useGameStore.getState().selectCard(gift.id)
+    useGameStore.getState().activateFanjian()
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: gift.id, target: 'east', asFanjian: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.east.hand).toContainEqual(gift)
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.selectedAsFanjian).toBe(false)
+    expect(state.message).toContain('反间')
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')

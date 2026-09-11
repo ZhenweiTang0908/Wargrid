@@ -14,6 +14,7 @@ interface GameStore extends GameState {
   activateQixi: () => void
   activateZhiheng: () => void
   activateQingnang: () => void
+  activateFanjian: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
@@ -27,6 +28,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei', gender: 'male' },
   yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei', gender: 'male' },
   qingnang: { name: '华佗', title: '神医', skill: 'qingnang', skills: ['qingnang', 'jijiu'], faction: 'qun', gender: 'male' },
+  yingzi: { name: '周瑜', title: '大都督', skill: 'yingzi', skills: ['yingzi', 'fanjian'], faction: 'wu', gender: 'male' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu', gender: 'male' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu', gender: 'female' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu', gender: 'male' },
@@ -34,7 +36,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -438,9 +440,11 @@ export function beginTurn(state: GameState, team: Team): GameState {
   }
   unit = { ...working.units[team], judgement: [] }
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
-  const draw = drawCards(working.deck, working.discard, 2)
+  const drawCount = unit.skills.includes('yingzi') ? 3 : 2
+  const draw = drawCards(working.deck, working.discard, drawCount)
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, skillUsed: false, animation: 'idle' }
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
+  const drawText = drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -497,6 +501,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (action.type === 'PLAY_CARD') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
+      if (action.asFanjian) {
+        const targetId = action.target, gift = unit.hand.find(card => card.id === action.cardId)
+        if (!targetId || targetId === action.unit || !gift || !unit.skills.includes('fanjian') || unit.skillUsed || state.units[targetId].hp <= 0) return
+        const target = state.units[targetId], suits: Card['suit'][] = ['spade', 'heart', 'club', 'diamond']
+        const guessedSuit = suits[(state.turn + state.turnOrder.indexOf(targetId)) % suits.length]
+        const transferred: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: unit.hand.filter(card => card.id !== gift.id), skillUsed: true, animation: 'cast' }, [targetId]: { ...target, hand: [...target.hand, gift], animation: 'cast' } }, selectedCardId: null, selectedAsFanjian: false }
+        const message = `${unit.name}发动【反间】，${target.name}猜${guessedSuit}，展示牌为${gift.suit}${gift.rank}`
+        set(guessedSuit === gift.suit ? { ...transferred, message: `${message}，猜中免受伤害`, history: log(transferred, `${message}，猜中`) } : { ...transferred, message, history: log(transferred, message), ...damage(transferred, action.unit, targetId, 1, `${message}，猜错并受到 1 点伤害`) })
+        return
+      }
       const assistant = action.lordAssist ? state.units[action.lordAssist] : undefined
       const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.faction === 'shu' && assistant.identity === 'loyalist' && assistant.faction === 'shu'
       const assistedCard = validJijiang ? responseCard(assistant, 'slash') : undefined
@@ -809,6 +823,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const units = { ...state.units, player: updatedHealer, [target.id]: { ...(target.id === 'player' ? updatedHealer : target), hp: target.hp + 1, animation: 'heal' as const } }
     const message = `${healer.name}发动【青囊】，弃置【${CARD_LABEL[payment.kind]}】令${target.name}回复 1 点体力`
     set({ units, discard: [...state.discard, payment], selectedCardId: null, message, history: log(state, message) })
+  },
+  activateFanjian: () => {
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('fanjian') || player.skillUsed || !state.selectedCardId) return
+    const active = !state.selectedAsFanjian
+    set({ selectedAsFanjian: active, selectedAsSlash: false, selectedAsDismantle: false, message: active ? '【反间】请选择一名其他角色' : '已取消反间' })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
