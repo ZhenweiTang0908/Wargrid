@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Card } from '../types'
 import { createInitialState } from './rules'
-import { beginTurn, useGameStore } from './store'
+import { beginTurn, targetsFor, useGameStore } from './store'
 
 let nextId = 0
 const card = (kind: Card['kind'], suit: Card['suit'] = 'spade', rank = 7): Card => ({ id: `scenario-${++nextId}`, kind, suit, rank })
@@ -28,6 +28,30 @@ describe('standard card scenarios', () => {
     expect(state.generalSelected).toBe(true)
     expect(state.units.player).toMatchObject({ name: '张飞', skill: 'paoxiao', identity: 'lord', hp: 5, maxHp: 5 })
     expect(state.units.north.name).toBe('赵云')
+  })
+
+  it('does not let lord-side AI see unrevealed identities', () => {
+    const state = useGameStore.getState()
+    const hidden = { ...state, units: {
+      ...state.units,
+      north: { ...state.units.north, hp: 1, identity: 'loyalist' as const, revealed: false },
+      east: { ...state.units.east, hp: 4, identity: 'rebel' as const, revealed: false },
+      west: { ...state.units.west, hp: 3, identity: 'renegade' as const, revealed: false },
+    } }
+    expect(targetsFor(hidden, 'player')[0].id).toBe('north')
+    const scouted = { ...hidden, units: { ...hidden.units, east: { ...hidden.units.east, revealed: true } } }
+    expect(targetsFor(scouted, 'player')[0].id).toBe('east')
+  })
+
+  it('never lets a loyalist target the public lord or a revealed loyalist', () => {
+    const state = useGameStore.getState()
+    const informed = { ...state, units: {
+      ...state.units,
+      north: { ...state.units.north, identity: 'loyalist' as const },
+      east: { ...state.units.east, identity: 'loyalist' as const, revealed: true },
+      west: { ...state.units.west, identity: 'rebel' as const, revealed: true },
+    } }
+    expect(targetsFor(informed, 'north').map(unit => unit.id)).toEqual(['west'])
   })
 
   it('requires the player to choose overflow cards during the discard phase', () => {
@@ -261,9 +285,9 @@ describe('standard card scenarios', () => {
     const state = useGameStore.getState()
     state.deck = [deckA, deckB]
     state.units.player = { ...state.units.player, hand: [] }
-    state.units.north = { ...state.units.north, hand: [northCard] }
-    state.units.east = { ...state.units.east, hand: [eastCard] }
-    state.units.west = { ...state.units.west, hand: [untouched] }
+    state.units.north = { ...state.units.north, hand: [northCard], revealed: true }
+    state.units.east = { ...state.units.east, hand: [eastCard], revealed: true }
+    state.units.west = { ...state.units.west, hand: [untouched], revealed: true }
     const result = beginTurn(state, 'player')
     expect(result.units.player.hand).toHaveLength(2)
     expect(result.units.player.hand).toEqual(expect.arrayContaining([eastCard, untouched]))

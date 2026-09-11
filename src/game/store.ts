@@ -62,10 +62,18 @@ const nextSeat = (state: GameState, team: Team) => {
   }
   return team
 }
-const targetsFor = (state: GameState, team: Team) => {
+export const targetsFor = (state: GameState, team: Team) => {
   const actor = state.units[team], alive = Object.values(state.units).filter(unit => unit.id !== team && unit.hp > 0)
-  if (actor.identity === 'lord' || actor.identity === 'loyalist') return alive.sort((a, b) => (a.identity === 'rebel' ? -2 : a.identity === 'renegade' ? -1 : 1) - (b.identity === 'rebel' ? -2 : b.identity === 'renegade' ? -1 : 1))
-  if (actor.identity === 'rebel') return alive.sort((a, b) => (a.identity === 'lord' ? -2 : a.identity === 'loyalist' ? -1 : 1) - (b.identity === 'lord' ? -2 : b.identity === 'loyalist' ? -1 : 1))
+  if (actor.identity === 'lord' || actor.identity === 'loyalist') {
+    const candidates = alive.filter(unit => unit.identity !== 'lord' && !(unit.revealed && unit.identity === 'loyalist'))
+    const threat = (unit: Unit) => !unit.revealed ? 0 : unit.identity === 'rebel' ? -30 : unit.identity === 'renegade' ? -20 : 30
+    return candidates.sort((a, b) => threat(a) - threat(b) || a.hp - b.hp)
+  }
+  if (actor.identity === 'rebel') {
+    const candidates = alive.filter(unit => !(unit.revealed && unit.identity === 'rebel'))
+    const threat = (unit: Unit) => unit.identity === 'lord' ? -30 : !unit.revealed ? 0 : unit.identity === 'loyalist' ? -20 : 10
+    return candidates.sort((a, b) => threat(a) - threat(b) || a.hp - b.hp)
+  }
   return alive.sort((a, b) => a.hp - b.hp || (a.identity === 'lord' ? 1 : -1))
 }
 const primaryTarget = (state: GameState, team: Team) => targetsFor(state, team)[0]?.id ?? team
