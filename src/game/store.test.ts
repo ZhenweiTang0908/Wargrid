@@ -1163,4 +1163,37 @@ describe('standard card scenarios', () => {
     expect(state.units.east.attacksUsed).toBe(1)
     expect(state.history.some(entry => entry.includes('流离'))).toBe(true)
   })
+
+  it('protects Lu Xun from Snatch and Indulgence through Qianxun', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const snatch = card('snatch'), indulgence = card('indulgence')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [snatch, indulgence] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [card('dodge')] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: snatch.id, target: 'player' })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: indulgence.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hand).toEqual([snatch, indulgence])
+    expect(state.units.player.judgement).toHaveLength(0)
+  })
+
+  it('draws through Lianying when Lu Xun plays his final hand card', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const trick = card('drawTwo'), rewardA = card('slash'), rewardB = card('dodge'), rewardC = card('peach')
+    useGameStore.setState(state => ({ deck: [rewardA, rewardB, rewardC], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [trick] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([rewardA, rewardB, rewardC])
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
+  it('draws through Lianying after Lu Xun responds with his final dodge', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const slash = card('slash'), dodge = card('dodge'), reward = card('peach')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [reward], discard: [], units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
 })

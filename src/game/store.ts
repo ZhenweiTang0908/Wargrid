@@ -25,6 +25,7 @@ interface GameStore extends GameState {
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction' | 'gender'>>> = {
+  qianxun: { name: '陆逊', title: '儒生雄才', skill: 'qianxun', skills: ['qianxun', 'lianying'], faction: 'wu', gender: 'male' },
   guose: { name: '大乔', title: '矜持之花', skill: 'guose', skills: ['guose', 'liuli'], faction: 'wu', gender: 'female' },
   luoshen: { name: '甄姬', title: '薄幸的美人', skill: 'luoshen', skills: ['luoshen', 'qingguo'], faction: 'wei', gender: 'female' },
   keji: { name: '吕蒙', title: '白衣渡江', skill: 'keji', skills: ['keji'], faction: 'wu', gender: 'male' },
@@ -50,7 +51,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { guose: 3, luoshen: 3, keji: 4, kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { qianxun: 3, guose: 3, luoshen: 3, keji: 4, kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -67,6 +68,14 @@ const targetsFor = (state: GameState, team: Team) => {
 }
 const primaryTarget = (state: GameState, team: Team) => targetsFor(state, team)[0]?.id ?? team
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
+function triggerLianying(state: GameState, team: Team): GameState {
+  const unit = state.units[team]
+  if (unit.hp <= 0 || unit.hand.length || !unit.skills.includes('lianying')) return state
+  const draw = drawCards(state.deck, state.discard, 1)
+  if (!draw.drawn.length) return state
+  const message = `${unit.name}发动【连营】，失去最后一张手牌后摸一张牌`
+  return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+}
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
 const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => card.kind === required)
   ?? (unit.skill === 'longdan' ? unit.hand.find(card => card.kind === (required === 'slash' ? 'dodge' : 'slash')) : undefined)
@@ -376,6 +385,7 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial
     const slashIds = new Set(slashes.map(card => card.id))
     const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
     working = { ...working, units: { ...working.units, [current]: { ...responder, hand: responder.hand.filter(c => !slashIds.has(c.id)), animation: 'cast' } }, discard: [...working.discard, ...slashes], message, history: log(working, message) }
+    working = triggerLianying(working, current)
     ;[current, other] = [other, current]
   }
   return working
@@ -396,10 +406,11 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
   const nextDiscard = gain ? state.discard : [...state.discard, chosen]
   const insight = xiaoji ? drawCards(state.deck, nextDiscard, 2) : { drawn: [] as Card[], deck: state.deck, discard: nextDiscard }
   const message = `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}${target.name}的一张牌${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}${xiaoji ? '；枭姬摸两张牌' : ''}`
-  return {
+  const result: GameState = { ...state,
     units: { ...state.units, [targetId]: { ...target, hp: lionHeal ? target.hp + 1 : target.hp, hand: [...target.hand.filter(card => card.id !== chosen.id), ...insight.drawn], equipment, animation: lionHeal ? 'heal' : xiaoji ? 'cast' : 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
     deck: insight.deck, discard: insight.discard, message, history: log(state, message),
   }
+  return triggerLianying(result, targetId)
 }
 
 function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians'): Partial<GameState> {
@@ -417,6 +428,7 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
     if (nullify) {
       const message = `${target.name}以【无懈可击】抵消【${CARD_LABEL[kind]}】`
       working = { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...working.discard, nullify], message, history: log(working, message) }
+      working = triggerLianying(working, targetId)
       continue
     }
     const response = responseCard(target, responseKind)
@@ -426,6 +438,7 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       working = guard
         ? { ...working, units: { ...working.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' } }, discard: [...working.discard, guard.dodge], message, history: log(working, message) }
         : { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== response!.id), animation: 'cast' } }, discard: [...working.discard, response!], message, history: log(working, message) }
+      working = triggerLianying(working, targetId)
     } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`) }
     if (working.winner) break
   }
@@ -641,6 +654,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const virtualSlash = !!validJijiang || (action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
       const kind = virtualSlash ? 'slash' : virtualDismantle ? 'dismantle' : virtualIndulgence ? 'indulgence' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
+      if (target.skills.includes('qianxun') && (kind === 'snatch' || kind === 'indulgence')) return
       if (kind === 'duel' && target.skills.includes('kongcheng') && target.hand.length === 0) return
       if (kind === 'indulgence' && target.judgement.some(delayed => delayed.kind === 'indulgence')) return
       if (card.kind === 'lightning' && unit.judgement.some(delayed => delayed.kind === 'lightning')) return
@@ -650,6 +664,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? { ...state.units, [action.unit]: { ...unit, animation: 'cast' as const }, [assistant.id]: { ...assistant, hand: removed.hand, animation: 'cast' as const } }
         : { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' as const } }
       let base: GameState = { ...state, units: unitsAfterPlay, discard: [...state.discard, ...playedCards], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null }
+      base = triggerLianying(base, assistant?.id ?? action.unit)
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
         const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
@@ -667,7 +682,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const nullify = nullifiable ? target.hand.find(c => c.kind === 'nullify') : undefined
       if (nullify) {
         const message = `${target.name}打出【无懈可击】，抵消【${CARD_LABEL[kind]}】`
-        set({ ...base, units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(base, message) }); return
+        const nullified: GameState = { ...base, units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(base, message) }
+        set(triggerLianying(nullified, targetId)); return
       }
       if (kind === 'peach') {
         if (!canPeach(unit)) return
@@ -848,6 +864,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if ((pending.requiredCount ?? 1) > 1) {
           const remaining = (pending.requiredCount ?? 1) - 1, prompt = `【无双决斗】还需打出 ${remaining} 张【杀】`
           base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双决斗】打出第一张【杀】`) }
+          base = triggerLianying(base, 'player')
           set(base); return
         }
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card] }
@@ -864,12 +881,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const player = base.units.player, remaining = (pending.requiredCount ?? 1) - 1
       const prompt = `【无双】还需打出 ${remaining} 张【闪】，或放弃并承受伤害`
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双】打出第一张【闪】`) }
+      base = triggerLianying(base, 'player')
       set(base); return
     }
     if (card) {
       const player = base.units.player
       const message = `${player.name}打出【${CARD_LABEL[card.kind]}】响应【${CARD_LABEL[pending.effect]}】`
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
+      base = triggerLianying(base, 'player')
       if (pending.effect === 'slash') {
         const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card, pending.armorChecked)
         base = { ...base, ...resolved }
