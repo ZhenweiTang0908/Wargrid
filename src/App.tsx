@@ -214,9 +214,9 @@ function Tutorial({ close }: { close: () => void }) {
     <span className="eyebrow">战术简报</span>
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
-      <div><b>01</b><strong>移动</strong><p>点击青色高亮格。每回合可移动 3 格，并能分段行动。</p></div>
-      <div><b>02</b><strong>出牌</strong><p>基础牌、锦囊与装备遵循标准牌逻辑；需要目标时点击敌将。</p></div>
-      <div><b>03</b><strong>判定</strong><p>乐不思蜀与闪电进入判定区；无懈可击会自动响应锦囊。</p></div>
+      <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>每回合移动 3 点。水域消耗 2 点，武器会改变攻击距离。</p></div>
+      <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；锦囊与判定自动结算。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
   </section></div>
@@ -272,7 +272,7 @@ function App() {
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>
       <div className="result-seal">{state.winner === 'player' ? '胜' : '败'}</div>
-      <h1>{state.winner === 'player' ? '中枢已归我方' : '赤军占据了战场'}</h1>
+      <h1>{state.winner === 'player' ? '主忠阵营平定乱局' : state.units[state.winner].identity === 'renegade' ? '内奸成为最后赢家' : '反贼推翻了主公'}</h1>
       <p>历经 {state.turn} 轮 · 获胜身份：{IDENTITY_LABEL[state.units[state.winner].identity]}</p>
       <button className="primary" onClick={() => dispatch({ type: 'RESTART' })}><RotateCcw />再战一局</button>
     </section></div>}

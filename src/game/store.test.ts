@@ -73,4 +73,41 @@ describe('standard card scenarios', () => {
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.discard).toContainEqual(redTrick)
   })
+
+  it('lets a loyalist provide dodge for the lord', () => {
+    const slash = card('slash'), dodge = card('dodge', 'heart', 2)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, hand: [dodge] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.message).toContain('护驾')
+  })
+
+  it('rewards the killer with three cards for defeating a rebel', () => {
+    const slash = card('slash', 'heart')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [slash] }, east: { ...state.units.east, position: { x: 8, y: 4 }, hp: 1, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(0)
+    expect(state.units.player.hand).toHaveLength(3)
+    expect(state.units.east.revealed).toBe(true)
+  })
+
+  it('strips the lord hand and equipment after killing a loyalist', () => {
+    const slash = card('slash', 'heart'), spare = card('peach'), weapon = card('qinggang')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, spare], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(0)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.player.equipment).toEqual({})
+  })
 })

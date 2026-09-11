@@ -5,6 +5,7 @@ export type CardKind =
   | 'slash' | 'dodge' | 'peach' | 'wine'
   | 'duel' | 'dismantle' | 'snatch' | 'drawTwo'
   | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
+  | 'peachGarden' | 'harvest'
   | 'crossbow' | 'qinggang' | 'shield'
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
@@ -73,6 +74,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   dismantle: '过河拆桥', snatch: '顺手牵羊', drawTwo: '无中生有',
   crossbow: '诸葛连弩', qinggang: '青釭剑', shield: '仁王盾',
   arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', lightning: '闪电',
+  peachGarden: '桃园结义', harvest: '五谷丰登',
 }
 
 export const CARD_COPY: Record<CardKind, string> = {
@@ -82,6 +84,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   qinggang: '攻击范围 2，攻击无视护甲', shield: '使黑色【杀】失效',
   arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '自动抵消敌方锦囊',
   indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
+  peachGarden: '所有存活角色回复 1 点体力', harvest: '所有存活角色各摸一张牌',
 }
 
 export const SUIT_GLYPH: Record<Suit, string> = { spade: '♠', heart: '♥', club: '♣', diamond: '♦' }

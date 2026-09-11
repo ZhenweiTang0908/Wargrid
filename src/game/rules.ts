@@ -24,6 +24,7 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
   snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, shield: 2,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
+  peachGarden: 2, harvest: 2,
 }
 
 export function createDeck(): Card[] {

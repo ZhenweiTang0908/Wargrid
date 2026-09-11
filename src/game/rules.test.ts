@@ -39,8 +39,8 @@ describe('board rules', () => {
 describe('card and victory rules', () => {
   it('builds a varied standard-inspired deck with suits and ranks', () => {
     const deck = createDeck()
-    expect(deck.length).toBe(80)
-    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'shield', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning']))
+    expect(deck.length).toBe(84)
+    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'shield', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest']))
     expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
   })
 
