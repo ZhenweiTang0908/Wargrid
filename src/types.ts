@@ -4,7 +4,7 @@ export type Faction = 'wei' | 'shu' | 'wu' | 'qun'
 export type Gender = 'male' | 'female'
 export type Suit = 'spade' | 'heart' | 'club' | 'diamond'
 export type CardKind =
-  | 'slash' | 'dodge' | 'peach' | 'wine'
+  | 'slash' | 'fireSlash' | 'thunderSlash' | 'dodge' | 'peach' | 'wine'
   | 'duel' | 'dismantle' | 'snatch' | 'drawTwo'
   | 'borrowedSword'
   | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
@@ -112,7 +112,7 @@ export type GameAction =
   | { type: 'RESTART' }
 
 export const CARD_LABEL: Record<CardKind, string> = {
-  slash: '杀', dodge: '闪', peach: '桃', wine: '酒', duel: '决斗',
+  slash: '杀', fireSlash: '火杀', thunderSlash: '雷杀', dodge: '闪', peach: '桃', wine: '酒', duel: '决斗',
   dismantle: '过河拆桥', snatch: '顺手牵羊', drawTwo: '无中生有',
   borrowedSword: '借刀杀人',
   crossbow: '诸葛连弩', qinggang: '青釭剑', greenDragon: '青龙偃月刀', shield: '仁王盾',
@@ -125,7 +125,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
 }
 
 export const CARD_COPY: Record<CardKind, string> = {
-  slash: '攻击范围内造成 1 点伤害', dodge: '响应【杀】或【万箭齐发】', peach: '回复 1 点体力',
+  slash: '攻击范围内造成 1 点伤害', fireSlash: '视为【杀】，造成火焰伤害并传导铁索', thunderSlash: '视为【杀】，造成雷电伤害并传导铁索', dodge: '响应【杀】或【万箭齐发】', peach: '回复 1 点体力',
   wine: '本回合下一张【杀】伤害 +1', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
   borrowedSword: '令有武器的角色出【杀】，否则获得其武器',

@@ -29,7 +29,7 @@ export function terrainAt(state: Pick<GameState, 'terrain'>, p: Position): Terra
 export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => ['water', 'marsh'].includes(terrainAt(state, p)) ? 2 : 1
 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
-  slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
+  slash: 18, fireSlash: 4, thunderSlash: 2, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
   snatch: 5, drawTwo: 4, borrowedSword: 2, crossbow: 2, qinggang: 2, greenDragon: 1, shield: 2,
   spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2, silverLion: 1,
   gudingBlade: 1, vermilionFan: 1,
@@ -131,6 +131,7 @@ export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
 export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : terrainAt(state, attacker.position) === 'watchtower' ? 2 : 0)
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && !(target.skills.includes('kongcheng') && target.hand.length === 0) && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
+export const isSlashKind = (kind: CardKind) => kind === 'slash' || kind === 'fireSlash' || kind === 'thunderSlash'
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
 export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)
 

@@ -39,8 +39,8 @@ describe('board rules', () => {
 describe('card and victory rules', () => {
   it('builds a varied standard-inspired deck with suits and ranks', () => {
     const deck = createDeck()
-    expect(deck.length).toBe(110)
-    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'borrowedSword', 'crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest', 'fireAttack', 'ironChain', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang']))
+    expect(deck.length).toBe(116)
+    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'fireSlash', 'thunderSlash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'borrowedSword', 'crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest', 'fireAttack', 'ironChain', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang']))
     expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
   })
 

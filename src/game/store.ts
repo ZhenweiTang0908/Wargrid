@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -89,11 +89,11 @@ function triggerLianying(state: GameState, team: Team): GameState {
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
 }
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
-const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => card.kind === required)
+const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => required === 'slash' ? isSlashKind(card.kind) : card.kind === required)
   ?? (unit.skill === 'longdan' ? unit.hand.find(card => card.kind === (required === 'slash' ? 'dodge' : 'slash')) : undefined)
   ?? (required === 'slash' && unit.skills.includes('wusheng') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
   ?? (required === 'dodge' && unit.skills.includes('qingguo') ? unit.hand.find(card => card.suit === 'spade' || card.suit === 'club') : undefined)
-const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => card.kind === required ? `打出【${CARD_LABEL[required]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
+const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
   if (state.units[targetId].identity !== 'lord' || state.units[targetId].faction !== 'wei') return null
   for (const unit of Object.values(state.units)) {
@@ -325,6 +325,7 @@ function liuliRedirect(state: GameState, attackerId: Team, targetId: Team) {
 }
 
 function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false): Partial<GameState> {
+  const slashCard = state.discard[state.discard.length - 1]
   if (manualResponse === undefined) {
     const redirected = liuliRedirect(state, attackerId, targetId)
     if (redirected) return resolveSlash(redirected.state, attackerId, redirected.targetId)
@@ -360,9 +361,8 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       return greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
     }
   }
-  const slashCard = state.discard[state.discard.length - 1]
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
-  const availableDodges = target.hand.filter(card => card.kind === 'dodge' || (target.skill === 'longdan' && card.kind === 'slash'))
+  const availableDodges = target.hand.filter(card => card.kind === 'dodge' || (target.skill === 'longdan' && isSlashKind(card.kind)))
   const requiredDodges = attacker.skill === 'wushuang' && manualResponse === undefined ? 2 : 1
   const dodgeCards = shieldBlocks ? [] : manualResponse === undefined ? (availableDodges.length >= requiredDodges ? availableDodges.slice(0, requiredDodges) : []) : manualResponse ? [manualResponse] : []
   const dodge = dodgeCards[0]
@@ -410,9 +410,9 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   }
   const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
   const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus + (attacker.luoyiActive ? 1 : 0)
-  const nature = attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
-  const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}${weaponText}`
-  return nature === 'fire' ? elementalDamage(base, attackerId, targetId, amount, 'fire') : damage(base, attackerId, targetId, amount, effectText)
+  const nature = slashCard?.kind === 'thunderSlash' ? 'thunder' : slashCard?.kind === 'fireSlash' || attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
+  const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : nature === 'thunder' ? '雷电' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}${weaponText}`
+  return nature ? elementalDamage(base, attackerId, targetId, amount, nature) : damage(base, attackerId, targetId, amount, effectText)
 }
 
 function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial<GameState> {
@@ -424,7 +424,7 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial
       return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', requiredCount, prompt }, message: prompt, history: log(working, prompt) }
     }
     const responder = working.units[current]
-    const slashes = responder.hand.filter(card => card.kind === 'slash' || (responder.skill === 'longdan' && card.kind === 'dodge')).slice(0, requiredCount)
+    const slashes = responder.hand.filter(card => isSlashKind(card.kind) || (responder.skill === 'longdan' && card.kind === 'dodge')).slice(0, requiredCount)
     if (slashes.length < requiredCount) {
       const duelDamage = working.units[other].luoyiActive ? 2 : 1
       return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`)
@@ -702,7 +702,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const card = removed.card
       const virtualDismantle = action.asDismantle && unit.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club')
       const virtualIndulgence = action.asGuose && unit.skills.includes('guose') && card.suit === 'diamond'
-      const virtualSlash = !!validJijiang || (action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
+      const virtualSlash = !!validJijiang || (action.asSlash && (isSlashKind(card.kind) || spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
       const kind = virtualSlash ? 'slash' : virtualDismantle ? 'dismantle' : virtualIndulgence ? 'indulgence' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
       if (target.skills.includes('qianxun') && (kind === 'snatch' || kind === 'indulgence')) return
@@ -773,7 +773,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const equipped = { ...unit, hp: lionHeal ? unit.hp + 1 : unit.hp, hand: [...removed.hand, ...insight.drawn], equipment: { ...unit.equipment, [slot]: card }, animation: lionHeal ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${lionHeal ? '，失去白银狮子并回复 1 点体力' : ''}${xiaoji ? '；发动【枭姬】摸两张牌' : ''}`
         set({ units: { ...state.units, [action.unit]: equipped }, deck: insight.deck, discard: insight.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
-      if (kind === 'slash') {
+      if (isSlashKind(kind)) {
         if (!canSlash(state, unit, target)) return
         if (targetId === 'player' && action.unit !== 'player') {
           const redirected = liuliRedirect(base, action.unit, targetId)
@@ -866,7 +866,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {
@@ -996,13 +996,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: state.selectedCardId !== id, message: '【龙胆】将【闪】当【杀】使用，请选择敌将' }); return
     }
     if (card.kind === 'dodge' && !state.units.player.skills.includes('lijian') && !(state.units.player.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club'))) { set({ message: '【闪】在响应窗口中打出' }); return }
-    const needsTarget = ['slash', 'duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'fireAttack', 'ironChain'].includes(card.kind)
+    const needsTarget = ['slash', 'fireSlash', 'thunderSlash', 'duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'fireAttack', 'ironChain'].includes(card.kind)
     if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
     set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: false, selectedAsDismantle: false, message: needsTarget ? `选择敌将使用【${CARD_LABEL[card.kind]}】` : '再次点击确认使用' })
   },
   activateWusheng: () => {
     const state = get(), card = state.units.player.hand.find(c => c.id === state.selectedCardId)
-    if (state.units.player.skill !== 'wusheng' || !card || card.kind === 'slash' || (card.suit !== 'heart' && card.suit !== 'diamond')) return
+    if (state.units.player.skill !== 'wusheng' || !card || isSlashKind(card.kind) || (card.suit !== 'heart' && card.suit !== 'diamond')) return
     set({ selectedAsSlash: true, selectedAsDismantle: false, message: `【武圣】将${CARD_LABEL[card.kind]}当【杀】使用，请选择敌将` })
   },
   activateSpear: () => {

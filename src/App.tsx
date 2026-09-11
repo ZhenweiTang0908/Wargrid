@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
-import { canSlash, combatDistance, effectiveAttackRange, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
+import { canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -22,7 +22,7 @@ function Tile({ position }: { position: Position }) {
   const terrain = terrainAt(state, position)
   const mapObject = state.mapObjects.find(item => samePosition(item.position, position))
   const selectedCard = state.units.player.hand.find(card => card.id === state.selectedCardId)
-  const previewingSlash = !!selectedCard && (selectedCard.kind === 'slash' || state.selectedAsSlash) && state.phase === 'player' && state.turnStage === 'play'
+  const previewingSlash = !!selectedCard && (isSlashKind(selectedCard.kind) || state.selectedAsSlash) && state.phase === 'player' && state.turnStage === 'play'
   const attackPreview = previewingSlash && !samePosition(state.units.player.position, position) && pathDistance(state, state.units.player.position, position, 'player') <= effectiveAttackRange(state, state.units.player)
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
@@ -498,7 +498,7 @@ function CardView({ card, selected }: { card: Card; selected: boolean }) {
   const toggleDiscard = useGameStore(s => s.toggleDiscard)
   const state = useGameStore()
   const discarding = state.phase === 'player' && state.turnStage === 'discard'
-  const disabled = !discarding && (state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (card.kind === 'slash' && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))
+  const disabled = !discarding && (state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))
   const red = card.suit === 'heart' || card.suit === 'diamond'
   return (
     <button className={`card ${card.kind} ${selected ? 'selected' : ''} ${discarding ? 'discarding' : ''}`} disabled={disabled} onClick={() => discarding ? toggleDiscard(card.id) : selectCard(card.id)}>
@@ -571,7 +571,7 @@ function ResponseWindow() {
   const player = useGameStore(s => s.units.player)
   const respond = useGameStore(s => s.respond)
   if (!pending) return null
-  const responses = player.hand.filter(card => card.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && card.kind === 'slash') || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
+  const responses = player.hand.filter(card => card.kind === pending.required || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
@@ -612,7 +612,7 @@ function App() {
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < 1
-  const canJijiang = state.units.player.identity === 'lord' && state.units.player.faction === 'shu' && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => card.kind === 'slash') || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge')) || (unit.skills.includes('wusheng') && unit.hand.some(card => card.suit === 'heart' || card.suit === 'diamond'))))
+  const canJijiang = state.units.player.identity === 'lord' && state.units.player.faction === 'shu' && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => isSlashKind(card.kind)) || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge')) || (unit.skills.includes('wusheng') && unit.hand.some(card => card.suit === 'heart' || card.suit === 'diamond'))))
   const canQixi = state.units.player.skill === 'qixi' && selectedCard && (selectedCard.suit === 'spade' || selectedCard.suit === 'club')
   const canZhiheng = state.units.player.skill === 'zhiheng' && !state.units.player.skillUsed
   const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))

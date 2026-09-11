@@ -452,6 +452,23 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().history.some(entry => entry.includes('熄灭了火焰'))).toBe(true)
   })
 
+  it('treats fire slash as slash and transmits its elemental damage', () => {
+    const fireSlash = card('fireSlash', 'heart'), weapon = card('qinggang')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 1, y: 2 }, hand: [fireSlash], equipment: { weapon } },
+      east: { ...state.units.east, position: { x: 1, y: 1 }, hand: [], chained: true },
+      north: { ...state.units.north, hand: [], chained: true },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: fireSlash.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.units.east.hp).toBe(2)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.chained).toBe(false)
+    expect(state.units.north.chained).toBe(false)
+  })
+
   it('toggles iron chains and transmits elemental damage through linked units', () => {
     const chain = card('ironChain'), fire = card('fireAttack', 'diamond'), payment = card('slash', 'club'), revealed = card('dodge', 'club')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [chain, fire, payment] }, north: { ...state.units.north, chained: true }, east: { ...state.units.east, hand: [revealed] } } }))

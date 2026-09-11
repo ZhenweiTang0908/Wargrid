@@ -71,6 +71,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .card-suit { position: absolute; top: 5px; left: 7px; font-size: 12px; }
 .card-suit.red { color: #a22525; }
 .card.slash { color: #5b1713; background: linear-gradient(145deg, #efe4d0, #d7b7a4); }
+.card.fireSlash { color: #7b160f; background: linear-gradient(145deg, #f2d3b5, #d8794f); box-shadow: 0 5px 13px #d43c1f66; }
+.card.thunderSlash { color: #243170; background: linear-gradient(145deg, #d9dcf0, #8191c5); box-shadow: 0 5px 13px #536fd866; }
 .card.peach { color: #8c2437; background: linear-gradient(145deg, #f1e2dd, #d7b6bd); }
 .turn-actions { display: flex; justify-content: flex-end; align-items: center; gap: 7px; }
 .end-turn, .secondary, .primary { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 3px; cursor: pointer; }
