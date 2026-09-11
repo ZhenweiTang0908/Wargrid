@@ -215,6 +215,30 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('反间')
   })
 
+  it('lets Zhuge Liang rearrange top cards through Guanxing', () => {
+    useGameStore.getState().selectGeneral('guanxing')
+    const low = card('duel', 'spade'), peach = card('peach', 'heart'), dodge = card('dodge', 'club'), slash = card('slash', 'diamond')
+    const state = useGameStore.getState()
+    state.deck = [low, peach, dodge, slash]
+    state.units.player = { ...state.units.player, hand: [] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hand).toEqual([peach, dodge])
+    expect(result.deck[0]).toEqual(slash)
+    expect(result.history.some(entry => entry.includes('观星'))).toBe(true)
+  })
+
+  it('prevents slash and duel from targeting an empty-handed Zhuge Liang', () => {
+    useGameStore.getState().selectGeneral('guanxing')
+    const slash = card('slash'), duel = card('duel')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash, duel] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.east.hand).toEqual([slash, duel])
+    expect(state.pendingResponse).toBeNull()
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')

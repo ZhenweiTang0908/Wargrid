@@ -29,6 +29,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei', gender: 'male' },
   qingnang: { name: '华佗', title: '神医', skill: 'qingnang', skills: ['qingnang', 'jijiu'], faction: 'qun', gender: 'male' },
   yingzi: { name: '周瑜', title: '大都督', skill: 'yingzi', skills: ['yingzi', 'fanjian'], faction: 'wu', gender: 'male' },
+  guanxing: { name: '诸葛亮', title: '迟暮的丞相', skill: 'guanxing', skills: ['guanxing', 'kongcheng'], faction: 'shu', gender: 'male' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu', gender: 'male' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu', gender: 'female' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu', gender: 'male' },
@@ -36,7 +37,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -399,6 +400,15 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
 
 export function beginTurn(state: GameState, team: Team): GameState {
   let working = state, unit = state.units[team], skipPlay = false
+  if (unit.skills.includes('guanxing') && working.deck.length) {
+    const count = Math.min(5, Object.values(working.units).filter(actor => actor.hp > 0).length, working.deck.length)
+    const viewed = working.deck.slice(0, count), rest = working.deck.slice(count)
+    const hasIndulgence = unit.judgement.some(card => card.kind === 'indulgence'), hasLightning = unit.judgement.some(card => card.kind === 'lightning')
+    const priority = (card: Card) => hasIndulgence && card.suit === 'heart' ? -20 : hasLightning && !(card.suit === 'spade' && card.rank >= 2 && card.rank <= 9) ? -15 : card.kind === 'peach' ? 0 : card.kind === 'dodge' ? 1 : card.kind === 'slash' ? 2 : 3
+    viewed.sort((a, b) => priority(a) - priority(b))
+    const message = `${unit.name}发动【观星】，调整牌堆顶 ${count} 张牌`
+    working = { ...working, deck: [...viewed, ...rest], message, history: log(working, message) }
+  }
   for (const delayed of unit.judgement) {
     const judged = drawCards(working.deck, working.discard, 1)
     const originalJudge = judged.drawn[0]; if (!originalJudge) break
@@ -524,6 +534,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const virtualSlash = !!validJijiang || (action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
       const kind = virtualSlash ? 'slash' : virtualDismantle ? 'dismantle' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
+      if (kind === 'duel' && target.skills.includes('kongcheng') && target.hand.length === 0) return
       if (card.kind === 'indulgence' && target.judgement.some(delayed => delayed.kind === 'indulgence')) return
       if (card.kind === 'lightning' && unit.judgement.some(delayed => delayed.kind === 'lightning')) return
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
