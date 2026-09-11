@@ -1083,6 +1083,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (get().pendingResponse) return
     }
     state = get(); ai = state.units[aiId]
+    if (ai.skills.includes('fanjian') && !ai.skillUsed && ai.hand.length) {
+      const victim = targetsFor(state, aiId)[0], gift = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]
+      if (victim && gift) {
+        get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: gift.id, target: victim.id, asFanjian: true })
+        await wait(280); state = get(); ai = state.units[aiId]
+      }
+    }
+    if (ai.skills.includes('rende') && ai.hand.length) {
+      const companion = alliesFor(state, aiId).filter(unit => unit.id !== aiId).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+      const gifts = [...ai.hand].sort(card => card.kind === 'peach' ? 1 : card.kind === 'dodge' ? 0 : -1).slice(0, 2)
+      if (companion) for (const gift of gifts) {
+        get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: gift.id, target: companion.id, asRende: true })
+        await wait(140); state = get(); ai = state.units[aiId]
+      }
+    }
     if (ai.skills.includes('qingnang') && !ai.skillUsed && ai.hand.length) {
       const patient = alliesFor(state, aiId).filter(unit => unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
       const payment = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]

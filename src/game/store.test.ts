@@ -1326,4 +1326,33 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toEqual([drawA, drawB])
     expect(state.history.some(entry => entry.includes('苦肉'))).toBe(true)
   })
+
+  it('lets AI Zhou Yu use Fanjian against an enemy', async () => {
+    const gift = card('nullify', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'yingzi', skills: ['yingzi', 'fanjian'], position: state.controlPoint, hand: [gift] },
+      player: { ...state.units.player, hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.skillUsed).toBe(true)
+    expect(state.units.east.hand).toContainEqual(gift)
+    expect(state.history.some(entry => entry.includes('反间'))).toBe(true)
+  })
+
+  it('lets AI Liu Bei give two cards and recover through Rende', async () => {
+    const first = card('nullify'), second = card('nullify', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'rende', skills: ['rende', 'jijiang'], position: state.controlPoint, hp: 2, maxHp: 4, hand: [first, second] },
+      player: { ...state.units.player, hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.rendeGiven).toBe(2)
+    expect(state.units.player.hand).toEqual(expect.arrayContaining([first, second]))
+    expect(state.history.filter(entry => entry.includes('仁德')).length).toBeGreaterThanOrEqual(2)
+  })
 })
