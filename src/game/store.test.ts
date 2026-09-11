@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Card } from '../types'
 import { createInitialState } from './rules'
-import { useGameStore } from './store'
+import { beginTurn, useGameStore } from './store'
 
 let nextId = 0
 const card = (kind: Card['kind'], suit: Card['suit'] = 'spade', rank = 7): Card => ({ id: `scenario-${++nextId}`, kind, suit, rank })
@@ -17,6 +17,7 @@ describe('standard card scenarios', () => {
     expect(state.generalSelected).toBe(true)
     expect(state.units.player).toMatchObject({ name: '赵云', skill: 'longdan', identity: 'lord', hp: 5, maxHp: 5 })
     expect(state.units.north).toMatchObject({ name: '关羽', skill: 'wusheng', identity: 'loyalist', hp: 4, maxHp: 4 })
+    expect(state.units.player.skills).toEqual(['longdan'])
     expect(state.units.player.hand).toEqual(playerHand)
     expect(state.units.north.hand).toEqual(northHand)
   })
@@ -103,6 +104,28 @@ describe('standard card scenarios', () => {
     const state = useGameStore.getState()
     expect(state.units.player.hand.map(item => item.id)).toEqual([insight.id, bonusA.id, bonusB.id])
     expect(state.history.some(entry => entry.includes('集智'))).toBe(true)
+  })
+
+  it('lets Huang Yueying ignore Snatch distance through Qicai', () => {
+    useGameStore.getState().selectGeneral('jizhi')
+    const snatch = card('snatch'), prize = card('peach')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [snatch] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [prize] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: snatch.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toContainEqual(prize)
+    expect(state.units.north.hand).toHaveLength(0)
+  })
+
+  it('lets Sima Yi replace an unfavorable judgement through Guicai', () => {
+    const state = createInitialState([])
+    const indulgence = card('indulgence'), badJudge = card('slash', 'spade'), replacement = card('peach', 'heart'), drawA = card('slash'), drawB = card('dodge')
+    state.deck = [badJudge, drawA, drawB]
+    state.units.west = { ...state.units.west, hand: [replacement], judgement: [indulgence] }
+    const result = beginTurn(state, 'west')
+    expect(result.turnStage).toBe('play')
+    expect(result.units.west.hand.map(item => item.id)).toEqual([drawA.id, drawB.id])
+    expect(result.discard.map(item => item.id)).toEqual(expect.arrayContaining([indulgence.id, badJudge.id, replacement.id]))
+    expect(result.history.some(entry => entry.includes('鬼才'))).toBe(true)
   })
 
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {

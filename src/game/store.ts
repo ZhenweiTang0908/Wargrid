@@ -18,17 +18,17 @@ interface GameStore extends GameState {
   resetAnimation: (team: Team) => void
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'faction'>> = {
-  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', faction: 'shu' },
-  longdan: { name: '赵云', title: '少年将军', skill: 'longdan', faction: 'shu' },
-  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', faction: 'wei' },
-  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', faction: 'wei' },
-  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', faction: 'shu' },
-  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', faction: 'shu' },
-  qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', faction: 'wu' },
-  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', faction: 'qun' },
-  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', faction: 'wu' },
-  wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', faction: 'qun' },
+const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction'>>> = {
+  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', skills: ['wusheng'], faction: 'shu' },
+  longdan: { name: '赵云', title: '少年将军', skill: 'longdan', skills: ['longdan'], faction: 'shu' },
+  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', skills: ['ganglie'], faction: 'wei' },
+  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei' },
+  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu' },
+  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu' },
+  qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu' },
+  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', skills: ['biyue'], faction: 'qun' },
+  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu' },
+  wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun' },
 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
@@ -322,12 +322,23 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: [...unit.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
 }
 
-function beginTurn(state: GameState, team: Team): GameState {
+export function beginTurn(state: GameState, team: Team): GameState {
   let working = state, unit = state.units[team], skipPlay = false
   for (const delayed of unit.judgement) {
     const judged = drawCards(working.deck, working.discard, 1)
-    const judge = judged.drawn[0]; if (!judge) break
-    working = { ...working, deck: judged.deck, discard: [...judged.discard, delayed, judge] }
+    const originalJudge = judged.drawn[0]; if (!originalJudge) break
+    let judge = originalJudge, judgementDiscard = [originalJudge]
+    const owner = working.units[team]
+    const unfavorable = delayed.kind === 'indulgence' ? originalJudge.suit !== 'heart' : delayed.kind === 'lightning' ? originalJudge.suit === 'spade' && originalJudge.rank >= 2 && originalJudge.rank <= 9 : false
+    if (unfavorable && owner.skills.includes('guicai')) {
+      const replacement = owner.hand.find(card => delayed.kind === 'indulgence' ? card.suit === 'heart' : !(card.suit === 'spade' && card.rank >= 2 && card.rank <= 9))
+      if (replacement) {
+        judge = replacement; judgementDiscard = [originalJudge, replacement]
+        const message = `${owner.name}发动【鬼才】，以${replacement.suit}${replacement.rank}改判`
+        working = { ...working, units: { ...working.units, [team]: { ...owner, hand: owner.hand.filter(card => card.id !== replacement.id), animation: 'cast' } }, message, history: log(working, message) }
+      }
+    }
+    working = { ...working, deck: judged.deck, discard: [...judged.discard, delayed, ...judgementDiscard] }
     if (delayed.kind === 'indulgence' && judge.suit !== 'heart') skipPlay = true
     if (delayed.kind === 'lightning') {
       const hit = judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9
@@ -353,7 +364,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill)
     if (sourceId === 'player') { set({ generalSelected: true, message: `已选择${state.units.player.name}，准备开战` }); return }
     const player = state.units.player
-    const chosen = GENERAL_PROFILE[skill], replacement = GENERAL_PROFILE[player.skill]
+    const chosen = GENERAL_PROFILE[skill]!, replacement = GENERAL_PROFILE[player.skill]!
     if (!sourceId) {
       set({ generalSelected: true, units: { ...state.units, player: { ...player, ...chosen, hp: 5, maxHp: 5 } }, message: `已选择${chosen.name}，准备开战` })
       return
@@ -410,7 +421,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         base = { ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...insight.drawn] } }, deck: insight.deck, discard: insight.discard, message: skillMessage, history: log(base, skillMessage) }
       }
       const nullifiable = ['duel', 'dismantle', 'snatch', 'indulgence', 'fireAttack', 'ironChain'].includes(kind)
-      if (kind === 'snatch' && combatDistance(state, unit, target) > 1) return
+      if (kind === 'snatch' && !unit.skills.includes('qicai') && combatDistance(state, unit, target) > 1) return
       if (nullifiable && targetId === 'player' && action.unit !== 'player') {
         const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'fireAttack' | 'ironChain'
         const prompt = `${unit.name}对你使用【${CARD_LABEL[trick]}】，是否打出【无懈可击】？`
