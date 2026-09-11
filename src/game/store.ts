@@ -137,6 +137,22 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial
   return working
 }
 
+function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: boolean): Partial<GameState> {
+  const actor = state.units[actorId], target = state.units[targetId]
+  const chosen = target.hand[0] ?? target.equipment.weapon ?? target.equipment.armor ?? target.equipment.offensiveMount ?? target.equipment.defensiveMount
+  if (!chosen) {
+    const message = `${target.name}没有可被${gain ? '获得' : '弃置'}的牌`
+    return { message, history: log(state, message) }
+  }
+  const equipment = { ...target.equipment }
+  for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot]?.id === chosen.id) delete equipment[slot]
+  const message = `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}${target.name}的一张牌`
+  return {
+    units: { ...state.units, [targetId]: { ...target, hand: target.hand.filter(card => card.id !== chosen.id), equipment, animation: 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
+    discard: gain ? state.discard : [...state.discard, chosen], message, history: log(state, message),
+  }
+}
+
 function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians'): Partial<GameState> {
   let working = state
   const responseKind = kind === 'arrows' ? 'dodge' : 'slash'
@@ -144,15 +160,15 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
   for (const targetId of orderedTargets) {
     if (targetId === actorId || working.units[targetId].hp <= 0) continue
     const target = working.units[targetId]
+    if (targetId === 'player' && actorId !== 'player') {
+      const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
+      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, prompt }, message: prompt, history: log(working, prompt) }
+    }
     const nullify = target.hand.find(c => c.kind === 'nullify')
     if (nullify) {
       const message = `${target.name}以【无懈可击】抵消【${CARD_LABEL[kind]}】`
       working = { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...working.discard, nullify], message, history: log(working, message) }
       continue
-    }
-    if (targetId === 'player' && actorId !== 'player') {
-      const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，请打出【${CARD_LABEL[responseKind]}】响应`
-      return { ...working, pendingResponse: { effect: kind, source: actorId, target: targetId, required: responseKind, prompt }, message: prompt, history: log(working, prompt) }
     }
     const response = responseCard(target, responseKind)
     const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
@@ -223,6 +239,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
       let base: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, animation: 'cast' } }, discard: [...state.discard, card], selectedCardId: null, selectedAsSlash: false }
       const nullifiable = ['duel', 'dismantle', 'snatch', 'indulgence'].includes(kind)
+      if (kind === 'snatch' && combatDistance(state, unit, target) > 1) return
+      if (nullifiable && targetId === 'player' && action.unit !== 'player') {
+        const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'indulgence'
+        const prompt = `${unit.name}对你使用【${CARD_LABEL[trick]}】，是否打出【无懈可击】？`
+        set({ ...base, pendingResponse: { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick, originCardId: card.id, prompt }, message: prompt, history: log(state, prompt) }); return
+      }
       const nullify = nullifiable ? target.hand.find(c => c.kind === 'nullify') : undefined
       if (nullify) {
         const message = `${target.name}打出【无懈可击】，抵消【${card.kind === 'duel' ? '决斗' : card.kind === 'arrows' ? '万箭齐发' : card.kind === 'barbarians' ? '南蛮入侵' : card.kind === 'indulgence' ? '乐不思蜀' : card.kind === 'snatch' ? '顺手牵羊' : '过河拆桥'}】`
@@ -287,18 +309,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: state.discard, message, history: log(state, message) }); return
       }
       if (kind === 'dismantle' || kind === 'snatch') {
-        if (kind === 'snatch' && combatDistance(state, unit, target) > 1) return
-        const stolen = target.hand[0] ?? target.equipment.weapon ?? target.equipment.armor
-        if (!stolen) return
-        const targetHand = target.hand.filter(c => c.id !== stolen.id)
-        const targetEquipment = {
-          weapon: target.equipment.weapon?.id === stolen.id ? undefined : target.equipment.weapon,
-          armor: target.equipment.armor?.id === stolen.id ? undefined : target.equipment.armor,
-          offensiveMount: target.equipment.offensiveMount?.id === stolen.id ? undefined : target.equipment.offensiveMount,
-          defensiveMount: target.equipment.defensiveMount?.id === stolen.id ? undefined : target.equipment.defensiveMount,
-        }
-        const actor = base.units[action.unit], gain = kind === 'snatch', message = `${unit.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}一张牌`
-        set({ units: { ...base.units, [targetId]: { ...target, hand: targetHand, equipment: targetEquipment, animation: 'hit' }, [action.unit]: { ...actor, hand: gain ? [...actor.hand, stolen] : actor.hand } }, discard: gain ? base.discard : [...base.discard, stolen], message, history: log(state, message) }); return
+        set(takeTargetCard(base, action.unit, targetId, kind === 'snatch')); return
       }
       return
     }
@@ -325,6 +336,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       set(base)
       if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
+      return
+    }
+    if (pending.effect === 'nullify') {
+      if (card) {
+        const player = base.units.player, message = `${player.name}打出【无懈可击】，抵消【${CARD_LABEL[pending.trick!]}】`
+        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
+      } else if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
+        const required = pending.trick === 'arrows' ? 'dodge' : 'slash'
+        const prompt = `${base.units[pending.source].name}使用【${CARD_LABEL[pending.trick]}】，请打出【${CARD_LABEL[required]}】响应`
+        base = { ...base, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, prompt }, message: prompt, history: log(base, prompt) }
+      } else if (pending.trick === 'duel') base = { ...base, ...continueDuel(base, 'player', pending.source) }
+      else if (pending.trick === 'indulgence') {
+        const delayed = base.discard.find(candidate => candidate.id === pending.originCardId)
+        if (delayed) {
+          const player = base.units.player, message = `${base.units[pending.source].name}将【乐不思蜀】置入${player.name}的判定区`
+          base = { ...base, units: { ...base.units, player: { ...player, judgement: [...player.judgement, delayed], animation: 'cast' } }, discard: base.discard.filter(candidate => candidate.id !== delayed.id), message, history: log(base, message) }
+        }
+      } else if (pending.trick === 'dismantle' || pending.trick === 'snatch') base = { ...base, ...takeTargetCard(base, pending.source, 'player', pending.trick === 'snatch') }
+      set(base)
+      if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
     }
     if (pending.effect === 'duel') {

@@ -40,11 +40,13 @@ export interface Unit {
 }
 
 export interface PendingResponse {
-  effect: 'slash' | 'arrows' | 'barbarians' | 'duel' | 'dying'
+  effect: 'slash' | 'arrows' | 'barbarians' | 'duel' | 'nullify' | 'dying'
   source: Team
   target: Team
-  required: 'dodge' | 'slash' | 'peach'
+  required: 'dodge' | 'slash' | 'peach' | 'nullify'
   prompt: string
+  trick?: 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'arrows' | 'barbarians'
+  originCardId?: string
 }
 
 export interface GameState {
@@ -92,7 +94,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   wine: '本回合下一张【杀】伤害 +1', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
   qinggang: '攻击范围 2，攻击无视护甲', shield: '使黑色【杀】失效',
-  arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '自动抵消敌方锦囊',
+  arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '在响应窗口抵消锦囊效果',
   indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '所有存活角色各摸一张牌',
   redHare: '进攻坐骑：计算距离 -1', dilu: '防御坐骑：他人至你的距离 +1',
