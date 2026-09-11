@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -615,9 +615,11 @@ export function beginTurn(state: GameState, team: Team): GameState {
   const luoyiActive = unit.skills.includes('luoyi')
   const drawCount = tuxiCount ? 0 : luoyiActive ? 1 : unit.skills.includes('yingzi') ? 3 : 2
   const draw = drawCards(working.deck, working.discard, drawCount)
-  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
+  const movement = turnMovement(working, unit)
+  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
   const drawText = tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : luoyiActive ? '发动【裸衣】摸一张牌' : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}`) }
+  const roadText = movement > 3 ? ' · 官道疾行，移动力 +1' : ''
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}${roadText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}${roadText}`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }

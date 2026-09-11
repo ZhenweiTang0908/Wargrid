@@ -27,6 +27,7 @@ export function terrainAt(state: Pick<GameState, 'terrain'>, p: Position): Terra
   return 'plain'
 }
 export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => ['water', 'marsh'].includes(terrainAt(state, p)) ? 2 : 1
+export const turnMovement = (state: Pick<GameState, 'terrain'>, unit: Unit) => terrainAt(state, unit.position) === 'road' ? 4 : 3
 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, fireSlash: 4, thunderSlash: 2, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,

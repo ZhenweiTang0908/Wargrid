@@ -77,6 +77,15 @@ describe('standard card scenarios', () => {
     expect(state.discardSelection).toEqual([])
   })
 
+  it('starts a turn with four movement on the central road', () => {
+    const state = useGameStore.getState()
+    state.units.player = { ...state.units.player, position: { x: 4, y: 4 }, movement: 0 }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.movement).toBe(4)
+    expect(result.message).toContain('官道疾行')
+    expect(result.reachable.length).toBeGreaterThan(0)
+  })
+
   it('lets a player-selected Zhao Yun use dodge as slash', () => {
     useGameStore.getState().selectGeneral('longdan')
     const dodge = card('dodge', 'diamond')

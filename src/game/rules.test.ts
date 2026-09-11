@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -87,6 +87,14 @@ describe('card and victory rules', () => {
     const ridgeState = { ...state, units: { ...state.units, player: ridgeAttacker, north: ridgeDefender } }
     expect(effectiveAttackRange(ridgeState, ridgeAttacker)).toBe(2)
     expect(canSlash(ridgeState, ridgeAttacker, ridgeDefender)).toBe(true)
+  })
+
+  it('grants one extra movement when a turn starts on the central road', () => {
+    const state = createInitialState()
+    const roadUnit = { ...state.units.player, position: { x: 4, y: 4 } }
+    const plainUnit = { ...state.units.player, position: { x: 3, y: 4 } }
+    expect(turnMovement(state, roadUnit)).toBe(4)
+    expect(turnMovement(state, plainUnit)).toBe(3)
   })
 
   it('grants two extra attack range from a watchtower', () => {

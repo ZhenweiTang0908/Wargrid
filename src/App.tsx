@@ -540,7 +540,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>水域与泥沼耗 2 移动力；森林提供掩护但火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>在官道开始回合获得 4 点移动力；水域与泥沼耗 2 移动力；森林提供掩护但火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
       <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
@@ -676,7 +676,7 @@ function App() {
     <div className="message-bar"><span className="message-pip" />{state.message}</div>
 
     <footer className="command-deck">
-      <div className="movement"><span>{state.turnStage === 'play' ? '出牌阶段' : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{[1, 2, 3].map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
+      <div className="movement"><span>{state.turnStage === 'play' ? `出牌阶段 · 移动 ${state.units.player.movement}` : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{Array.from({ length: Math.max(3, state.units.player.movement) }, (_, index) => index + 1).map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
       <div className="hand" aria-label="你的手牌">
         {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : state.zhihengMode ? state.zhihengSelection.includes(card.id) : state.spearMode ? state.spearSelection.includes(card.id) : selectedCard?.id === card.id} />)}
         {!state.units.player.hand.length && <span className="empty-hand">暂无手牌</span>}
