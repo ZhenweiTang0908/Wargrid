@@ -1105,4 +1105,31 @@ describe('standard card scenarios', () => {
     expect(state.turnStage).toBe('discard')
     expect(state.message).toContain('请选择 2 张手牌')
   })
+
+  it('lets Zhen Ji collect consecutive black judgements through Luoshen', () => {
+    useGameStore.getState().selectGeneral('luoshen')
+    const blackA = card('duel', 'spade'), blackB = card('slash', 'club'), redStop = card('peach', 'heart'), drawA = card('dodge'), drawB = card('slash')
+    const state = useGameStore.getState()
+    state.deck = [blackA, blackB, redStop, drawA, drawB]
+    state.discard = []
+    state.units.player = { ...state.units.player, hand: [] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hand).toEqual([blackA, blackB, drawA, drawB])
+    expect(result.discard).toContainEqual(redStop)
+    expect(result.history.some(entry => entry.includes('洛神') && entry.includes('2 张'))).toBe(true)
+  })
+
+  it('lets Zhen Ji use a black hand card as dodge through Qingguo', () => {
+    useGameStore.getState().selectGeneral('luoshen')
+    const slash = card('slash', 'heart'), blackCard = card('duel', 'club')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [blackCard] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ required: 'dodge' })
+    useGameStore.getState().respond(blackCard.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(blackCard)
+    expect(state.history.some(entry => entry.includes('倾国'))).toBe(true)
+  })
 })

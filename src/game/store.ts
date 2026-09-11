@@ -24,6 +24,7 @@ interface GameStore extends GameState {
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction' | 'gender'>>> = {
+  luoshen: { name: '甄姬', title: '薄幸的美人', skill: 'luoshen', skills: ['luoshen', 'qingguo'], faction: 'wei', gender: 'female' },
   keji: { name: '吕蒙', title: '白衣渡江', skill: 'keji', skills: ['keji'], faction: 'wu', gender: 'male' },
   kurou: { name: '黄盖', title: '轻身为国', skill: 'kurou', skills: ['kurou'], faction: 'wu', gender: 'male' },
   tieqi: { name: '马超', title: '一骑当千', skill: 'tieqi', skills: ['mashu', 'tieqi'], faction: 'shu', gender: 'male' },
@@ -47,7 +48,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { keji: 4, kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { luoshen: 3, keji: 4, kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -65,8 +66,10 @@ const targetsFor = (state: GameState, team: Team) => {
 const primaryTarget = (state: GameState, team: Team) => targetsFor(state, team)[0]?.id ?? team
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
-const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => card.kind === required) ?? (unit.skill === 'longdan' ? unit.hand.find(card => card.kind === (required === 'slash' ? 'dodge' : 'slash')) : undefined)
-const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => card.kind === required ? `打出【${CARD_LABEL[required]}】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
+const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => card.kind === required)
+  ?? (unit.skill === 'longdan' ? unit.hand.find(card => card.kind === (required === 'slash' ? 'dodge' : 'slash')) : undefined)
+  ?? (required === 'dodge' && unit.skills.includes('qingguo') ? unit.hand.find(card => card.suit === 'spade' || card.suit === 'club') : undefined)
+const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => card.kind === required ? `打出【${CARD_LABEL[required]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
   if (state.units[targetId].identity !== 'lord' || state.units[targetId].faction !== 'wei') return null
   for (const unit of Object.values(state.units)) {
@@ -431,6 +434,24 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
 
 export function beginTurn(state: GameState, team: Team): GameState {
   let working = state, unit = state.units[team], skipPlay = false
+  if (unit.skills.includes('luoshen')) {
+    const gained: Card[] = []
+    while (working.deck.length || working.discard.length) {
+      const judged = drawCards(working.deck, working.discard, 1), judge = judged.drawn[0]
+      if (!judge) break
+      working = { ...working, deck: judged.deck, discard: judged.discard }
+      if (judge.suit === 'spade' || judge.suit === 'club') gained.push(judge)
+      else { working = { ...working, discard: [...working.discard, judge] }; break }
+    }
+    if (gained.length) {
+      unit = { ...unit, hand: [...unit.hand, ...gained], animation: 'cast' }
+      const message = `${unit.name}发动【洛神】，连续获得 ${gained.length} 张黑色判定牌`
+      working = { ...working, units: { ...working.units, [team]: unit }, message, history: log(working, message) }
+    } else {
+      const message = `${unit.name}发动【洛神】，首张判定为红色，未获得牌`
+      working = { ...working, message, history: log(working, message) }
+    }
+  }
   if (unit.skills.includes('guanxing') && working.deck.length) {
     const count = Math.min(5, Object.values(working.units).filter(actor => actor.hp > 0).length, working.deck.length)
     const viewed = working.deck.slice(0, count), rest = working.deck.slice(count)
@@ -758,7 +779,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {

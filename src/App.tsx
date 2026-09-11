@@ -109,8 +109,8 @@ function UnitPiece({ team }: { team: Team }) {
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
-  const pieceColors: Record<GeneralSkill, string> = { keji: '#326e6c', kurou: '#9a3a2e', tieqi: '#d7dde0', mashu: '#d7dde0', rende: '#477b4b', jijiang: '#477b4b', wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', jieyin: '#b94e58', xiaoji: '#b94e58', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', zhiheng: '#3c9291', wushuang: '#9d3028' }
-  const darkColors: Record<GeneralSkill, string> = { keji: '#183a3a', kurou: '#3f201c', tieqi: '#34475a', mashu: '#34475a', rende: '#244629', jijiang: '#244629', wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', jieyin: '#4f2630', xiaoji: '#4f2630', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', zhiheng: '#193f42', wushuang: '#351311' }
+  const pieceColors: Record<GeneralSkill, string> = { luoshen: '#7776a7', qingguo: '#7776a7', keji: '#326e6c', kurou: '#9a3a2e', tieqi: '#d7dde0', mashu: '#d7dde0', rende: '#477b4b', jijiang: '#477b4b', wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', jieyin: '#b94e58', xiaoji: '#b94e58', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', zhiheng: '#3c9291', wushuang: '#9d3028' }
+  const darkColors: Record<GeneralSkill, string> = { luoshen: '#292a50', qingguo: '#292a50', keji: '#183a3a', kurou: '#3f201c', tieqi: '#34475a', mashu: '#34475a', rende: '#244629', jijiang: '#244629', wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', jieyin: '#4f2630', xiaoji: '#4f2630', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', zhiheng: '#193f42', wushuang: '#351311' }
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
   const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
@@ -172,6 +172,12 @@ function UnitPiece({ team }: { team: Team }) {
         <sphereGeometry args={[.29, 16, 12]} />
         <meshStandardMaterial color="#d6b28a" roughness={.8} />
       </mesh>
+      {unit.skill === 'luoshen' && <>
+        <mesh position={[0, 1.5, 0]}><torusGeometry args={[.25, .028, 7, 18, Math.PI * 1.25]} /><meshStandardMaterial color="#d5d5e5" metalness={.85} emissive="#595b99" emissiveIntensity={.5} /></mesh>
+        {[-.18, .18].map(x => <mesh key={x} position={[x, 1.58, 0]}><sphereGeometry args={[.065, 10, 8]} /><meshStandardMaterial color="#8579b8" emissive="#40356f" emissiveIntensity={.75} /></mesh>)}
+        <group position={[-.4, .84, .1]} rotation={[0, 0, .38]}>{[0, 1, 2, 3, 4, 5].map(i => <mesh key={i} position={[(i - 2.5) * .052, .4, 0]} rotation-z={(i - 2.5) * -.1}><capsuleGeometry args={[.032, .5, 3, 6]} /><meshStandardMaterial color="#bfc2dd" transparent opacity={.86} /></mesh>)}</group>
+        <Sparkles count={12} scale={.9} size={1.8} speed={.25} color="#b9b5ff" position-y={1.05} />
+      </>}
       {unit.skill === 'keji' && <>
         <mesh position={[0, 1.48, 0]}><boxGeometry args={[.48, .13, .36]} /><meshStandardMaterial color="#263b3d" metalness={.6} /></mesh>
         <mesh position={[0, 1.62, 0]}><cylinderGeometry args={[.11, .14, .24, 7]} /><meshStandardMaterial color="#ac8745" metalness={.8} /></mesh>
@@ -384,7 +390,7 @@ function Hearts({ hp, max }: { hp: number; max: number }) {
 function PlayerStatus({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
-  const portraits: Record<GeneralSkill, string> = { keji: '/heroes/lu-meng.png', kurou: '/heroes/huang-gai.png', tieqi: '/heroes/ma-chao.png', mashu: '/heroes/ma-chao.png', rende: '/heroes/liu-bei.png', jijiang: '/heroes/liu-bei.png', wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', qingnang: '/heroes/hua-tuo.png', jijiu: '/heroes/hua-tuo.png', yingzi: '/heroes/zhou-yu.png', fanjian: '/heroes/zhou-yu.png', guanxing: '/heroes/zhuge-liang.png', kongcheng: '/heroes/zhuge-liang.png', tuxi: '/heroes/zhang-liao.png', luoyi: '/heroes/xu-chu.png', jieyin: '/heroes/sun-shangxiang.png', xiaoji: '/heroes/sun-shangxiang.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
+  const portraits: Record<GeneralSkill, string> = { luoshen: '/heroes/zhen-ji.png', qingguo: '/heroes/zhen-ji.png', keji: '/heroes/lu-meng.png', kurou: '/heroes/huang-gai.png', tieqi: '/heroes/ma-chao.png', mashu: '/heroes/ma-chao.png', rende: '/heroes/liu-bei.png', jijiang: '/heroes/liu-bei.png', wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', qingnang: '/heroes/hua-tuo.png', jijiu: '/heroes/hua-tuo.png', yingzi: '/heroes/zhou-yu.png', fanjian: '/heroes/zhou-yu.png', guanxing: '/heroes/zhuge-liang.png', kongcheng: '/heroes/zhuge-liang.png', tuxi: '/heroes/zhang-liao.png', luoyi: '/heroes/xu-chu.png', jieyin: '/heroes/sun-shangxiang.png', xiaoji: '/heroes/sun-shangxiang.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
   const skillCopy = { rende: '仁德/激将 · 赠牌回血/蜀将代杀', jijiang: '激将 · 蜀势力忠臣代出杀', wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄 · 受伤后获得伤害牌', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', qingnang: '青囊/急救 · 弃牌治疗/红牌救人', jijiu: '急救 · 红牌可当桃', yingzi: '英姿/反间 · 摸三张/猜花色', fanjian: '反间 · 赠牌猜花色', guanxing: '观星/空城 · 调牌堆/免杀与决斗', kongcheng: '空城 · 无手牌免杀与决斗', tuxi: '突袭 · 从两名角色处获得手牌', luoyi: '裸衣 · 少摸一张并强化杀/决斗', jieyin: '结姻/枭姬 · 双疗/失装备摸牌', xiaoji: '枭姬 · 失去装备摸两张', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '闭月 · 回合结束摸一张牌', zhiheng: '制衡 · 每回合换任意手牌', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
   const factionLabel: Record<Faction, string> = { wei: '魏', shu: '蜀', wu: '吴', qun: '群' }
   const lordSkill = unit.identity === 'lord' ? unit.faction === 'shu' ? ' · 激将' : unit.faction === 'wei' ? ' · 护驾' : '' : ''
@@ -396,7 +402,7 @@ function PlayerStatus({ team }: { team: Team }) {
         <Hearts hp={unit.hp} max={unit.maxHp} />
         <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span>{unit.chained && <span>⛓ 连环</span>}</div>
         <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.equipment.offensiveMount ? ` · ${CARD_LABEL[unit.equipment.offensiveMount.kind]}` : ''}{unit.equipment.defensiveMount ? ` · ${CARD_LABEL[unit.equipment.defensiveMount.kind]}` : ''}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
-        <div className="skill-line">{unit.skill === 'keji' ? '克己 · 未出杀则跳过弃牌' : unit.skill === 'kurou' ? '苦肉 · 失去体力并摸两张' : unit.skill === 'tieqi' ? '马术/铁骑 · 距离-1/红判禁闪' : unit.skill === 'mashu' ? '马术 · 计算距离时始终-1' : skillCopy[unit.skill]}{lordSkill}</div>
+        <div className="skill-line">{unit.skill === 'luoshen' ? '洛神/倾国 · 黑判获牌/黑牌作闪' : unit.skill === 'qingguo' ? '倾国 · 黑色手牌可当闪' : unit.skill === 'keji' ? '克己 · 未出杀则跳过弃牌' : unit.skill === 'kurou' ? '苦肉 · 失去体力并摸两张' : unit.skill === 'tieqi' ? '马术/铁骑 · 距离-1/红判禁闪' : unit.skill === 'mashu' ? '马术 · 计算距离时始终-1' : skillCopy[unit.skill]}{lordSkill}</div>
       </div>
     </section>
   )
@@ -433,6 +439,7 @@ function Tutorial({ close }: { close: () => void }) {
 }
 
 const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; faction: string; portrait: string; skillName: string; copy: string }[] = [
+  { skill: 'luoshen', name: '甄姬', title: '薄幸的美人', faction: '魏', portrait: '/heroes/zhen-ji.png', skillName: '洛神 · 倾国', copy: '回合开始连续获得黑色判定牌直到出现红色；黑色手牌可以当【闪】。' },
   { skill: 'keji', name: '吕蒙', title: '白衣渡江', faction: '吴', portrait: '/heroes/lu-meng.png', skillName: '克己', copy: '若本回合没有使用【杀】，结束出牌时跳过弃牌阶段。' },
   { skill: 'kurou', name: '黄盖', title: '轻身为国', faction: '吴', portrait: '/heroes/huang-gai.png', skillName: '苦肉', copy: '出牌阶段可失去 1 点体力并摸两张牌，且可以连续发动。' },
   { skill: 'tieqi', name: '马超', title: '一骑当千', faction: '蜀', portrait: '/heroes/ma-chao.png', skillName: '马术 · 铁骑', copy: '与其他角色的距离始终 -1；使用杀时红色判定令目标不能使用闪。' },
@@ -477,7 +484,7 @@ function ResponseWindow() {
   const player = useGameStore(s => s.units.player)
   const respond = useGameStore(s => s.respond)
   if (!pending) return null
-  const responses = player.hand.filter(card => card.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && card.kind === 'slash') || (pending.required === 'slash' && card.kind === 'dodge'))))
+  const responses = player.hand.filter(card => card.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && card.kind === 'slash') || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
@@ -485,7 +492,7 @@ function ResponseWindow() {
     <div className="response-cards">
       {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
-        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? '急救 → 桃' : `龙胆 → ${CARD_LABEL[pending.required]}`}</small>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? '急救 → 桃' : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${CARD_LABEL[pending.required]}`}</small>
       </button>)}
       {!responses.length && <span className="no-response">手牌中没有【{CARD_LABEL[pending.required]}】</span>}
     </div>
