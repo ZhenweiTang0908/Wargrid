@@ -696,4 +696,30 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.units.player.equipment).toEqual({})
   })
+
+  it('opens an adjacent supply cache by trading one card for two', () => {
+    const payment = card('dodge'), rewardA = card('peach'), rewardB = card('slash')
+    useGameStore.setState(state => ({
+      deck: [rewardA, rewardB], discard: [],
+      units: { ...state.units, player: { ...state.units.player, position: { x: 3, y: 8 }, hand: [payment] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'south-cache', cardId: payment.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([rewardA, rewardB])
+    expect(state.discard).toContainEqual(payment)
+    expect(state.mapObjects.find(item => item.id === 'south-cache')?.claimed).toBe(true)
+    expect(state.message).toContain('开启军需箱')
+  })
+
+  it('cannot open a supply cache from a distance or reuse it', () => {
+    const payment = card('dodge'), rewardA = card('peach'), rewardB = card('slash')
+    useGameStore.setState(state => ({ deck: [rewardA, rewardB], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [payment] } } }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'north-cache', cardId: payment.id })
+    expect(useGameStore.getState().units.player.hand).toEqual([payment])
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 3, y: 8 } } } }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'south-cache', cardId: payment.id })
+    const received = useGameStore.getState().units.player.hand
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'south-cache', cardId: received[0].id })
+    expect(useGameStore.getState().units.player.hand).toEqual(received)
+  })
 })

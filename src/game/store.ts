@@ -396,6 +396,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const units = { ...state.units, [action.unit]: updated }, message = `${unit.name}移动 ${cost} 点（${path.length} 格）`
       set({ units, reachable: action.unit === 'player' ? reachableCells({ ...state, units }, updated) : [], pathPreview: [], message, history: log(state, message) }); return
     }
+    if (action.type === 'INTERACT') {
+      const unit = state.units[action.unit], object = state.mapObjects.find(item => item.id === action.objectId)
+      if (state.currentUnit !== action.unit || state.turnStage !== 'play' || !object || object.claimed) return
+      if (Math.abs(unit.position.x - object.position.x) + Math.abs(unit.position.y - object.position.y) > 1) return
+      const payment = unit.hand.find(card => card.id === action.cardId); if (!payment) return
+      const draw = drawCards(state.deck, [...state.discard, payment], 2)
+      const message = `${unit.name}弃置【${CARD_LABEL[payment.kind]}】开启军需箱，获得两张牌`
+      set({
+        units: { ...state.units, [action.unit]: { ...unit, hand: [...unit.hand.filter(card => card.id !== payment.id), ...draw.drawn], animation: 'cast' } },
+        mapObjects: state.mapObjects.map(item => item.id === object.id ? { ...item, claimed: true } : item),
+        deck: draw.deck, discard: draw.discard, selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false,
+        message, history: log(state, message),
+      }); return
+    }
     if (action.type === 'PLAY_CARD') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -719,6 +733,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (get().pendingResponse) return
     }
     state = get(); ai = state.units[aiId]
+    const cache = state.mapObjects.find(item => !item.claimed && Math.abs(ai.position.x - item.position.x) + Math.abs(ai.position.y - item.position.y) <= 1)
+    const payment = ai.hand.find(card => card.kind === 'dodge' || card.kind === 'slash') ?? ai.hand[ai.hand.length - 1]
+    if (cache && payment) {
+      get().dispatch({ type: 'INTERACT', unit: aiId, objectId: cache.id, cardId: payment.id }); await wait(320)
+      state = get(); ai = state.units[aiId]
+    }
     let target = targetsFor(state, aiId)[0]
     if (!target) return
     const aggressive = ai.hand.find(c => c.kind === 'slash') ?? (ai.skill === 'longdan' ? ai.hand.find(c => c.kind === 'dodge') : undefined)

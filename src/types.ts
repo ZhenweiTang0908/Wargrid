@@ -19,6 +19,7 @@ export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'gui
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
 export interface Terrain { position: Position; kind: TerrainKind }
+export interface MapObject { id: string; position: Position; kind: 'supplyCache'; claimed: boolean }
 export interface Equipment { weapon?: Card; armor?: Card; offensiveMount?: Card; defensiveMount?: Card }
 
 export interface Unit {
@@ -63,6 +64,7 @@ export interface GameState {
   terrain: Terrain[]
   obstacles: Position[]
   controlPoint: Position
+  mapObjects: MapObject[]
   units: Record<Team, Unit>
   deck: Card[]
   discard: Card[]
@@ -93,6 +95,7 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'MOVE'; unit: Team; to: Position }
+  | { type: 'INTERACT'; unit: Team; objectId: string; cardId: string }
   | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean; asDismantle?: boolean; materialIds?: string[]; lordAssist?: Team }
   | { type: 'END_TURN' }
   | { type: 'RESTART' }

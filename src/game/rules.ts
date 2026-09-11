@@ -170,6 +170,10 @@ export function determineWinner(units: Record<Team, Unit>): Team | null {
 export function createInitialState(deck = createDeck()): GameState {
   const state: GameState = {
     size: BOARD_SIZE, terrain: TERRAIN, obstacles: OBSTACLES, controlPoint: CONTROL_POINT,
+    mapObjects: [
+      { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
+      { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
+    ],
     units: {
       player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
       north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: 'loyalist', faction: 'shu', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },

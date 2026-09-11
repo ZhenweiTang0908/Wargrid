@@ -20,6 +20,9 @@ function Tile({ position }: { position: Position }) {
   const occupied = Object.values(state.units).some(u => samePosition(u.position, position))
   const obstacle = state.obstacles.some(o => samePosition(o, position))
   const terrain = terrainAt(state, position)
+  const mapObject = state.mapObjects.find(item => samePosition(item.position, position))
+  const selectedCard = state.units.player.hand.find(card => card.id === state.selectedCardId)
+  const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
   const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
   const color = obstacle ? '#453f36' : control ? '#8c652c' : inPath ? '#53bfd1' : reachable ? '#234e5c' : terrainColor
@@ -29,9 +32,9 @@ function Tile({ position }: { position: Position }) {
       <mesh
         position-y={obstacle ? .42 : 0}
         scale={hovered && reachable ? 1.04 : 1}
-        onPointerEnter={e => { e.stopPropagation(); setHovered(true); hoverCell(position); document.body.style.cursor = reachable ? 'pointer' : 'default' }}
+        onPointerEnter={e => { e.stopPropagation(); setHovered(true); hoverCell(position); document.body.style.cursor = reachable || canInteract ? 'pointer' : 'default' }}
         onPointerLeave={() => { setHovered(false); hoverCell(null); document.body.style.cursor = 'default' }}
-        onClick={e => { e.stopPropagation(); if (reachable && !occupied) dispatch({ type: 'MOVE', unit: 'player', to: position }) }}
+        onClick={e => { e.stopPropagation(); if (canInteract && mapObject && selectedCard) dispatch({ type: 'INTERACT', unit: 'player', objectId: mapObject.id, cardId: selectedCard.id }); else if (reachable && !occupied) dispatch({ type: 'MOVE', unit: 'player', to: position }) }}
       >
         <boxGeometry args={[.98, obstacle ? .82 : .12, .98]} />
         <meshStandardMaterial color={color} roughness={.72} metalness={control ? .25 : .05} emissive={inPath ? '#147a89' : control ? '#3d2207' : '#000'} emissiveIntensity={.55} />
@@ -45,6 +48,12 @@ function Tile({ position }: { position: Position }) {
           <Sparkles count={12} scale={.75} size={2} speed={.3} color="#f2c66d" />
         </group>
       )}
+      {mapObject && <group position={[.24, .15, -.22]} rotation-y={-.18}>
+        <mesh position-y={.14}><boxGeometry args={[.4, .25, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#514a3d' : '#8b5528'} roughness={.72} /></mesh>
+        <mesh position={[0, mapObject.claimed ? .32 : .29, mapObject.claimed ? -.13 : 0]} rotation-x={mapObject.claimed ? -1.1 : 0}><boxGeometry args={[.4, .1, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#4c463c' : '#aa6e32'} roughness={.65} /></mesh>
+        {[-.13, .13].map(x => <mesh key={x} position={[x, .17, .002]}><boxGeometry args={[.035, .34, .34]} /><meshStandardMaterial color="#c3a45a" metalness={.65} roughness={.3} /></mesh>)}
+        {!mapObject.claimed && <><Sparkles count={8} scale={.65} size={2} speed={.35} color={canInteract ? '#fff0a8' : '#dbbc72'} /><mesh position-y={.04} rotation-x={-Math.PI / 2}><ringGeometry args={[.3, .38, 24]} /><meshBasicMaterial color={canInteract ? '#ffe080' : '#9d7440'} transparent opacity={canInteract ? .9 : .45} side={THREE.DoubleSide} /></mesh></>}
+      </group>}
       {terrain === 'forest' && !obstacle && <group position={[-.16, .13, .08]}><mesh position-y={.23}><cylinderGeometry args={[.05, .08, .4, 6]} /><meshStandardMaterial color="#5f4530" /></mesh><mesh position-y={.54}><coneGeometry args={[.25, .56, 7]} /><meshStandardMaterial color="#28553a" /></mesh></group>}
       {terrain === 'road' && !control && <group position-y={.09}>
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.46, .92]} /><meshStandardMaterial color="#65543d" roughness={1} /></mesh>
@@ -295,7 +304,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>水域耗 2 移动力；森林提供掩护；山脊增加射程；营地在回合末补给一张牌。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>水域耗 2 移动力；森林提供掩护；山脊增加射程。靠近军需箱后，选一张手牌再点箱子，可弃一摸二。</p></div>
       <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
