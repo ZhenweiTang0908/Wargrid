@@ -24,7 +24,7 @@ function Tile({ position }: { position: Position }) {
   const selectedCard = state.units.player.hand.find(card => card.id === state.selectedCardId)
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
-  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'watchtower' ? '#4c402c' : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
+  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
   const color = obstacle ? '#453f36' : control ? '#8c652c' : inPath ? '#53bfd1' : reachable ? '#234e5c' : terrainColor
 
   return (
@@ -75,6 +75,10 @@ function Tile({ position }: { position: Position }) {
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.82, .82]} /><meshStandardMaterial color="#2b7290" transparent opacity={.42} roughness={.15} metalness={.15} /></mesh>
         {[-.2, .08, .27].map((z, i) => <mesh key={i} position={[i % 2 ? .14 : -.13, .018, z]} rotation-x={-Math.PI / 2}><torusGeometry args={[.12, .012, 4, 16, Math.PI]} /><meshBasicMaterial color="#78bdd0" transparent opacity={.5} /></mesh>)}
       </group>}
+      {terrain === 'marsh' && <group position-y={.09}>
+        <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.82, .82]} /><meshStandardMaterial color="#56633b" transparent opacity={.55} roughness={.8} /></mesh>
+        {[[-.24, -.16], [.18, .12], [-.05, .3]].map(([x, z], i) => <group key={i} position={[x, .04, z]}><mesh position-y={.12}><cylinderGeometry args={[.012, .02, .24, 5]} /><meshStandardMaterial color="#829457" /></mesh><mesh position={[.045, .2, 0]} rotation-z={-.45}><coneGeometry args={[.04, .16, 5]} /><meshStandardMaterial color="#a1ad69" /></mesh></group>)}
+      </group>}
       {terrain === 'ridge' && !obstacle && <group position-y={.13}>
         <mesh position={[-.18, .17, .1]} rotation={[.2, .1, -.18]}><dodecahedronGeometry args={[.23, 0]} /><meshStandardMaterial color="#665e50" roughness={.95} /></mesh>
         <mesh position={[.16, .11, -.12]} rotation={[-.1, .2, .3]}><dodecahedronGeometry args={[.16, 0]} /><meshStandardMaterial color="#4d4a42" roughness={1} /></mesh>
@@ -83,6 +87,14 @@ function Tile({ position }: { position: Position }) {
         <mesh position={[-.2, .2, 0]} rotation-y={Math.PI / 4}><coneGeometry args={[.28, .38, 4]} /><meshStandardMaterial color={position.y < 4 ? '#713029' : '#1d5967'} roughness={.9} /></mesh>
         <mesh position={[.2, .35, .08]}><cylinderGeometry args={[.025, .025, .7]} /><meshStandardMaterial color="#6e4b2d" /></mesh>
         <mesh position={[.36, .55, .08]}><planeGeometry args={[.34, .24]} /><meshStandardMaterial color={position.y < 4 ? '#a83d35' : '#257c91'} side={THREE.DoubleSide} /></mesh>
+      </group>}
+      {terrain === 'village' && <group position-y={.12}>
+        <mesh position={[-.16, .2, .04]}><boxGeometry args={[.48, .36, .42]} /><meshStandardMaterial color="#a58a68" roughness={.95} /></mesh>
+        <mesh position={[-.16, .45, .04]} rotation-y={Math.PI / 4}><coneGeometry args={[.4, .3, 4]} /><meshStandardMaterial color="#724239" roughness={.9} /></mesh>
+        <mesh position={[-.16, .18, .265]}><boxGeometry args={[.1, .2, .02]} /><meshStandardMaterial color="#3d2c22" /></mesh>
+        <mesh position={[.3, .28, -.16]}><cylinderGeometry args={[.025, .035, .56, 6]} /><meshStandardMaterial color="#725137" /></mesh>
+        <mesh position={[.42, .48, -.16]}><planeGeometry args={[.26, .18]} /><meshStandardMaterial color="#d8c47d" side={THREE.DoubleSide} /></mesh>
+        <Sparkles count={5} scale={.65} size={1.2} speed={.14} color="#9ee5a9" position-y={.35} />
       </group>}
       {terrain === 'watchtower' && !obstacle && <group position-y={.12}>
         {[[-.25, -.25], [.25, -.25], [-.25, .25], [.25, .25]].map(([x, z], i) => <mesh key={i} position={[x, .3, z]}><cylinderGeometry args={[.035, .055, .62, 6]} /><meshStandardMaterial color="#725034" roughness={.9} /></mesh>)}
@@ -444,7 +456,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>水域耗 2 移动力；森林提供掩护；山脊射程 +1，瞭望台射程 +2。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>水域与泥沼耗 2 移动力；森林提供掩护；山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会。</p></div>
       <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>

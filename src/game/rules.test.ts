@@ -47,6 +47,8 @@ describe('card and victory rules', () => {
   it('applies terrain movement cost and equipment rules', () => {
     const state = createInitialState(fixedDeck())
     expect(movementCost(state, { x: 0, y: 2 })).toBe(2)
+    expect(terrainAt(state, { x: 0, y: 5 })).toBe('marsh')
+    expect(movementCost(state, { x: 0, y: 5 })).toBe(2)
     expect(movementCost(state, { x: 4, y: 4 })).toBe(1)
     const qinggang = { ...state.units.player, equipment: { weapon: { id: 'q', kind: 'qinggang' as const, suit: 'spade' as const, rank: 6 } } }
     const crossbow = { ...state.units.player, equipment: { weapon: { id: 'c', kind: 'crossbow' as const, suit: 'club' as const, rank: 1 } } }
@@ -93,6 +95,22 @@ describe('card and victory rules', () => {
     expect(result.units.player.hand).toHaveLength(before + 1)
     expect(result.message).toContain('补给牌')
     expect(result.deck).toHaveLength(state.deck.length - 1)
+  })
+
+  it('heals a wounded unit when its turn ends in a village', () => {
+    const state = createInitialState(fixedDeck())
+    const villageState = { ...state, units: { ...state.units, player: { ...state.units.player, position: { x: 6, y: 8 }, hp: 3 } } }
+    expect(terrainAt(villageState, villageState.units.player.position)).toBe('village')
+    const result = resolveEndTurnTerrain(villageState, 'player')
+    expect(result.units.player.hp).toBe(4)
+    expect(result.message).toContain('村落休整')
+    expect(result.history[0]).toContain('村落休整')
+  })
+
+  it('does not heal a full-health unit in a village', () => {
+    const state = createInitialState(fixedDeck())
+    const villageState = { ...state, units: { ...state.units, player: { ...state.units.player, position: { x: 6, y: 8 } } } }
+    expect(resolveEndTurnTerrain(villageState, 'player')).toBe(villageState)
   })
 
   it('reshuffles the discard pile when drawing from an empty deck', () => {

@@ -14,6 +14,8 @@ export const TERRAIN: Terrain[] = [
   ...terrainLine('ridge', [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 5 }]),
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
   ...terrainLine('watchtower', [{ x: 0, y: 3 }, { x: 8, y: 5 }]),
+  ...terrainLine('village', [{ x: 2, y: 0 }, { x: 6, y: 8 }]),
+  ...terrainLine('marsh', [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 7, y: 3 }, { x: 8, y: 3 }]),
 ]
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
@@ -24,7 +26,7 @@ export function terrainAt(state: Pick<GameState, 'terrain'>, p: Position): Terra
   }
   return 'plain'
 }
-export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => terrainAt(state, p) === 'water' ? 2 : 1
+export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => ['water', 'marsh'].includes(terrainAt(state, p)) ? 2 : 1
 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
@@ -150,7 +152,13 @@ export function scoreControlPoint(state: GameState, team: Team): GameState {
 
 export function resolveEndTurnTerrain(state: GameState, team: Team): GameState {
   const unit = state.units[team]
-  if (unit.hp <= 0 || terrainAt(state, unit.position) !== 'camp') return state
+  const terrain = terrainAt(state, unit.position)
+  if (unit.hp <= 0) return state
+  if (terrain === 'village' && unit.hp < unit.maxHp) {
+    const message = `${unit.name}在村落休整，回复 1 点体力`
+    return { ...state, units: { ...state.units, [team]: { ...unit, hp: unit.hp + 1, animation: 'heal' } }, message, history: [message, ...state.history].slice(0, 8) }
+  }
+  if (terrain !== 'camp') return state
   const draw = drawCards(state.deck, state.discard, 1)
   if (!draw.drawn.length) return state
   const message = `${unit.name}驻守营地，获得一张补给牌`
