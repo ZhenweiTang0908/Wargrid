@@ -541,7 +541,7 @@ function ResponseWindow() {
   const player = useGameStore(s => s.units.player)
   const respond = useGameStore(s => s.respond)
   if (!pending) return null
-  const responses = player.hand.filter(card => card.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && card.kind === 'slash') || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
+  const responses = player.hand.filter(card => card.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && card.kind === 'slash') || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
@@ -549,7 +549,7 @@ function ResponseWindow() {
     <div className="response-cards">
       {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
-        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? '急救 → 桃' : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${CARD_LABEL[pending.required]}`}</small>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? '急救 → 桃' : player.skills.includes('wusheng') && pending.required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? '武圣 → 杀' : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${CARD_LABEL[pending.required]}`}</small>
       </button>)}
       {!responses.length && <span className="no-response">手牌中没有【{CARD_LABEL[pending.required]}】</span>}
     </div>
@@ -582,7 +582,7 @@ function App() {
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < 1
-  const canJijiang = state.units.player.identity === 'lord' && state.units.player.faction === 'shu' && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => card.kind === 'slash') || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge'))))
+  const canJijiang = state.units.player.identity === 'lord' && state.units.player.faction === 'shu' && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => card.kind === 'slash') || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge')) || (unit.skills.includes('wusheng') && unit.hand.some(card => card.suit === 'heart' || card.suit === 'diamond'))))
   const canQixi = state.units.player.skill === 'qixi' && selectedCard && (selectedCard.suit === 'spade' || selectedCard.suit === 'club')
   const canZhiheng = state.units.player.skill === 'zhiheng' && !state.units.player.skillUsed
   const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))
