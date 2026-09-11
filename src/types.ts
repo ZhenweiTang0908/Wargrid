@@ -14,7 +14,7 @@ export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
-export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'paoxiao' | 'jizhi'
+export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'paoxiao' | 'jizhi' | 'qixi' | 'biyue'
 
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
@@ -73,6 +73,7 @@ export interface GameState {
   selectedUnit: Team | null
   selectedCardId: string | null
   selectedAsSlash: boolean
+  selectedAsDismantle: boolean
   spearMode: boolean
   spearSelection: string[]
   jijiangSource: Team | null
@@ -87,7 +88,7 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'MOVE'; unit: Team; to: Position }
-  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean; materialIds?: string[]; lordAssist?: Team }
+  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean; asDismantle?: boolean; materialIds?: string[]; lordAssist?: Team }
   | { type: 'END_TURN' }
   | { type: 'RESTART' }
 

@@ -105,6 +105,31 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('集智'))).toBe(true)
   })
 
+  it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
+    useGameStore.getState().selectGeneral('qixi')
+    const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [material] }, east: { ...state.units.east, hand: [victimCard] } } }))
+    useGameStore.getState().selectCard(material.id)
+    useGameStore.getState().activateQixi()
+    expect(useGameStore.getState().selectedAsDismantle).toBe(true)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: material.id, target: 'east', asDismantle: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([material.id, victimCard.id]))
+    expect(state.message).toContain('过河拆桥')
+  })
+
+  it('lets Diao Chan draw at the end of her turn through Biyue', () => {
+    useGameStore.getState().selectGeneral('biyue')
+    const moonCard = card('peach', 'heart'), nextA = card('slash'), nextB = card('dodge')
+    useGameStore.setState(state => ({ deck: [moonCard, nextA, nextB], units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 7 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toContainEqual(moonCard)
+    expect(state.history.some(entry => entry.includes('闭月'))).toBe(true)
+  })
+
   it('uses fire attack by matching the revealed card suit', () => {
     const fire = card('fireAttack', 'spade'), payment = card('slash', 'heart'), revealed = card('dodge', 'heart')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [fire, payment] }, east: { ...state.units.east, hand: [revealed] } } }))

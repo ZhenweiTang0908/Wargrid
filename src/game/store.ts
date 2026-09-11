@@ -11,6 +11,7 @@ interface GameStore extends GameState {
   activateWusheng: () => void
   activateSpear: () => void
   activateJijiang: () => void
+  activateQixi: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
@@ -23,6 +24,8 @@ const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill
   feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', faction: 'wei' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', faction: 'shu' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', faction: 'shu' },
+  qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', faction: 'wu' },
+  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', faction: 'qun' },
 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
@@ -301,6 +304,15 @@ function discardOverflow(state: GameState, team: Team): GameState {
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: kept } }, discard: [...state.discard, ...removed], message: `${unit.name}弃置 ${excess} 张手牌`, history: log(state, `${unit.name}弃牌至体力上限`) }
 }
 
+function resolveEndSkill(state: GameState, team: Team): GameState {
+  const unit = state.units[team]
+  if (unit.hp <= 0 || unit.skill !== 'biyue') return state
+  const draw = drawCards(state.deck, state.discard, 1)
+  if (!draw.drawn.length) return state
+  const message = `${unit.name}发动【闭月】，摸一张牌`
+  return { ...state, units: { ...state.units, [team]: { ...unit, hand: [...unit.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+}
+
 function beginTurn(state: GameState, team: Team): GameState {
   let working = state, unit = state.units[team], skipPlay = false
   for (const delayed of unit.judgement) {
@@ -321,7 +333,7 @@ function beginTurn(state: GameState, team: Team): GameState {
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
   const draw = drawCards(working.deck, working.discard, 2)
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' }
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -372,15 +384,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
       const removed = takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
+      const virtualDismantle = action.asDismantle && unit.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club')
       const virtualSlash = !!validJijiang || (action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
-      const kind = virtualSlash ? 'slash' : card.kind
+      const kind = virtualSlash ? 'slash' : virtualDismantle ? 'dismantle' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
       const remainingHand = assistant ? unit.hand : spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
       const unitsAfterPlay = assistant
         ? { ...state.units, [action.unit]: { ...unit, animation: 'cast' as const }, [assistant.id]: { ...assistant, hand: removed.hand, animation: 'cast' as const } }
         : { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' as const } }
-      let base: GameState = { ...state, units: unitsAfterPlay, discard: [...state.discard, ...playedCards], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null }
+      let base: GameState = { ...state, units: unitsAfterPlay, discard: [...state.discard, ...playedCards], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null }
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
         const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
@@ -487,7 +500,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       let turnState = state
       if (state.turnStage !== 'discard' && excess > 0) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
-        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null, reachable: [], pathPreview: [], message, history: log(state, message) }); return
+        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, reachable: [], pathPreview: [], message, history: log(state, message) }); return
       }
       if (state.turnStage === 'discard') {
         if (state.discardSelection.length !== excess) return
@@ -496,7 +509,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const units = { ...state.units, player: { ...player, hand: player.hand.filter(card => !state.discardSelection.includes(card.id)) } }
         turnState = { ...state, units, discard: [...state.discard, ...chosen], history: log(state, message), message }
       }
-      let next = resolveEndTurnTerrain({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player'); next = scoreControlPoint(next, 'player')
+      let next = resolveEndSkill({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player'); next = resolveEndTurnTerrain(next, 'player'); next = scoreControlPoint(next, 'player')
       if (next.winner) { set(next); return }
       const nextUnit = nextSeat(next, 'player'); next = beginTurn({ ...next, turnStage: 'finish' }, nextUnit); set(next); void get().runAI()
     }
@@ -587,7 +600,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
-    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [], jijiangSource: null, message: '已取消选牌' }); return }
+    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id); if (!card) return
     if (state.spearMode) {
       const selected = state.spearSelection.includes(id)
@@ -597,21 +610,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (card.kind === 'dodge' && state.units.player.skill === 'longdan') {
       set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: state.selectedCardId !== id, message: '【龙胆】将【闪】当【杀】使用，请选择敌将' }); return
     }
-    if (card.kind === 'dodge') { set({ message: '【闪】在响应窗口中打出' }); return }
+    if (card.kind === 'dodge' && !(state.units.player.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club'))) { set({ message: '【闪】在响应窗口中打出' }); return }
     const needsTarget = ['slash', 'duel', 'dismantle', 'snatch', 'indulgence', 'fireAttack', 'ironChain'].includes(card.kind)
     if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
-    set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: false, message: needsTarget ? `选择敌将使用【${CARD_LABEL[card.kind]}】` : '再次点击确认使用' })
+    set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: false, selectedAsDismantle: false, message: needsTarget ? `选择敌将使用【${CARD_LABEL[card.kind]}】` : '再次点击确认使用' })
   },
   activateWusheng: () => {
     const state = get(), card = state.units.player.hand.find(c => c.id === state.selectedCardId)
     if (state.units.player.skill !== 'wusheng' || !card || card.kind === 'slash' || (card.suit !== 'heart' && card.suit !== 'diamond')) return
-    set({ selectedAsSlash: true, message: `【武圣】将${CARD_LABEL[card.kind]}当【杀】使用，请选择敌将` })
+    set({ selectedAsSlash: true, selectedAsDismantle: false, message: `【武圣】将${CARD_LABEL[card.kind]}当【杀】使用，请选择敌将` })
   },
   activateSpear: () => {
     const state = get()
     if (state.phase !== 'player' || state.turnStage !== 'play' || state.units.player.equipment.weapon?.kind !== 'spear' || state.units.player.hand.length < 2) return
     const spearMode = !state.spearMode
-    set({ spearMode, spearSelection: [], selectedCardId: null, selectedAsSlash: false, message: spearMode ? '【丈八蛇矛】请选择两张手牌' : '已取消丈八蛇矛' })
+    set({ spearMode, spearSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, message: spearMode ? '【丈八蛇矛】请选择两张手牌' : '已取消丈八蛇矛' })
   },
   activateJijiang: () => {
     const state = get(), lord = state.units.player
@@ -619,7 +632,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const helper = Object.values(state.units).find(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && responseCard(unit, 'slash'))
     if (!helper) { set({ message: '没有蜀势力忠臣可以响应【激将】' }); return }
     const offered = responseCard(helper, 'slash')!
-    set({ selectedCardId: offered.id, selectedAsSlash: true, spearMode: false, spearSelection: [], jijiangSource: helper.id, message: `${helper.name}响应【激将】，请选择攻击范围内的敌将` })
+    set({ selectedCardId: offered.id, selectedAsSlash: true, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: helper.id, message: `${helper.name}响应【激将】，请选择攻击范围内的敌将` })
+  },
+  activateQixi: () => {
+    const state = get(), card = state.units.player.hand.find(item => item.id === state.selectedCardId)
+    if (state.units.player.skill !== 'qixi' || !card || (card.suit !== 'spade' && card.suit !== 'club')) return
+    set({ selectedAsDismantle: true, selectedAsSlash: false, message: `【奇袭】将${CARD_LABEL[card.kind]}当【过河拆桥】使用，请选择敌将` })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
@@ -634,7 +652,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
     }
     if (state.turnStage === 'finish') {
-      let skipped = resolveEndTurnTerrain(state, aiId); skipped = scoreControlPoint(skipped, aiId); if (skipped.winner) { set(skipped); return }
+      let skipped = resolveEndSkill(state, aiId); skipped = resolveEndTurnTerrain(skipped, aiId); skipped = scoreControlPoint(skipped, aiId); if (skipped.winner) { set(skipped); return }
       const next = nextSeat(skipped, aiId), nextState = beginTurn({ ...skipped, turn: next === 'player' ? skipped.turn + 1 : skipped.turn }, next)
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
@@ -666,7 +684,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.pendingResponse) return
       if (state.phase === 'finished') return
     }
-    state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
+    state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = resolveEndSkill(next, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
     if (next.winner) { set(next); return }
     const nextId = nextSeat(next, aiId), nextState = beginTurn({ ...next, turn: nextId === 'player' ? next.turn + 1 : next.turn, turnStage: 'finish' }, nextId)
     set(nextState); if (nextId !== 'player') void get().runAI()
