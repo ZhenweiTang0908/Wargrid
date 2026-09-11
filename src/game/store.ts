@@ -20,6 +20,7 @@ interface GameStore extends GameState {
   activateKurou: () => void
   activateGuose: () => void
   activateLijian: () => void
+  selectLijianTarget: (team: Team) => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
@@ -564,7 +565,7 @@ export function beginTurn(state: GameState, team: Team): GameState {
   const draw = drawCards(working.deck, working.discard, drawCount)
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
   const drawText = tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : luoyiActive ? '发动【裸衣】摸一张牌' : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}`) }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -796,7 +797,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       let turnState = state
       if (state.turnStage !== 'discard' && excess > 0 && !keji) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
-        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
+        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
       }
       if (state.turnStage === 'discard') {
         if (state.discardSelection.length !== excess) return
@@ -919,7 +920,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
-    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], message: '已取消选牌' }); return }
+    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id); if (!card) return
     if (state.zhihengMode) {
       const selected = state.zhihengSelection.includes(id)
@@ -1027,14 +1028,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('lijian') || player.skillUsed || !state.selectedCardId) return
     const targets = Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.gender === 'male')
     if (targets.length < 2) { set({ message: '场上没有两名可发动【离间】的男性角色' }); return }
+    const active = !state.lijianMode
+    set({ lijianMode: active, lijianTargets: [], selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, message: active ? '【离间】请选择第一名男性角色' : '已取消离间' })
+  },
+  selectLijianTarget: team => {
+    const state = get(), player = state.units.player, target = state.units[team]
+    if (!state.lijianMode || !state.selectedCardId || team === 'player' || target.hp <= 0 || target.gender !== 'male' || state.lijianTargets.includes(team)) return
+    if (!state.lijianTargets.length) { set({ lijianTargets: [team], message: `已选择${target.name}，请再选择一名男性角色` }); return }
     const payment = player.hand.find(card => card.id === state.selectedCardId)
     if (!payment) return
-    const [duelist, challenged] = targets
+    const duelist = state.units[state.lijianTargets[0]], challenged = target
     const message = `${player.name}发动【离间】，弃置一张牌，令${duelist.name}视为对${challenged.name}使用【决斗】`
     const lijianState: GameState = {
       ...state,
       units: { ...state.units, player: { ...player, hand: player.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' } },
-      discard: [...state.discard, payment], selectedCardId: null, message, history: log(state, message),
+      discard: [...state.discard, payment], selectedCardId: null, lijianMode: false, lijianTargets: [], message, history: log(state, message),
     }
     set({ ...lijianState, ...continueDuel(lijianState, challenged.id, duelist.id) })
   },
