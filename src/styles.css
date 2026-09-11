@@ -40,6 +40,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .enemy .hearts { justify-content: flex-end; }
 .hearts .full { color: #ea6151; text-shadow: 0 0 8px #d43c31; }
 .status-meta { display: flex; justify-content: space-between; color: #82979c; font-size: 10px; }
+.equipment-line { margin-top: 3px; color: #c8a965; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .message-bar { position: absolute; z-index: 8; bottom: 122px; left: 50%; transform: translateX(-50%); min-width: 320px; max-width: 70%; padding: 7px 16px; text-align: center; color: #bdd0d2; background: #071216d9; border-top: 1px solid #27464c; font-size: 12px; letter-spacing: .04em; }
 .message-pip { display: inline-block; width: 5px; height: 5px; margin: 0 8px 2px 0; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
@@ -53,9 +54,11 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .card { position: relative; width: 76px; height: 94px; flex: 0 0 auto; padding: 7px; display: grid; align-content: space-between; text-align: left; border: 1px solid #a9b8ad; border-radius: 6px; color: #17282a; background: linear-gradient(145deg, #e8e8d7, #bac8bd); box-shadow: 0 5px 10px #0006; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, filter .18s; }
 .card:hover:not(:disabled), .card.selected { transform: translateY(-10px); box-shadow: 0 10px 25px #000b, 0 0 0 2px var(--gold); }
 .card:disabled { filter: grayscale(.8) brightness(.6); cursor: not-allowed; }
-.card strong { font-size: 30px; font-family: serif; text-align: center; line-height: 1; }
+.card strong { font-size: 21px; font-family: serif; text-align: center; line-height: 1.05; }
+.card.dismantle strong, .card.snatch strong, .card.drawTwo strong, .card.crossbow strong, .card.qinggang strong, .card.shield strong { font-size: 14px; }
 .card small { font-size: 8px; line-height: 1.25; opacity: .72; }
 .card-suit { position: absolute; top: 5px; left: 7px; font-size: 12px; }
+.card-suit.red { color: #a22525; }
 .card.slash { color: #5b1713; background: linear-gradient(145deg, #efe4d0, #d7b7a4); }
 .card.peach { color: #8c2437; background: linear-gradient(145deg, #f1e2dd, #d7b6bd); }
 .turn-actions { display: flex; justify-content: flex-end; align-items: center; gap: 7px; }
@@ -113,6 +116,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .movement i { width: 18px; }
   .card { width: 59px; height: 73px; padding: 5px; }
   .card strong { font-size: 24px; }
+  .card.dismantle strong, .card.snatch strong, .card.drawTwo strong, .card.crossbow strong, .card.qinggang strong, .card.shield strong { font-size: 11px; }
   .card small { display: none; }
   .end-turn { padding: 0 9px; font-size: 12px; }
   .secondary { font-size: 0; }

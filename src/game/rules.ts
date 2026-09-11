@@ -1,30 +1,44 @@
-import type { Card, CardKind, GameState, Position, Team, Unit } from '../types'
+import type { Card, CardKind, GameState, Position, Suit, Team, Terrain, TerrainKind, Unit } from '../types'
 
-export const BOARD_SIZE = 7
-export const CONTROL_POINT: Position = { x: 3, y: 3 }
+export const BOARD_SIZE = 9
+export const CONTROL_POINT: Position = { x: 4, y: 4 }
 export const OBSTACLES: Position[] = [
-  { x: 2, y: 1 }, { x: 4, y: 1 },
-  { x: 1, y: 3 }, { x: 5, y: 3 },
-  { x: 2, y: 5 }, { x: 4, y: 5 },
+  { x: 2, y: 2 }, { x: 6, y: 2 }, { x: 2, y: 6 }, { x: 6, y: 6 },
+  { x: 1, y: 4 }, { x: 7, y: 4 },
+]
+const terrainLine = (kind: TerrainKind, cells: Position[]): Terrain[] => cells.map(position => ({ position, kind }))
+export const TERRAIN: Terrain[] = [
+  ...terrainLine('road', Array.from({ length: 9 }, (_, y) => ({ x: 4, y }))),
+  ...terrainLine('water', [{ x: 0, y: 2 }, { x: 1, y: 2 }, { x: 7, y: 6 }, { x: 8, y: 6 }]),
+  ...terrainLine('forest', [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 6, y: 7 }, { x: 7, y: 7 }, { x: 1, y: 7 }, { x: 7, y: 1 }]),
+  ...terrainLine('ridge', [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 5 }]),
+  ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
 ]
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
 export const positionKey = (p: Position) => `${p.x},${p.y}`
+export const terrainAt = (state: Pick<GameState, 'terrain'>, p: Position): TerrainKind => state.terrain.find(t => samePosition(t.position, p))?.kind ?? 'plain'
+export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => terrainAt(state, p) === 'water' ? 2 : 1
+
+const CARD_COUNTS: Partial<Record<CardKind, number>> = {
+  slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
+  snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, shield: 2,
+}
 
 export function createDeck(): Card[] {
-  const kinds: CardKind[] = [
-    ...Array<CardKind>(12).fill('slash'),
-    ...Array<CardKind>(9).fill('dodge'),
-    ...Array<CardKind>(7).fill('peach'),
-  ]
-  return shuffle(kinds.map((kind, index) => ({ id: `card-${index + 1}`, kind })))
+  const suits: Suit[] = ['spade', 'heart', 'club', 'diamond']
+  let index = 0
+  const cards: Card[] = []
+  for (const [kind, count] of Object.entries(CARD_COUNTS) as [CardKind, number][]) {
+    for (let n = 0; n < count; n++) cards.push({ id: `card-${++index}`, kind, suit: suits[index % 4], rank: (index % 13) + 1 })
+  }
+  return shuffle(cards)
 }
 
 export function shuffle<T>(items: T[], random = Math.random): T[] {
   const result = [...items]
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1))
-    ;[result[i], result[j]] = [result[j], result[i]]
+    const j = Math.floor(random() * (i + 1)); [result[i], result[j]] = [result[j], result[i]]
   }
   return result
 }
@@ -34,59 +48,44 @@ export function isBlocked(state: Pick<GameState, 'size' | 'obstacles' | 'units'>
   if (state.obstacles.some(o => samePosition(o, p))) return true
   return Object.values(state.units).some(u => u.id !== ignore && u.hp > 0 && samePosition(u.position, p))
 }
+export const neighbors = (p: Position): Position[] => [{ x: p.x + 1, y: p.y }, { x: p.x - 1, y: p.y }, { x: p.x, y: p.y + 1 }, { x: p.x, y: p.y - 1 }]
 
-const neighbors = (p: Position): Position[] => [
-  { x: p.x + 1, y: p.y }, { x: p.x - 1, y: p.y },
-  { x: p.x, y: p.y + 1 }, { x: p.x, y: p.y - 1 },
-]
-
-export function findPath(state: Pick<GameState, 'size' | 'obstacles' | 'units'>, start: Position, goal: Position, ignore?: Team): Position[] {
+export function findPath(state: Pick<GameState, 'size' | 'obstacles' | 'units' | 'terrain'>, start: Position, goal: Position, ignore?: Team): Position[] {
   if (samePosition(start, goal)) return []
-  const queue: Position[] = [start]
-  const visited = new Set([positionKey(start)])
+  const frontier = [{ position: start, cost: 0 }]
+  const costs = new Map([[positionKey(start), 0]])
   const previous = new Map<string, Position>()
-  while (queue.length) {
-    const current = queue.shift()!
-    for (const next of neighbors(current)) {
-      const key = positionKey(next)
-      const isGoal = samePosition(next, goal)
-      if (visited.has(key) || (!isGoal && isBlocked(state, next, ignore)) || (isGoal && isBlocked(state, next, ignore))) continue
-      visited.add(key)
-      previous.set(key, current)
-      if (isGoal) {
-        const path: Position[] = [next]
-        let cursor = current
-        while (!samePosition(cursor, start)) {
-          path.unshift(cursor)
-          cursor = previous.get(positionKey(cursor))!
-        }
-        return path
-      }
-      queue.push(next)
+  while (frontier.length) {
+    frontier.sort((a, b) => a.cost - b.cost)
+    const current = frontier.shift()!
+    if (samePosition(current.position, goal)) {
+      const path: Position[] = []; let cursor = goal
+      while (!samePosition(cursor, start)) { path.unshift(cursor); cursor = previous.get(positionKey(cursor))! }
+      return path
+    }
+    for (const next of neighbors(current.position)) {
+      if (isBlocked(state, next, ignore)) continue
+      const nextCost = current.cost + movementCost(state, next)
+      if (nextCost >= (costs.get(positionKey(next)) ?? Infinity)) continue
+      costs.set(positionKey(next), nextCost); previous.set(positionKey(next), current.position); frontier.push({ position: next, cost: nextCost })
     }
   }
   return []
 }
 
-export function reachableCells(state: Pick<GameState, 'size' | 'obstacles' | 'units'>, unit: Unit): Position[] {
+export const pathCost = (state: Pick<GameState, 'terrain'>, path: Position[]) => path.reduce((sum, p) => sum + movementCost(state, p), 0)
+
+export function reachableCells(state: Pick<GameState, 'size' | 'obstacles' | 'units' | 'terrain'>, unit: Unit): Position[] {
   const found: Position[] = []
-  const queue = [{ position: unit.position, cost: 0 }]
-  const visited = new Set([positionKey(unit.position)])
-  while (queue.length) {
-    const { position, cost } = queue.shift()!
-    if (cost > 0) found.push(position)
-    if (cost >= unit.movement) continue
-    for (const next of neighbors(position)) {
-      const key = positionKey(next)
-      if (visited.has(key) || isBlocked(state, next, unit.id)) continue
-      visited.add(key)
-      queue.push({ position: next, cost: cost + 1 })
-    }
+  for (let y = 0; y < state.size; y++) for (let x = 0; x < state.size; x++) {
+    const p = { x, y }; if (isBlocked(state, p, unit.id)) continue
+    const path = findPath(state, unit.position, p, unit.id)
+    if (path.length && pathCost(state, path) <= unit.movement) found.push(p)
   }
   return found
 }
 
-export function pathDistance(state: Pick<GameState, 'size' | 'obstacles' | 'units'>, from: Position, to: Position, moving?: Team): number {
+export function pathDistance(state: Pick<GameState, 'size' | 'obstacles' | 'units' | 'terrain'>, from: Position, to: Position, moving?: Team): number {
   if (samePosition(from, to)) return 0
   const targetUnit = Object.values(state.units).find(u => samePosition(u.position, to))
   if (targetUnit) {
@@ -102,23 +101,18 @@ export function pathDistance(state: Pick<GameState, 'size' | 'obstacles' | 'unit
   return path.length || Infinity
 }
 
-export const canSlash = (state: GameState, attacker: Unit, target: Unit) =>
-  attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < 1 && pathDistance(state, attacker.position, target.position, attacker.id) <= 1
-
+export function attackRange(unit: Unit) { return unit.equipment.weapon?.kind === 'qinggang' ? 2 : 1 }
+export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' ? Infinity : 1 }
+export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && pathDistance(state, attacker.position, target.position, attacker.id) <= attackRange(attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
+export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'shield'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
-  let nextDeck = [...deck]
-  let nextDiscard = [...discard]
-  const drawn: Card[] = []
+  let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []
   while (drawn.length < count) {
-    if (!nextDeck.length) {
-      nextDeck = shuffle(nextDiscard, random)
-      nextDiscard = []
-    }
-    const card = nextDeck.shift()
-    if (!card) break
-    drawn.push(card)
+    if (!nextDeck.length) { nextDeck = shuffle(nextDiscard, random); nextDiscard = [] }
+    const card = nextDeck.shift(); if (!card) break; drawn.push(card)
   }
   return { drawn, deck: nextDeck, discard: nextDiscard }
 }
@@ -127,30 +121,19 @@ export function scoreControlPoint(state: GameState, team: Team): GameState {
   const unit = state.units[team]
   if (!samePosition(unit.position, state.controlPoint) || unit.hp <= 0) return state
   const score = state.scores[team] + 1
-  return {
-    ...state,
-    scores: { ...state.scores, [team]: score },
-    winner: score >= 3 ? team : state.winner,
-    phase: score >= 3 ? 'finished' : state.phase,
-    message: score >= 3 ? `${unit.name}占领中枢，赢得战局！` : `${unit.name}占领中枢，获得 1 分`,
-  }
+  return { ...state, scores: { ...state.scores, [team]: score }, winner: score >= 3 ? team : state.winner, phase: score >= 3 ? 'finished' : state.phase, message: score >= 3 ? `${unit.name}占领中枢，赢得战局！` : `${unit.name}占领中枢，获得 1 分` }
 }
 
 export function createInitialState(deck = createDeck()): GameState {
-  const playerHand = deck.slice(0, 4)
-  const enemyHand = deck.slice(4, 8)
   const state: GameState = {
-    size: BOARD_SIZE,
-    obstacles: OBSTACLES,
-    controlPoint: CONTROL_POINT,
+    size: BOARD_SIZE, terrain: TERRAIN, obstacles: OBSTACLES, controlPoint: CONTROL_POINT,
     units: {
-      player: { id: 'player', name: '苍锋', team: 'player', position: { x: 3, y: 6 }, hp: 4, maxHp: 4, hand: playerHand, movement: 3, attacksUsed: 0, animation: 'idle' },
-      enemy: { id: 'enemy', name: '赤骁', team: 'enemy', position: { x: 3, y: 0 }, hp: 4, maxHp: 4, hand: enemyHand, movement: 3, attacksUsed: 0, animation: 'idle' },
+      player: { id: 'player', name: '关云', title: '义绝千军', team: 'player', position: { x: 4, y: 8 }, hp: 4, maxHp: 4, hand: deck.slice(0, 4), equipment: {}, movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      enemy: { id: 'enemy', name: '夏侯烈', title: '独眼苍狼', team: 'enemy', position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
     },
-    deck: deck.slice(8), discard: [], phase: 'player', turn: 1,
+    deck: deck.slice(8), discard: [], phase: 'player', turnStage: 'play', turn: 1,
     scores: { player: 0, enemy: 0 }, selectedUnit: 'player', selectedCardId: null,
-    reachable: [], pathPreview: [], pendingAttack: null, winner: null,
-    message: '你的回合 · 选择高亮格移动，或使用手牌',
+    reachable: [], pathPreview: [], winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
   }
   state.reachable = reachableCells(state, state.units.player)
   return state

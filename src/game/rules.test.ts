@@ -1,32 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { canPeach, canSlash, createInitialState, drawCards, findPath, pathDistance, reachableCells, scoreControlPoint } from './rules'
+import { attackRange, canPeach, canSlash, createDeck, createInitialState, drawCards, findPath, movementCost, pathDistance, reachableCells, scoreControlPoint, slashLimit } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
   kind: index % 3 === 0 ? 'slash' : index % 3 === 1 ? 'dodge' : 'peach',
+  suit: index % 2 ? 'heart' : 'spade',
+  rank: (index % 13) + 1,
 }))
 
 describe('board rules', () => {
   it('finds an orthogonal route and avoids obstacles', () => {
     const state = createInitialState(fixedDeck())
-    const path = findPath(state, { x: 3, y: 6 }, { x: 3, y: 4 }, 'player')
-    expect(path).toEqual([{ x: 3, y: 5 }, { x: 3, y: 4 }])
-    expect(findPath(state, { x: 3, y: 6 }, { x: 2, y: 5 }, 'player')).toEqual([])
+    const path = findPath(state, { x: 4, y: 8 }, { x: 4, y: 6 }, 'player')
+    expect(path).toEqual([{ x: 4, y: 7 }, { x: 4, y: 6 }])
+    expect(findPath(state, { x: 4, y: 8 }, { x: 2, y: 6 }, 'player')).toEqual([])
   })
 
   it('limits reachable cells by remaining movement', () => {
     const state = createInitialState(fixedDeck())
     const cells = reachableCells(state, { ...state.units.player, movement: 1 })
     expect(cells).toHaveLength(3)
-    expect(cells).toContainEqual({ x: 3, y: 5 })
+    expect(cells).toContainEqual({ x: 4, y: 7 })
   })
 
   it('uses shortest walkable distance for attacks', () => {
     const state = createInitialState(fixedDeck())
-    state.units.player.position = { x: 3, y: 2 }
+    state.units.player.position = { x: 4, y: 2 }
     expect(pathDistance(state, state.units.player.position, state.units.enemy.position, 'player')).toBe(2)
-    state.units.player.position = { x: 3, y: 1 }
+    state.units.player.position = { x: 4, y: 1 }
     expect(pathDistance(state, state.units.player.position, state.units.enemy.position, 'player')).toBe(1)
     expect(canSlash(state, state.units.player, state.units.enemy)).toBe(true)
     state.units.player.attacksUsed = 1
@@ -35,8 +37,25 @@ describe('board rules', () => {
 })
 
 describe('card and victory rules', () => {
+  it('builds a varied standard-inspired deck with suits and ranks', () => {
+    const deck = createDeck()
+    expect(deck.length).toBe(67)
+    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'shield']))
+    expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
+  })
+
+  it('applies terrain movement cost and equipment rules', () => {
+    const state = createInitialState(fixedDeck())
+    expect(movementCost(state, { x: 0, y: 2 })).toBe(2)
+    expect(movementCost(state, { x: 4, y: 4 })).toBe(1)
+    const qinggang = { ...state.units.player, equipment: { weapon: { id: 'q', kind: 'qinggang' as const, suit: 'spade' as const, rank: 6 } } }
+    const crossbow = { ...state.units.player, equipment: { weapon: { id: 'c', kind: 'crossbow' as const, suit: 'club' as const, rank: 1 } } }
+    expect(attackRange(qinggang)).toBe(2)
+    expect(slashLimit(crossbow)).toBe(Infinity)
+  })
+
   it('reshuffles the discard pile when drawing from an empty deck', () => {
-    const discard: Card[] = [{ id: 's', kind: 'slash' }, { id: 'p', kind: 'peach' }]
+    const discard: Card[] = [{ id: 's', kind: 'slash', suit: 'spade', rank: 7 }, { id: 'p', kind: 'peach', suit: 'heart', rank: 3 }]
     const result = drawCards([], discard, 2, () => 0.5)
     expect(result.drawn).toHaveLength(2)
     expect(result.deck).toHaveLength(0)

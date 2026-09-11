@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { Card, GameAction, GameState, Position, Team } from '../types'
-import { canPeach, canSlash, createInitialState, drawCards, findPath, pathDistance, reachableCells, samePosition, scoreControlPoint } from './rules'
+import type { Card, GameAction, GameState, Position, Team, Unit } from '../types'
+import { attackRange, canPeach, canSlash, createInitialState, drawCards, findPath, isEquipment, pathCost, pathDistance, reachableCells, samePosition, scoreControlPoint } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -9,176 +9,169 @@ interface GameStore extends GameState {
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
 }
-
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-const otherTeam = (team: Team): Team => team === 'player' ? 'enemy' : 'player'
+const rival = (team: Team): Team => team === 'player' ? 'enemy' : 'player'
+const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
+const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
 
-function removeCard(hand: Card[], id: string) {
-  const card = hand.find(c => c.id === id)
-  return { card, hand: hand.filter(c => c.id !== id) }
+function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string): Partial<GameState> {
+  const target = state.units[targetId], hp = Math.max(0, target.hp - amount), winner = hp <= 0 ? attackerId : null
+  const finalMessage = winner ? `${state.units[attackerId].name}击败了${target.name}！` : message
+  return { units: { ...state.units, [targetId]: { ...target, hp, animation: 'hit' } }, winner, phase: winner ? 'finished' : state.phase, message: finalMessage, history: log(state, finalMessage) }
 }
 
-function resolveAttack(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> {
-  const attacker = state.units[attackerId]
-  const target = state.units[targetId]
-  const dodge = target.hand.find(c => c.kind === 'dodge')
-  const targetHand = dodge ? target.hand.filter(c => c.id !== dodge.id) : target.hand
-  const hp = dodge ? target.hp : target.hp - 1
-  const winner = hp <= 0 ? attackerId : null
-  return {
-    units: {
-      ...state.units,
-      [attackerId]: { ...attacker, attacksUsed: attacker.attacksUsed + 1, animation: 'attack' },
-      [targetId]: { ...target, hand: targetHand, hp: Math.max(0, hp), animation: dodge ? 'idle' : 'hit' },
-    },
-    discard: dodge ? [...state.discard, dodge] : state.discard,
-    pendingAttack: null,
-    winner,
-    phase: winner ? 'finished' : state.phase,
-    message: winner ? `${attacker.name}击败了${target.name}！` : dodge ? `${target.name}打出【闪】，避开攻击` : `${target.name}受到 1 点伤害`,
+function resolveSlash(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> {
+  const attacker = state.units[attackerId], target = state.units[targetId]
+  const slashCard = state.discard[state.discard.length - 1]
+  const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
+  const dodge = !shieldBlocks ? target.hand.find(c => c.kind === 'dodge') : undefined
+  const updatedAttacker = { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' as const }
+  if (shieldBlocks || dodge) {
+    const updatedTarget = dodge ? { ...target, hand: target.hand.filter(c => c.id !== dodge.id) } : target
+    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : `${target.name}打出【闪】`
+    return { units: { ...state.units, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: dodge ? [...state.discard, dodge] : state.discard, message, history: log(state, message) }
   }
+  const base = { ...state, units: { ...state.units, [attackerId]: updatedAttacker } }
+  return damage(base, attackerId, targetId, attacker.drunk ? 2 : 1, `${target.name}受到${attacker.drunk ? ' 2 ' : ' 1 '}点伤害`)
+}
+
+function resolveDuel(state: GameState, initiator: Team, targetId: Team): Partial<GameState> {
+  let units = { ...state.units }; let current = targetId; let other = initiator; const spent: Card[] = []
+  for (let round = 0; round < 20; round++) {
+    const slash = units[current].hand.find(c => c.kind === 'slash')
+    if (!slash) {
+      const base = { ...state, units, discard: [...state.discard, ...spent] }
+      return damage(base, other, current, 1, `${units[current].name}在【决斗】中受到 1 点伤害`)
+    }
+    spent.push(slash); units = { ...units, [current]: { ...units[current], hand: units[current].hand.filter(c => c.id !== slash.id), animation: 'cast' } }
+    ;[current, other] = [other, current]
+  }
+  return { units, discard: [...state.discard, ...spent] }
+}
+
+function discardOverflow(state: GameState, team: Team): GameState {
+  const unit = state.units[team], excess = Math.max(0, unit.hand.length - unit.hp)
+  if (!excess) return state
+  const removed = unit.hand.slice(-excess), kept = unit.hand.slice(0, -excess)
+  return { ...state, units: { ...state.units, [team]: { ...unit, hand: kept } }, discard: [...state.discard, ...removed], message: `${unit.name}弃置 ${excess} 张手牌`, history: log(state, `${unit.name}弃牌至体力上限`) }
+}
+
+function beginTurn(state: GameState, team: Team): GameState {
+  const draw = drawCards(state.deck, state.discard, 2), unit = state.units[team]
+  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' }
+  const next: GameState = { ...state, units: { ...state.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, phase: team === 'player' ? 'player' : 'ai', turnStage: 'play', selectedCardId: null, pathPreview: [], reachable: [], message: `${team === 'player' ? '你的' : '敌方'}出牌阶段 · 摸两张牌`, history: log(state, `${refreshed.name}摸两张牌`) }
+  next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
+  return next
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
-
-  dispatch: (action) => {
-    if (action.type === 'RESTART') {
-      set({ ...createInitialState() })
-      return
-    }
-    const state = get()
-    if (state.phase === 'finished') return
-
+  dispatch: action => {
+    if (action.type === 'RESTART') { set({ ...createInitialState() }); return }
+    const state = get(); if (state.phase === 'finished') return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
-      if (state.phase !== action.unit || unit.movement <= 0) return
-      const path = findPath(state, unit.position, action.to, unit.id)
-      if (!path.length || path.length > unit.movement) return
-      const updated = { ...unit, position: action.to, movement: unit.movement - path.length, animation: 'move' as const }
-      const units = { ...state.units, [action.unit]: updated }
-      set({ units, reachable: action.unit === 'player' ? reachableCells({ ...state, units }, updated) : [], pathPreview: [], message: `${unit.name}移动了 ${path.length} 格` })
-      return
+      if (state.phase !== action.unit || state.turnStage !== 'play') return
+      const path = findPath(state, unit.position, action.to, unit.id), cost = pathCost(state, path)
+      if (!path.length || cost > unit.movement) return
+      const updated = { ...unit, position: action.to, movement: unit.movement - cost, animation: 'move' as const }
+      const units = { ...state.units, [action.unit]: updated }, message = `${unit.name}移动 ${cost} 点（${path.length} 格）`
+      set({ units, reachable: action.unit === 'player' ? reachableCells({ ...state, units }, updated) : [], pathPreview: [], message, history: log(state, message) }); return
     }
-
     if (action.type === 'PLAY_CARD') {
       const unit = state.units[action.unit]
-      if (state.phase !== action.unit) return
-      const removed = removeCard(unit.hand, action.cardId)
-      if (!removed.card) return
-      if (removed.card.kind === 'peach') {
+      if (state.phase !== action.unit || state.turnStage !== 'play') return
+      const removed = takeCard(unit.hand, action.cardId); if (!removed.card) return
+      const card = removed.card, targetId = action.target ?? rival(action.unit), target = state.units[targetId]
+      let base: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, animation: 'cast' } }, discard: [...state.discard, card], selectedCardId: null }
+      if (card.kind === 'peach') {
         if (!canPeach(unit)) return
-        set({ units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, hp: unit.hp + 1, animation: 'heal' } }, discard: [...state.discard, removed.card], selectedCardId: null, message: `${unit.name}使用【桃】，回复 1 点体力` })
-        return
+        const healed = { ...unit, hand: removed.hand, hp: unit.hp + 1, animation: 'heal' as const }; const message = `${unit.name}使用【桃】，回复 1 点体力`
+        set({ units: { ...state.units, [action.unit]: healed }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
-      if (removed.card.kind === 'slash' && action.target) {
-        const target = state.units[action.target]
+      if (card.kind === 'wine') {
+        if (unit.wineUsed) return
+        const message = `${unit.name}饮【酒】，下一张【杀】伤害 +1`
+        set({ units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, wineUsed: true, drunk: true, animation: 'heal' } }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
+      }
+      if (card.kind === 'drawTwo') {
+        const draw = drawCards(base.deck, base.discard, 2), actor = base.units[action.unit], message = `${unit.name}使用【无中生有】，摸两张牌`
+        set({ units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }); return
+      }
+      if (isEquipment(card.kind)) {
+        const slot = card.kind === 'shield' ? 'armor' : 'weapon', old = unit.equipment[slot]
+        const equipped = { ...unit, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: 'cast' as const }, message = `${unit.name}装备【${card.kind === 'shield' ? '仁王盾' : card.kind === 'crossbow' ? '诸葛连弩' : '青釭剑'}】`
+        set({ units: { ...state.units, [action.unit]: equipped }, discard: old ? [...state.discard, old] : state.discard, selectedCardId: null, message, history: log(state, message) }); return
+      }
+      if (card.kind === 'slash') {
         if (!canSlash(state, unit, target)) return
-        const base: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand } }, discard: [...state.discard, removed.card], selectedCardId: null }
-        set(resolveAttack(base, action.unit, action.target))
+        set(resolveSlash(base, action.unit, targetId)); return
+      }
+      if (card.kind === 'duel') { set(resolveDuel(base, action.unit, targetId)); return }
+      if (card.kind === 'dismantle' || card.kind === 'snatch') {
+        if (card.kind === 'snatch' && pathDistance(state, unit.position, target.position, unit.id) > 1) return
+        const stolen = target.hand[0] ?? target.equipment.weapon ?? target.equipment.armor
+        if (!stolen) return
+        const targetHand = target.hand.filter(c => c.id !== stolen.id)
+        const targetEquipment = { weapon: target.equipment.weapon?.id === stolen.id ? undefined : target.equipment.weapon, armor: target.equipment.armor?.id === stolen.id ? undefined : target.equipment.armor }
+        const actor = base.units[action.unit], gain = card.kind === 'snatch', message = `${unit.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}一张牌`
+        set({ units: { ...base.units, [targetId]: { ...target, hand: targetHand, equipment: targetEquipment, animation: 'hit' }, [action.unit]: { ...actor, hand: gain ? [...actor.hand, stolen] : actor.hand } }, discard: gain ? base.discard : [...base.discard, stolen], message, history: log(state, message) }); return
       }
       return
     }
-
-    if (action.type === 'RESPOND' && state.pendingAttack) {
-      const { attacker, target } = state.pendingAttack
-      set(resolveAttack(state, attacker, target))
-      return
-    }
-
     if (action.type === 'END_TURN' && state.phase === 'player') {
-      let scored = scoreControlPoint(state, 'player')
-      if (scored.winner) { set(scored); return }
-      const draw = drawCards(scored.deck, scored.discard, 2)
-      const enemy = { ...scored.units.enemy, hand: [...scored.units.enemy.hand, ...draw.drawn], movement: 3, attacksUsed: 0, animation: 'idle' as const }
-      set({ ...scored, units: { ...scored.units, enemy }, deck: draw.deck, discard: draw.discard, phase: 'ai', selectedCardId: null, reachable: [], pathPreview: [], message: '敌方正在思考…' })
-      void get().runAI()
+      let next = discardOverflow({ ...state, turnStage: 'discard' }, 'player'); next = scoreControlPoint(next, 'player')
+      if (next.winner) { set(next); return }
+      next = beginTurn({ ...next, turnStage: 'finish' }, 'enemy'); set(next); void get().runAI()
     }
   },
-
-  selectCard: (id) => {
-    const state = get()
-    if (state.phase !== 'player') return
+  selectCard: id => {
+    const state = get(); if (state.phase !== 'player') return
     if (!id) { set({ selectedCardId: null, message: '已取消选牌' }); return }
-    const selectedCard = state.units.player.hand.find(c => c.id === id)
-    if (!selectedCard) { set({ selectedCardId: null }); return }
-    if (selectedCard.kind === 'dodge') { set({ message: '【闪】会在受到攻击时自动使用' }); return }
-    set({ selectedCardId: state.selectedCardId === id ? null : id, message: selectedCard.kind === 'slash' ? '选择攻击范围内的敌方棋子' : '再次点击【桃】立即使用' })
-    if (selectedCard.kind === 'peach' && state.selectedCardId === id) get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id })
+    const card = state.units.player.hand.find(c => c.id === id); if (!card) return
+    if (card.kind === 'dodge') { set({ message: '【闪】会在受到【杀】时自动打出' }); return }
+    const needsTarget = ['slash', 'duel', 'dismantle', 'snatch'].includes(card.kind)
+    if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
+    set({ selectedCardId: state.selectedCardId === id ? null : id, message: needsTarget ? `选择敌将使用【${card.kind === 'slash' ? '杀' : card.kind === 'duel' ? '决斗' : card.kind === 'snatch' ? '顺手牵羊' : '过河拆桥'}】` : '再次点击确认使用' })
   },
-
-  hoverCell: (position) => {
-    const state = get()
-    if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
+  hoverCell: position => {
+    const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
     const path = findPath(state, state.units.player.position, position, 'player')
-    set({ pathPreview: path.length <= state.units.player.movement ? path : [] })
+    set({ pathPreview: pathCost(state, path) <= state.units.player.movement ? path : [] })
   },
-
-  resetAnimation: (team) => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
-
+  resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(550)
-    let state = get()
-    if (state.phase !== 'ai') return
+    await wait(450); let state = get(); if (state.phase !== 'ai') return
     let ai = state.units.enemy
-    const player = state.units.player
-
-    const peach = ai.hand.find(c => c.kind === 'peach')
-    if (peach && ai.hp < ai.maxHp) {
-      get().dispatch({ type: 'PLAY_CARD', unit: 'enemy', cardId: peach.id })
-      await wait(500)
+    for (const kind of ['peach', 'drawTwo', 'shield', 'qinggang', 'crossbow', 'wine'] as const) {
       state = get(); ai = state.units.enemy
+      const card = ai.hand.find(c => c.kind === kind)
+      if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
+      get().dispatch({ type: 'PLAY_CARD', unit: 'enemy', cardId: card.id }); await wait(280)
     }
-
-    const slash = ai.hand.find(c => c.kind === 'slash')
-    if (slash && canSlash(state, ai, player)) {
-      get().dispatch({ type: 'PLAY_CARD', unit: 'enemy', cardId: slash.id, target: 'player' })
-      await wait(650)
-    } else {
-      const targets = slash ? [player.position, state.controlPoint] : [state.controlPoint, player.position]
-      let bestPath: Position[] = []
-      for (const target of targets) {
-        const isControlPoint = samePosition(target, state.controlPoint)
-        const candidates = isControlPoint ? [target] : [
-          { x: target.x + 1, y: target.y }, { x: target.x - 1, y: target.y },
-          { x: target.x, y: target.y + 1 }, { x: target.x, y: target.y - 1 },
-        ]
-        for (const candidate of candidates) {
-          const path = findPath(state, ai.position, candidate, 'enemy')
-          if (path.length && (!bestPath.length || path.length < bestPath.length)) bestPath = path
-        }
-        if (bestPath.length) break
-      }
-      if (bestPath.length) {
-        const step = bestPath[Math.min(ai.movement, bestPath.length) - 1]
-        get().dispatch({ type: 'MOVE', unit: 'enemy', to: step })
-        await wait(650)
-      }
-      state = get(); ai = state.units.enemy
-      const nextSlash = ai.hand.find(c => c.kind === 'slash')
-      if (nextSlash && canSlash(state, ai, state.units.player)) {
-        get().dispatch({ type: 'PLAY_CARD', unit: 'enemy', cardId: nextSlash.id, target: 'player' })
-        await wait(650)
-      }
+    state = get(); ai = state.units.enemy
+    const aggressive = ai.hand.find(c => c.kind === 'slash')
+    if (!aggressive || !canSlash(state, ai, state.units.player)) {
+      const player = state.units.player
+      const targets = aggressive ? [{ x: player.position.x + 1, y: player.position.y }, { x: player.position.x - 1, y: player.position.y }, { x: player.position.x, y: player.position.y + 1 }, { x: player.position.x, y: player.position.y - 1 }] : [state.controlPoint]
+      let best: Position[] = []
+      for (const target of targets) { const path = findPath(state, ai.position, target, 'enemy'); if (path.length && (!best.length || pathCost(state, path) < pathCost(state, best))) best = path }
+      if (best.length) { let cost = 0, destination = ai.position; for (const p of best) { const step = pathCost(state, [p]); if (cost + step > ai.movement) break; cost += step; destination = p } get().dispatch({ type: 'MOVE', unit: 'enemy', to: destination }); await wait(500) }
     }
-
-    state = get()
-    if (state.phase === 'finished') return
-    let scored = scoreControlPoint(state, 'enemy')
-    if (scored.winner) { set(scored); return }
-    const draw = drawCards(scored.deck, scored.discard, 2)
-    const nextPlayer = { ...scored.units.player, hand: [...scored.units.player.hand, ...draw.drawn], movement: 3, attacksUsed: 0, animation: 'idle' as const }
-    const units = { ...scored.units, player: nextPlayer, enemy: { ...scored.units.enemy, animation: 'idle' as const } }
-    const next: GameState = { ...scored, units, deck: draw.deck, discard: draw.discard, phase: 'player', turn: scored.turn + 1, message: '你的回合 · 选择高亮格移动，或使用手牌', selectedCardId: null, pathPreview: [], reachable: [] }
-    next.reachable = reachableCells(next, nextPlayer)
-    set(next)
+    state = get(); ai = state.units.enemy
+    for (const kind of ['dismantle', 'snatch', 'duel', 'slash'] as const) {
+      const card = ai.hand.find(c => c.kind === kind); if (!card) continue
+      if (kind === 'slash' && !canSlash(state, ai, state.units.player)) continue
+      if (kind === 'snatch' && pathDistance(state, ai.position, state.units.player.position, 'enemy') > 1) continue
+      get().dispatch({ type: 'PLAY_CARD', unit: 'enemy', cardId: card.id, target: 'player' }); await wait(420); state = get(); ai = state.units.enemy
+      if (state.phase === 'finished') return
+    }
+    state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, 'enemy'); next = scoreControlPoint(next, 'enemy')
+    if (next.winner) { set(next); return }
+    set(beginTurn({ ...next, turn: next.turn + 1, turnStage: 'finish' }, 'player'))
   },
 }))
 
-export function isCellReachable(cells: Position[], position: Position) {
-  return cells.some(cell => samePosition(cell, position))
-}
-
-export function attackDistance(state: GameState) {
-  return pathDistance(state, state.units.player.position, state.units.enemy.position, 'player')
-}
+export const isCellReachable = (cells: Position[], position: Position) => cells.some(cell => samePosition(cell, position))
+export const attackDistance = (state: GameState) => pathDistance(state, state.units.player.position, state.units.enemy.position, 'player')
+export const rangeLabel = (unit: Unit) => `攻击范围 ${attackRange(unit)}`
