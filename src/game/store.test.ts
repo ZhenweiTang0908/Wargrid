@@ -542,6 +542,34 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('青龙偃月刀'))).toBe(true)
   })
 
+  it('adds one damage with Guding Blade against an empty hand', () => {
+    const slash = card('slash'), weapon = card('gudingBlade')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [slash], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.message).toContain('古锭刀')
+  })
+
+  it('turns slash into chained fire damage with Vermilion Fan', () => {
+    const slash = card('slash'), weapon = card('vermilionFan')
+    useGameStore.setState(state => ({
+      deck: [card('peach', 'heart')],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 4 }, hand: [slash], equipment: { weapon } },
+        north: { ...state.units.north, position: { x: 4, y: 2 }, hand: [], chained: true },
+        east: { ...state.units.east, position: { x: 6, y: 4 }, hand: [], chained: true },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.chained).toBe(false)
+    expect(state.units.east.chained).toBe(false)
+  })
+
   it('uses a red Bagua judgement as dodge before opening a response window', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({

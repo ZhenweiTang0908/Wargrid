@@ -236,7 +236,11 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
   }
   const base: GameState = { ...state, units, discard }
-  return damage(base, attackerId, targetId, attacker.drunk ? 2 : 1, `${target.name}受到${attacker.drunk ? ' 2 ' : ' 1 '}点伤害${weaponText}`)
+  const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
+  const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus
+  const nature = attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
+  const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}${weaponText}`
+  return nature === 'fire' ? elementalDamage(base, attackerId, targetId, amount, 'fire') : damage(base, attackerId, targetId, amount, effectText)
 }
 
 function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial<GameState> {
@@ -707,7 +711,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
