@@ -1083,4 +1083,26 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().units.player.hp).toBe(1)
     expect(useGameStore.getState().units.player.hand).toEqual([extra])
   })
+
+  it('lets Lu Meng skip discarding through Keji after using no slash', () => {
+    useGameStore.getState().selectGeneral('keji')
+    const hand = Array.from({ length: 7 }, () => card('dodge'))
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 7 }, hand, attacksUsed: 0 } } }))
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual(hand)
+    expect(state.discard).toHaveLength(0)
+    expect(state.history.some(entry => entry.includes('克己'))).toBe(true)
+    expect(state.currentUnit).not.toBe('player')
+  })
+
+  it('requires Lu Meng to discard after using a slash', () => {
+    useGameStore.getState().selectGeneral('keji')
+    const hand = Array.from({ length: 7 }, () => card('dodge'))
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand, attacksUsed: 1 } } }))
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    const state = useGameStore.getState()
+    expect(state.turnStage).toBe('discard')
+    expect(state.message).toContain('请选择 2 张手牌')
+  })
 })

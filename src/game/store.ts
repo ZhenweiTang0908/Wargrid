@@ -24,6 +24,7 @@ interface GameStore extends GameState {
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction' | 'gender'>>> = {
+  keji: { name: '吕蒙', title: '白衣渡江', skill: 'keji', skills: ['keji'], faction: 'wu', gender: 'male' },
   kurou: { name: '黄盖', title: '轻身为国', skill: 'kurou', skills: ['kurou'], faction: 'wu', gender: 'male' },
   tieqi: { name: '马超', title: '一骑当千', skill: 'tieqi', skills: ['mashu', 'tieqi'], faction: 'shu', gender: 'male' },
   rende: { name: '刘备', title: '乱世的枭雄', skill: 'rende', skills: ['rende', 'jijiang'], faction: 'shu', gender: 'male' },
@@ -46,7 +47,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { keji: 4, kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -722,8 +723,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (action.type === 'END_TURN' && state.phase === 'player') {
       const player = state.units.player, excess = Math.max(0, player.hand.length - player.hp)
+      const keji = player.skills.includes('keji') && player.attacksUsed === 0 && excess > 0
       let turnState = state
-      if (state.turnStage !== 'discard' && excess > 0) {
+      if (state.turnStage !== 'discard' && excess > 0 && !keji) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
         set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
       }
@@ -733,6 +735,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const message = `${player.name}弃置 ${chosen.length} 张手牌`
         const units = { ...state.units, player: { ...player, hand: player.hand.filter(card => !state.discardSelection.includes(card.id)) } }
         turnState = { ...state, units, discard: [...state.discard, ...chosen], history: log(state, message), message }
+      }
+      if (keji) {
+        const message = `${player.name}发动【克己】，本回合未使用【杀】，跳过弃牌阶段`
+        turnState = { ...turnState, message, history: log(turnState, message) }
       }
       let next = resolveEndSkill({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player'); next = resolveEndTurnTerrain(next, 'player'); next = scoreControlPoint(next, 'player')
       if (next.winner) { set(next); return }
