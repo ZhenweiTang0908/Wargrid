@@ -44,6 +44,30 @@ function BattleLighting() {
   </>
 }
 
+function ControlBeacon({ owner }: { owner: Team | null }) {
+  const ring = useRef<THREE.Mesh>(null)
+  const beam = useRef<THREE.Mesh>(null)
+  const colors: Record<Team, string> = { player: '#55c7ff', north: '#ef5350', east: '#ae72e8', west: '#ef9b43' }
+  const color = owner ? colors[owner] : '#f2c66d'
+  useFrame(({ clock }) => {
+    const pulse = 1 + Math.sin(clock.elapsedTime * 2.25) * .09
+    if (ring.current) ring.current.scale.setScalar(pulse)
+    if (beam.current) beam.current.scale.y = .82 + Math.sin(clock.elapsedTime * 1.7) * .18
+  })
+  return <group position-y={.12}>
+    <mesh ref={ring} rotation-x={-Math.PI / 2}>
+      <torusGeometry args={[.3, .042, 8, 32]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.45} />
+    </mesh>
+    <mesh ref={beam} position-y={.36}>
+      <cylinderGeometry args={[.12, .24, .72, 18, 1, true]} />
+      <meshBasicMaterial color={color} transparent opacity={owner ? .18 : .09} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+    <pointLight position-y={.3} color={color} intensity={owner ? 2.2 : 1.1} distance={2.2} />
+    <Sparkles count={owner ? 20 : 12} scale={.82} size={2.2} speed={owner ? .48 : .3} color={color} />
+  </group>
+}
+
 function Tile({ position }: { position: Position }) {
   const state = useGameStore()
   const dispatch = useGameStore(s => s.dispatch)
@@ -51,7 +75,8 @@ function Tile({ position }: { position: Position }) {
   const reachable = isCellReachable(state.reachable, position)
   const inPath = isCellReachable(state.pathPreview, position)
   const control = samePosition(state.controlPoint, position)
-  const occupied = Object.values(state.units).some(u => samePosition(u.position, position))
+  const occupant = Object.values(state.units).find(u => u.hp > 0 && samePosition(u.position, position))
+  const occupied = !!occupant
   const obstacle = state.obstacles.some(o => samePosition(o, position))
   const terrain = terrainAt(state, position)
   const mapObject = state.mapObjects.find(item => samePosition(item.position, position))
@@ -61,7 +86,8 @@ function Tile({ position }: { position: Position }) {
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
   const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
-  const color = obstacle ? '#453f36' : control ? '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
+  const controlColors: Record<Team, string> = { player: '#235e79', north: '#763a32', east: '#5c4177', west: '#76502c' }
+  const color = obstacle ? '#453f36' : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
 
   return (
     <group position={worldPosition(position)}>
@@ -75,15 +101,7 @@ function Tile({ position }: { position: Position }) {
         <boxGeometry args={[.98, obstacle ? .82 : .12, .98]} />
         <meshStandardMaterial color={color} roughness={.72} metalness={control ? .25 : .05} emissive={inPath ? '#147a89' : control ? '#3d2207' : '#000'} emissiveIntensity={.55} />
       </mesh>
-      {control && !obstacle && (
-        <group position-y={.12}>
-          <mesh rotation-x={-Math.PI / 2}>
-            <torusGeometry args={[.3, .035, 8, 32]} />
-            <meshStandardMaterial color="#f2c66d" emissive="#cc842d" emissiveIntensity={1.2} />
-          </mesh>
-          <Sparkles count={12} scale={.75} size={2} speed={.3} color="#f2c66d" />
-        </group>
-      )}
+      {control && !obstacle && <ControlBeacon owner={occupant?.team ?? null} />}
       {attackPreview && !obstacle && <mesh position-y={.085} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[.34, .43, 24]} />
         <meshBasicMaterial color="#ff725f" transparent opacity={.7} side={THREE.DoubleSide} />
