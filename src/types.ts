@@ -17,7 +17,7 @@ export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp' | 'watchtower'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
-export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'guicai' | 'jianxiong' | 'yiji' | 'tiandu' | 'qingnang' | 'jijiu' | 'yingzi' | 'fanjian' | 'guanxing' | 'kongcheng' | 'tuxi' | 'paoxiao' | 'jizhi' | 'qicai' | 'qixi' | 'biyue' | 'zhiheng' | 'wushuang'
+export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'guicai' | 'jianxiong' | 'yiji' | 'tiandu' | 'qingnang' | 'jijiu' | 'yingzi' | 'fanjian' | 'guanxing' | 'kongcheng' | 'tuxi' | 'luoyi' | 'paoxiao' | 'jizhi' | 'qicai' | 'qixi' | 'biyue' | 'zhiheng' | 'wushuang'
 
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
@@ -46,6 +46,7 @@ export interface Unit {
   attacksUsed: number
   wineUsed: boolean
   drunk: boolean
+  luoyiActive: boolean
   chained: boolean
   skillUsed: boolean
   animation: AnimationKind

@@ -255,6 +255,21 @@ describe('standard card scenarios', () => {
     expect(result.history.some(entry => entry.includes('突袭'))).toBe(true)
   })
 
+  it('lets Xu Chu draw one and add damage through Luoyi', () => {
+    useGameStore.getState().selectGeneral('luoyi')
+    const drawn = card('slash'), spare = card('dodge')
+    const state = useGameStore.getState()
+    state.deck = [drawn, spare]
+    state.units.player = { ...state.units.player, hand: [] }
+    const begun = beginTurn(state, 'player')
+    expect(begun.units.player.hand).toEqual([drawn])
+    expect(begun.units.player.luoyiActive).toBe(true)
+    useGameStore.setState({ ...begun, units: { ...begun.units, player: { ...begun.units.player, position: { x: 4, y: 1 } }, north: { ...begun.units.north, position: { x: 4, y: 0 }, hand: [] } } })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: drawn.id, target: 'north' })
+    expect(useGameStore.getState().units.north.hp).toBe(2)
+    expect(useGameStore.getState().history.some(entry => entry.includes('2 点'))).toBe(true)
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')

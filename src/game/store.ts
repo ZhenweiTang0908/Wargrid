@@ -31,6 +31,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   yingzi: { name: '周瑜', title: '大都督', skill: 'yingzi', skills: ['yingzi', 'fanjian'], faction: 'wu', gender: 'male' },
   guanxing: { name: '诸葛亮', title: '迟暮的丞相', skill: 'guanxing', skills: ['guanxing', 'kongcheng'], faction: 'shu', gender: 'male' },
   tuxi: { name: '张辽', title: '前将军', skill: 'tuxi', skills: ['tuxi'], faction: 'wei', gender: 'male' },
+  luoyi: { name: '许褚', title: '虎痴', skill: 'luoyi', skills: ['luoyi'], faction: 'wei', gender: 'male' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu', gender: 'male' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu', gender: 'female' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu', gender: 'male' },
@@ -38,7 +39,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -309,7 +310,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
   }
   const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
-  const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus
+  const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus + (attacker.luoyiActive ? 1 : 0)
   const nature = attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
   const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}${weaponText}`
   return nature === 'fire' ? elementalDamage(base, attackerId, targetId, amount, 'fire') : damage(base, attackerId, targetId, amount, effectText)
@@ -326,7 +327,8 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial
     const responder = working.units[current]
     const slashes = responder.hand.filter(card => card.kind === 'slash' || (responder.skill === 'longdan' && card.kind === 'dodge')).slice(0, requiredCount)
     if (slashes.length < requiredCount) {
-      return damage(working, other, current, 1, `${working.units[current].name}未能在【决斗】中出杀，受到 1 点伤害`)
+      const duelDamage = working.units[other].luoyiActive ? 2 : 1
+      return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`)
     }
     const slashIds = new Set(slashes.map(card => card.id))
     const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
@@ -467,10 +469,11 @@ export function beginTurn(state: GameState, team: Team): GameState {
       working = { ...working, units, message, history: log(working, message) }
     }
   }
-  const drawCount = tuxiCount ? 0 : unit.skills.includes('yingzi') ? 3 : 2
+  const luoyiActive = unit.skills.includes('luoyi')
+  const drawCount = tuxiCount ? 0 : luoyiActive ? 1 : unit.skills.includes('yingzi') ? 3 : 2
   const draw = drawCards(working.deck, working.discard, drawCount)
-  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, skillUsed: false, animation: 'idle' }
-  const drawText = tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
+  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, skillUsed: false, animation: 'idle' }
+  const drawText = tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : luoyiActive ? '发动【裸衣】摸一张牌' : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
   const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
@@ -750,7 +753,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card] }
         base = { ...base, ...continueDuel(base, pending.source, 'player') }
-      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能在【决斗】中出杀，受到 1 点伤害`) }
+      } else {
+        const duelDamage = base.units[pending.source].luoyiActive ? 2 : 1
+        base = { ...base, ...damage(base, pending.source, 'player', duelDamage, `${base.units.player.name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`) }
+      }
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
