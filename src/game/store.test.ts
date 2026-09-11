@@ -29,6 +29,34 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['duel', 'nullify']))
   })
 
+  it('pauses duel whenever the player must play slash', () => {
+    const duel = card('duel', 'spade'), playerSlash = card('slash', 'heart'), enemySlash = card('slash', 'club')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel, playerSlash] }, north: { ...state.units.north, hand: [enemySlash] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    let state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'duel', required: 'slash', source: 'north' })
+    expect(state.units.north.hand).toHaveLength(0)
+
+    useGameStore.getState().respond(playerSlash.id)
+    state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hp).toBe(5)
+    expect(state.discard.map(discarded => discarded.id)).toEqual(expect.arrayContaining([duel.id, enemySlash.id, playerSlash.id]))
+  })
+
+  it('damages the player when declining an enemy duel', () => {
+    const duel = card('duel', 'club')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [duel] }, player: { ...state.units.player, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse?.effect).toBe('duel')
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.message).toContain('决斗')
+  })
+
   it('uses peach to rescue a unit entering dying state', () => {
     const slash = card('slash', 'heart'), peach = card('peach', 'heart', 3)
     useGameStore.setState(state => ({

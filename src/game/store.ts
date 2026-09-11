@@ -118,18 +118,23 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   return damage(base, attackerId, targetId, attacker.drunk ? 2 : 1, `${target.name}受到${attacker.drunk ? ' 2 ' : ' 1 '}点伤害`)
 }
 
-function resolveDuel(state: GameState, initiator: Team, targetId: Team): Partial<GameState> {
-  let units = { ...state.units }; let current = targetId; let other = initiator; const spent: Card[] = []
+function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial<GameState> {
+  let working = state, current = currentId, other = otherId
   for (let round = 0; round < 20; round++) {
-    const slash = responseCard(units[current], 'slash')
-    if (!slash) {
-      const base = { ...state, units, discard: [...state.discard, ...spent] }
-      return damage(base, other, current, 1, `${units[current].name}在【决斗】中受到 1 点伤害`)
+    if (current === 'player') {
+      const prompt = `${working.units[other].name}在【决斗】中出杀，请打出【杀】响应`
+      return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', prompt }, message: prompt, history: log(working, prompt) }
     }
-    spent.push(slash); units = { ...units, [current]: { ...units[current], hand: units[current].hand.filter(c => c.id !== slash.id), animation: 'cast' } }
+    const slash = responseCard(working.units[current], 'slash')
+    if (!slash) {
+      return damage(working, other, current, 1, `${working.units[current].name}未能在【决斗】中出杀，受到 1 点伤害`)
+    }
+    const responder = working.units[current]
+    const message = `${responder.name}${responseText(responder, slash, 'slash')}响应【决斗】`
+    working = { ...working, units: { ...working.units, [current]: { ...responder, hand: responder.hand.filter(c => c.id !== slash.id), animation: 'cast' } }, discard: [...working.discard, slash], message, history: log(working, message) }
     ;[current, other] = [other, current]
   }
-  return { units, discard: [...state.discard, ...spent] }
+  return working
 }
 
 function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians'): Partial<GameState> {
@@ -269,7 +274,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         set(resolveSlash(base, action.unit, targetId)); return
       }
-      if (kind === 'duel') { set(resolveDuel(base, action.unit, targetId)); return }
+      if (kind === 'duel') { set(continueDuel(base, targetId, action.unit)); return }
       if (kind === 'arrows' || kind === 'barbarians') {
         set(resolveGroupTrick(base, action.unit, kind)); return
       }
@@ -320,6 +325,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       set(base)
       if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
+      return
+    }
+    if (pending.effect === 'duel') {
+      if (card) {
+        const player = base.units.player
+        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card] }
+        base = { ...base, ...continueDuel(base, pending.source, 'player') }
+      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能在【决斗】中出杀，受到 1 点伤害`) }
+      set(base)
+      if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
     }
     if (card) {
