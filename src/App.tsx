@@ -97,6 +97,7 @@ function UnitPiece({ team }: { team: Team }) {
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     selectedKind === 'duel' || selectedKind === 'dismantle' ||
+    (selectedKind === 'borrowedSword' && !!unit.equipment.weapon) ||
     selectedKind === 'indulgence' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
     (selectedKind === 'snatch' && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1))
   )

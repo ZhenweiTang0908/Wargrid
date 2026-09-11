@@ -722,4 +722,30 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'south-cache', cardId: received[0].id })
     expect(useGameStore.getState().units.player.hand).toEqual(received)
   })
+
+  it('forces an armed target to slash through Borrowed Sword', () => {
+    const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [trick] },
+      north: { ...state.units.north, position: { x: 4, y: 1 }, hand: [forcedSlash], equipment: { weapon } },
+      east: { ...state.units.east, position: { x: 4, y: 2 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.north.equipment.weapon).toEqual(weapon)
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([trick.id, forcedSlash.id]))
+  })
+
+  it('takes the weapon when Borrowed Sword target cannot slash', () => {
+    const trick = card('borrowedSword'), weapon = card('greenDragon')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [trick] }, north: { ...state.units.north, hand: [], equipment: { weapon } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.weapon).toBeUndefined()
+    expect(state.units.player.hand).toContainEqual(weapon)
+    expect(state.message).toContain('获得其')
+  })
 })

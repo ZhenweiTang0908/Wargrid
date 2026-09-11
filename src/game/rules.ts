@@ -27,7 +27,7 @@ export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => 
 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
-  snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, greenDragon: 1, shield: 2,
+  snatch: 5, drawTwo: 4, borrowedSword: 2, crossbow: 2, qinggang: 2, greenDragon: 1, shield: 2,
   spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2,
   gudingBlade: 1, vermilionFan: 1,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
