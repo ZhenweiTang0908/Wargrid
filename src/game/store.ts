@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, findPath, isEquipment, pathCost, pathDistance, reachableCells, samePosition, scoreControlPoint } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, findPath, isEquipment, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -376,7 +376,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const units = { ...state.units, player: { ...player, hand: player.hand.filter(card => !state.discardSelection.includes(card.id)) } }
         turnState = { ...state, units, discard: [...state.discard, ...chosen], history: log(state, message), message }
       }
-      let next = scoreControlPoint({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player')
+      let next = resolveEndTurnTerrain({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player'); next = scoreControlPoint(next, 'player')
       if (next.winner) { set(next); return }
       const nextUnit = nextSeat(next, 'player'); next = beginTurn({ ...next, turnStage: 'finish' }, nextUnit); set(next); void get().runAI()
     }
@@ -493,7 +493,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
     }
     if (state.turnStage === 'finish') {
-      let skipped = scoreControlPoint(state, aiId); if (skipped.winner) { set(skipped); return }
+      let skipped = resolveEndTurnTerrain(state, aiId); skipped = scoreControlPoint(skipped, aiId); if (skipped.winner) { set(skipped); return }
       const next = nextSeat(skipped, aiId), nextState = beginTurn({ ...skipped, turn: next === 'player' ? skipped.turn + 1 : skipped.turn }, next)
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
@@ -525,7 +525,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.pendingResponse) return
       if (state.phase === 'finished') return
     }
-    state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = scoreControlPoint(next, aiId)
+    state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
     if (next.winner) { set(next); return }
     const nextId = nextSeat(next, aiId), nextState = beginTurn({ ...next, turn: nextId === 'player' ? next.turn + 1 : next.turn, turnStage: 'finish' }, nextId)
     set(nextState); if (nextId !== 'player') void get().runAI()

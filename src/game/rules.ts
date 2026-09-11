@@ -17,7 +17,12 @@ export const TERRAIN: Terrain[] = [
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
 export const positionKey = (p: Position) => `${p.x},${p.y}`
-export const terrainAt = (state: Pick<GameState, 'terrain'>, p: Position): TerrainKind => state.terrain.find(t => samePosition(t.position, p))?.kind ?? 'plain'
+export function terrainAt(state: Pick<GameState, 'terrain'>, p: Position): TerrainKind {
+  for (let index = state.terrain.length - 1; index >= 0; index--) {
+    if (samePosition(state.terrain[index].position, p)) return state.terrain[index].kind
+  }
+  return 'plain'
+}
 export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => terrainAt(state, p) === 'water' ? 2 : 1
 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
@@ -114,9 +119,11 @@ export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   const base = pathDistance(state, attacker.position, target.position, attacker.id)
   const attackBonus = attacker.equipment.offensiveMount?.kind === 'redHare' ? 1 : 0
   const defenseBonus = target.equipment.defensiveMount?.kind === 'dilu' ? 1 : 0
-  return Math.max(1, base - attackBonus + defenseBonus)
+  const forestCover = terrainAt(state, target.position) === 'forest' ? 1 : 0
+  return Math.max(1, base - attackBonus + defenseBonus + forestCover)
 }
-export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= attackRange(attacker)
+export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : 0)
+export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
 export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'spear', 'axe', 'halberd', 'qilinBow', 'shield', 'bagua', 'redHare', 'dilu'].includes(kind)
@@ -135,6 +142,15 @@ export function scoreControlPoint(state: GameState, team: Team): GameState {
   if (!samePosition(unit.position, state.controlPoint) || unit.hp <= 0) return state
   const score = state.scores[team] + 1
   return { ...state, scores: { ...state.scores, [team]: score }, winner: score >= 3 ? team : state.winner, phase: score >= 3 ? 'finished' : state.phase, message: score >= 3 ? `${unit.name}占领中枢，赢得战局！` : `${unit.name}占领中枢，获得 1 分` }
+}
+
+export function resolveEndTurnTerrain(state: GameState, team: Team): GameState {
+  const unit = state.units[team]
+  if (unit.hp <= 0 || terrainAt(state, unit.position) !== 'camp') return state
+  const draw = drawCards(state.deck, state.discard, 1)
+  if (!draw.drawn.length) return state
+  const message = `${unit.name}驻守营地，获得一张补给牌`
+  return { ...state, units: { ...state.units, [team]: { ...unit, hand: [...unit.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: [message, ...state.history].slice(0, 8) }
 }
 
 export function determineWinner(units: Record<Team, Unit>): Team | null {

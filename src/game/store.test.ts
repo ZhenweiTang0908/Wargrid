@@ -23,7 +23,7 @@ describe('standard card scenarios', () => {
 
   it('requires the player to choose overflow cards during the discard phase', () => {
     const hand = Array.from({ length: 7 }, (_, index) => card(index % 2 ? 'slash' : 'dodge'))
-    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand } } }))
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand, position: { x: 4, y: 7 } } } }))
     useGameStore.getState().dispatch({ type: 'END_TURN' })
     let state = useGameStore.getState()
     expect(state.phase).toBe('player')

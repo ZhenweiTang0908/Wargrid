@@ -253,7 +253,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>每回合移动 3 点。水域消耗 2 点，武器会改变攻击距离。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>水域耗 2 移动力；森林提供掩护；山脊增加射程；营地在回合末补给一张牌。</p></div>
       <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>

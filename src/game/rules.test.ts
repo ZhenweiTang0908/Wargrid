@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, findPath, movementCost, pathDistance, reachableCells, scoreControlPoint, slashLimit } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -58,6 +58,30 @@ describe('card and victory rules', () => {
     const defender = { ...state.units.north, position: { x: 4, y: 0 }, equipment: { defensiveMount: { id: 'd', kind: 'dilu' as const, suit: 'club' as const, rank: 5 } } }
     const mountedState = { ...state, units: { ...state.units, player: attacker, north: defender } }
     expect(combatDistance(mountedState, attacker, defender)).toBe(2)
+  })
+
+  it('uses forests as cover and ridges as high ground', () => {
+    const state = createInitialState(fixedDeck())
+    const forestAttacker = { ...state.units.player, position: { x: 1, y: 0 } }
+    const forestDefender = { ...state.units.north, position: { x: 1, y: 1 } }
+    const forestState = { ...state, units: { ...state.units, player: forestAttacker, north: forestDefender } }
+    expect(combatDistance(forestState, forestAttacker, forestDefender)).toBe(2)
+    expect(canSlash(forestState, forestAttacker, forestDefender)).toBe(false)
+
+    const ridgeAttacker = { ...state.units.player, position: { x: 3, y: 3 } }
+    const ridgeDefender = { ...state.units.north, position: { x: 3, y: 1 } }
+    const ridgeState = { ...state, units: { ...state.units, player: ridgeAttacker, north: ridgeDefender } }
+    expect(effectiveAttackRange(ridgeState, ridgeAttacker)).toBe(2)
+    expect(canSlash(ridgeState, ridgeAttacker, ridgeDefender)).toBe(true)
+  })
+
+  it('draws one supply card when a turn ends in a camp', () => {
+    const state = createInitialState(fixedDeck())
+    const before = state.units.player.hand.length
+    const result = resolveEndTurnTerrain(state, 'player')
+    expect(result.units.player.hand).toHaveLength(before + 1)
+    expect(result.message).toContain('补给牌')
+    expect(result.deck).toHaveLength(state.deck.length - 1)
   })
 
   it('reshuffles the discard pile when drawing from an empty deck', () => {
