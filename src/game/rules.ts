@@ -1,4 +1,4 @@
-import type { Card, CardKind, GameState, Position, Suit, Team, Terrain, TerrainKind, Unit } from '../types'
+import type { Card, CardKind, GameState, Identity, Position, Suit, Team, Terrain, TerrainKind, Unit } from '../types'
 
 export const BOARD_SIZE = 9
 export const CONTROL_POINT: Position = { x: 4, y: 4 }
@@ -179,7 +179,8 @@ export function determineWinner(units: Record<Team, Unit>): Team | null {
   return null
 }
 
-export function createInitialState(deck = createDeck()): GameState {
+export function createInitialState(deck = createDeck(), randomizeIdentities = false, random = Math.random): GameState {
+  const hiddenIdentities: Identity[] = randomizeIdentities ? shuffle<Identity>(['loyalist', 'rebel', 'renegade'], random) : ['loyalist', 'rebel', 'renegade']
   const state: GameState = {
     size: BOARD_SIZE, terrain: TERRAIN, obstacles: OBSTACLES, controlPoint: CONTROL_POINT,
     mapObjects: [
@@ -192,9 +193,9 @@ export function createInitialState(deck = createDeck()): GameState {
     ],
     units: {
       player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
-      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: 'loyalist', faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
-      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: 'rebel', faction: 'wei', gender: 'male', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', skills: ['ganglie'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
-      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: 'renegade', faction: 'wei', gender: 'male', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: hiddenIdentities[0], faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: hiddenIdentities[1], faction: 'wei', gender: 'male', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', skills: ['ganglie'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: hiddenIdentities[2], faction: 'wei', gender: 'male', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
     },
     deck: deck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
     scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', generalSelected: false, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [],

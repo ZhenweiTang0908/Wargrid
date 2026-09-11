@@ -613,7 +613,7 @@ export function beginTurn(state: GameState, team: Team): GameState {
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  ...createInitialState(),
+  ...createInitialState(undefined, true),
   selectGeneral: skill => {
     const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill)
     if (sourceId === 'player') { set({ generalSelected: true, message: `已选择${state.units.player.name}，准备开战` }); return }
@@ -636,7 +636,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })
   },
   dispatch: action => {
-    if (action.type === 'RESTART') { set({ ...createInitialState() }); return }
+    if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true) }); return }
     const state = get(); if (state.phase === 'finished' || state.pendingResponse) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]

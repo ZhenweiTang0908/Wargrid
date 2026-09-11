@@ -44,6 +44,14 @@ describe('card and victory rules', () => {
     expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
   })
 
+  it('randomizes the three hidden identities while keeping the lord public', () => {
+    const deck = Array.from({ length: 24 }, (_, index) => ({ id: `identity-${index}`, kind: 'slash' as const, suit: 'spade' as const, rank: 7 }))
+    const state = createInitialState(deck, true, () => 0)
+    expect(state.units.player).toMatchObject({ identity: 'lord', revealed: true })
+    expect([state.units.north.identity, state.units.east.identity, state.units.west.identity]).toEqual(['rebel', 'renegade', 'loyalist'])
+    expect([state.units.north.revealed, state.units.east.revealed, state.units.west.revealed]).toEqual([false, false, false])
+  })
+
   it('applies terrain movement cost and equipment rules', () => {
     const state = createInitialState(fixedDeck())
     expect(movementCost(state, { x: 0, y: 2 })).toBe(2)
