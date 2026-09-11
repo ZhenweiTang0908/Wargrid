@@ -222,6 +222,11 @@ function UnitPiece({ team }: { team: Team }) {
       {unit.animation === 'attack' && <Sparkles count={22} scale={1.25} size={3.5} speed={1.5} color="#ffb347" position-y={.75} />}
       {unit.animation === 'hit' && <Sparkles count={18} scale={1.15} size={3.2} speed={1.8} color="#ff5549" position-y={.7} />}
       {unit.animation === 'cast' && <Sparkles count={24} scale={1.3} size={3.3} speed={1.1} color="#69d9e8" position-y={.8} />}
+      {unit.judgement.map((card, index) => <group key={card.id} position={[-.34 + index * .28, 1.95, 0]}>
+        <mesh><boxGeometry args={[.22, .3, .035]} /><meshStandardMaterial color={card.kind === 'lightning' ? '#33285e' : '#8b6531'} emissive={card.kind === 'lightning' ? '#4f35a3' : '#70410f'} emissiveIntensity={.85} /></mesh>
+        <mesh position-z={.022}><ringGeometry args={[.045, .065, 12]} /><meshBasicMaterial color={card.kind === 'lightning' ? '#b9a8ff' : '#ffd57b'} /></mesh>
+        <Sparkles count={5} scale={.35} size={1.5} speed={.35} color={card.kind === 'lightning' ? '#b9a8ff' : '#ffd57b'} />
+      </group>)}
       {unit.hp <= 0 && <mesh position-y={.5}><sphereGeometry args={[.8]} /><meshBasicMaterial color="#000" transparent opacity={.6} /></mesh>}
     </group>
   )

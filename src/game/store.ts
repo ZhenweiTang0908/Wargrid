@@ -366,13 +366,22 @@ export function beginTurn(state: GameState, team: Team): GameState {
       }
     }
     working = { ...working, deck: judged.deck, discard: [...judged.discard, delayed, ...judgementDiscard] }
-    if (delayed.kind === 'indulgence' && judge.suit !== 'heart') skipPlay = true
+    const judgeName = `${judge.suit}${judge.rank}`
+    if (delayed.kind === 'indulgence') {
+      const failed = judge.suit !== 'heart'; if (failed) skipPlay = true
+      const message = `${owner.name}的【乐不思蜀】判定为${judgeName}，${failed ? '跳过出牌阶段' : '判定通过'}`
+      working = { ...working, message, history: log(working, message) }
+    }
     if (delayed.kind === 'lightning') {
       const hit = judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9
-      if (hit) working = { ...working, ...elementalDamage(working, primaryTarget(working, team), team, 3, 'thunder') }
+      if (hit) {
+        const message = `${owner.name}的【闪电】判定为${judgeName}，受到 3 点雷电伤害`
+        working = { ...working, message, history: log(working, message), ...elementalDamage(working, team, team, 3, 'thunder') }
+      }
       else {
         const opponent = nextSeat(working, team)
-        working = { ...working, units: { ...working.units, [opponent]: { ...working.units[opponent], judgement: [...working.units[opponent].judgement, delayed] } }, discard: working.discard.filter(c => c.id !== delayed.id) }
+        const message = `${owner.name}的【闪电】判定为${judgeName}，传递给${working.units[opponent].name}`
+        working = { ...working, units: { ...working.units, [opponent]: { ...working.units[opponent], judgement: [...working.units[opponent].judgement, delayed] } }, discard: working.discard.filter(c => c.id !== delayed.id), message, history: log(working, message) }
       }
     }
   }
@@ -449,6 +458,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const virtualSlash = !!validJijiang || (action.asSlash && (spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
       const kind = virtualSlash ? 'slash' : virtualDismantle ? 'dismantle' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
+      if (card.kind === 'indulgence' && target.judgement.some(delayed => delayed.kind === 'indulgence')) return
+      if (card.kind === 'lightning' && unit.judgement.some(delayed => delayed.kind === 'lightning')) return
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
       const remainingHand = assistant ? unit.hand : spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
       const unitsAfterPlay = assistant

@@ -249,6 +249,31 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().discard.some(c => c.id === delayed.id)).toBe(false)
   })
 
+  it('rejects duplicate delayed tactics in the same judgement area', () => {
+    const first = card('indulgence'), duplicate = card('indulgence'), lightning = card('lightning'), duplicateLightning = card('lightning')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duplicate, lightning, duplicateLightning], judgement: [first] }, north: { ...state.units.north, judgement: [first] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duplicate.id, target: 'north' })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(duplicate)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: lightning.id })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duplicateLightning.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.judgement.filter(item => item.kind === 'lightning')).toHaveLength(1)
+    expect(state.units.player.hand).toContainEqual(duplicateLightning)
+  })
+
+  it('passes a missed lightning to the next living seat and records the judgement', () => {
+    const lightning = card('lightning'), safeJudge = card('peach', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [safeJudge, drawA, drawB]
+    state.units.player = { ...state.units.player, judgement: [lightning] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.judgement).toHaveLength(0)
+    expect(result.units.north.judgement).toContainEqual(lightning)
+    expect(result.discard).toContainEqual(safeJudge)
+    expect(result.discard).not.toContainEqual(lightning)
+    expect(result.history.some(entry => entry.includes('传递给'))).toBe(true)
+  })
+
   it('automatically nullifies a hostile tactic', () => {
     const duel = card('duel'), nullify = card('nullify', 'club', 12)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel] }, north: { ...state.units.north, hand: [nullify] } } }))
