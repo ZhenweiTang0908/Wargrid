@@ -652,6 +652,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.currentUnit !== action.unit || state.turnStage !== 'play' || !object || object.claimed) return
       if (Math.abs(unit.position.x - object.position.x) + Math.abs(unit.position.y - object.position.y) > 1) return
       const payment = unit.hand.find(card => card.id === action.cardId); if (!payment) return
+      if (object.kind === 'scoutBeacon') {
+        const target = Object.values(state.units)
+          .filter(candidate => candidate.id !== action.unit && candidate.hp > 0 && !candidate.revealed)
+          .sort((a, b) => pathDistance(state, unit.position, a.position, action.unit) - pathDistance(state, unit.position, b.position, action.unit))[0]
+        if (!target) {
+          if (action.unit === 'player') set({ message: '所有存活角色的身份均已公开' })
+          return
+        }
+        const message = `${unit.name}献牌点燃烽燧，侦察到${target.name}的身份是【${target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'}】`
+        set({
+          units: { ...state.units, [action.unit]: { ...unit, hand: unit.hand.filter(card => card.id !== payment.id), animation: 'cast' }, [target.id]: { ...target, revealed: true, animation: 'cast' } },
+          mapObjects: state.mapObjects.map(item => item.id === object.id ? { ...item, claimed: true } : item),
+          discard: [...state.discard, payment], selectedCardId: null, message, history: log(state, message),
+        })
+        return
+      }
       if (object.kind === 'healingShrine' && unit.hp >= unit.maxHp) {
         if (action.unit === 'player') set({ message: '体力已满，无法使用医庐' })
         return

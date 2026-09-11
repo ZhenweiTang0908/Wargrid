@@ -1244,6 +1244,28 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('战鼓')
   })
 
+  it('uses a scout beacon to reveal the nearest hidden identity', () => {
+    const payment = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 0, y: 8 }, hand: [payment] } } }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'west-beacon', cardId: payment.id })
+    const state = useGameStore.getState()
+    expect(state.units.west.revealed).toBe(true)
+    expect(state.units.north.revealed).toBe(false)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(payment)
+    expect(state.mapObjects.find(item => item.id === 'west-beacon')?.claimed).toBe(true)
+    expect(state.message).toContain('【内奸】')
+  })
+
+  it('does not consume a scout beacon when every identity is revealed', () => {
+    const payment = card('slash')
+    useGameStore.setState(state => ({ units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, revealed: true, ...(id === 'player' ? { position: { x: 0, y: 8 }, hand: [payment] } : {}) }])) as typeof state.units }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'west-beacon', cardId: payment.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toContainEqual(payment)
+    expect(state.mapObjects.find(item => item.id === 'west-beacon')?.claimed).toBe(false)
+  })
+
   it('forces an armed target to slash through Borrowed Sword', () => {
     const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
     useGameStore.setState(state => ({ units: {

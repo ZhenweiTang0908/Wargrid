@@ -22,7 +22,7 @@ export type GeneralSkill = 'lijian' | 'jiuyuan' | 'qianxun' | 'lianying' | 'guos
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
 export interface Terrain { position: Position; kind: TerrainKind }
-export interface MapObject { id: string; position: Position; kind: 'supplyCache' | 'healingShrine' | 'warDrum'; claimed: boolean }
+export interface MapObject { id: string; position: Position; kind: 'supplyCache' | 'healingShrine' | 'warDrum' | 'scoutBeacon'; claimed: boolean }
 export interface Equipment { weapon?: Card; armor?: Card; offensiveMount?: Card; defensiveMount?: Card }
 
 export interface Unit {
