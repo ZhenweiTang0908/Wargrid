@@ -1132,4 +1132,35 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(blackCard)
     expect(state.history.some(entry => entry.includes('倾国'))).toBe(true)
   })
+
+  it('lets Da Qiao turn a diamond card into Indulgence through Guose', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const diamond = card('dodge', 'diamond', 6)
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [diamond] }, east: { ...state.units.east, hand: [] } } }))
+    useGameStore.getState().selectCard(diamond.id)
+    useGameStore.getState().activateGuose()
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: diamond.id, target: 'east', asGuose: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.east.judgement).toContainEqual({ ...diamond, kind: 'indulgence' })
+    expect(state.message).toContain('国色')
+  })
+
+  it('lets Da Qiao discard a card to redirect slash through Liuli', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const slash = card('slash'), payment = card('dodge')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [payment] },
+      east: { ...state.units.east, position: { x: 3, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.attacksUsed).toBe(1)
+    expect(state.history.some(entry => entry.includes('流离'))).toBe(true)
+  })
 })
