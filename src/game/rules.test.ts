@@ -39,8 +39,8 @@ describe('board rules', () => {
 describe('card and victory rules', () => {
   it('builds a varied standard-inspired deck with suits and ranks', () => {
     const deck = createDeck()
-    expect(deck.length).toBe(88)
-    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'shield', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest', 'redHare', 'dilu']))
+    expect(deck.length).toBe(94)
+    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'spear', 'axe', 'halberd', 'qilinBow', 'shield', 'bagua', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest', 'redHare', 'dilu']))
     expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
   })
 
@@ -50,7 +50,9 @@ describe('card and victory rules', () => {
     expect(movementCost(state, { x: 4, y: 4 })).toBe(1)
     const qinggang = { ...state.units.player, equipment: { weapon: { id: 'q', kind: 'qinggang' as const, suit: 'spade' as const, rank: 6 } } }
     const crossbow = { ...state.units.player, equipment: { weapon: { id: 'c', kind: 'crossbow' as const, suit: 'club' as const, rank: 1 } } }
+    const halberd = { ...state.units.player, equipment: { weapon: { id: 'h', kind: 'halberd' as const, suit: 'diamond' as const, rank: 12 } } }
     expect(attackRange(qinggang)).toBe(2)
+    expect(attackRange(halberd)).toBe(4)
     expect(slashLimit(crossbow)).toBe(Infinity)
     const attacker = { ...state.units.player, position: { x: 4, y: 2 }, equipment: { offensiveMount: { id: 'r', kind: 'redHare' as const, suit: 'heart' as const, rank: 5 } } }
     const defender = { ...state.units.north, position: { x: 4, y: 0 }, equipment: { defensiveMount: { id: 'd', kind: 'dilu' as const, suit: 'club' as const, rank: 5 } } }

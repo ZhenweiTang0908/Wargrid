@@ -23,6 +23,7 @@ export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
   snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, shield: 2,
+  spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
   peachGarden: 2, harvest: 2,
   redHare: 2, dilu: 2,
@@ -104,7 +105,10 @@ export function pathDistance(state: Pick<GameState, 'size' | 'obstacles' | 'unit
   return path.length || Infinity
 }
 
-export function attackRange(unit: Unit) { return unit.equipment.weapon?.kind === 'qinggang' ? 2 : 1 }
+export function attackRange(unit: Unit) {
+  const ranges: Partial<Record<CardKind, number>> = { qinggang: 2, spear: 3, axe: 3, halberd: 4, qilinBow: 5 }
+  return unit.equipment.weapon ? ranges[unit.equipment.weapon.kind] ?? 1 : 1
+}
 export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' ? Infinity : 1 }
 export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   const base = pathDistance(state, attacker.position, target.position, attacker.id)
@@ -115,7 +119,7 @@ export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= attackRange(attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
-export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'shield', 'redHare', 'dilu'].includes(kind)
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'spear', 'axe', 'halberd', 'qilinBow', 'shield', 'bagua', 'redHare', 'dilu'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []

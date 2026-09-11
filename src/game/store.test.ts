@@ -218,6 +218,36 @@ describe('standard card scenarios', () => {
     expect(state.units.east.attacksUsed).toBe(1)
   })
 
+  it('uses a red Bagua judgement as dodge before opening a response window', () => {
+    const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { armor: bagua } } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.east.attacksUsed).toBe(1)
+    expect(state.message).toContain('八卦阵')
+    expect(state.discard).toContainEqual(judgement)
+  })
+
+  it('opens the dodge response after a failed Bagua judgement', () => {
+    const slash = card('slash', 'heart'), bagua = card('bagua', 'club'), judgement = card('duel', 'spade', 9), dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', armorChecked: true })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.deck).toHaveLength(0)
+    expect(state.discard).toContainEqual(judgement)
+  })
+
   it('applies slash damage when the player declines to respond', () => {
     const slash = card('slash', 'heart')
     useGameStore.setState(state => ({

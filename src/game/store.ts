@@ -101,8 +101,21 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${finalMessage}${skillText}`, history: log(state, `${finalMessage}${skillText}${rewardText}`) }
 }
 
-function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null): Partial<GameState> {
-  const attacker = state.units[attackerId], target = state.units[targetId]
+function judgeBagua(state: GameState, targetId: Team) {
+  const draw = drawCards(state.deck, state.discard, 1), judge = draw.drawn[0]
+  if (!judge) return { state, success: false }
+  const success = judge.suit === 'heart' || judge.suit === 'diamond'
+  const message = `${state.units[targetId].name}发动【八卦阵】，判定${success ? '为红色，视为打出【闪】' : '为黑色，判定失败'}`
+  return { state: { ...state, deck: draw.deck, discard: [...draw.discard, judge], message, history: log(state, message) }, success }
+}
+
+function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false): Partial<GameState> {
+  let attacker = state.units[attackerId], target = state.units[targetId]
+  if (!armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
+    const judged = judgeBagua(state, targetId)
+    state = judged.state; attacker = state.units[attackerId]; target = state.units[targetId]
+    if (judged.success) return { ...state, units: { ...state.units, [attackerId]: { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' } } }
+  }
   const slashCard = state.discard[state.discard.length - 1]
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
   const dodge = !shieldBlocks ? (manualResponse === undefined ? responseCard(target, 'dodge') : manualResponse ?? undefined) : undefined
@@ -280,7 +293,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units, deck, discard, message, history: log(state, message) }); return
       }
       if (isEquipment(kind)) {
-        const slot = card.kind === 'shield' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
+        const slot = card.kind === 'shield' || card.kind === 'bagua' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
         const equipped = { ...unit, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】`
         set({ units: { ...state.units, [action.unit]: equipped }, discard: old ? [...state.discard, old] : state.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
@@ -290,8 +303,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const slashCard = base.discard[base.discard.length - 1]
           const shieldBlocks = target.equipment.armor?.kind === 'shield' && (slashCard.suit === 'spade' || slashCard.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
           if (!shieldBlocks) {
+            let armorChecked = false
+            if (target.equipment.armor?.kind === 'bagua' && unit.equipment.weapon?.kind !== 'qinggang') {
+              const judged = judgeBagua(base, targetId); base = judged.state; armorChecked = true
+              if (judged.success) {
+                set({ ...base, units: { ...base.units, [action.unit]: { ...base.units[action.unit], attacksUsed: base.units[action.unit].attacksUsed + 1, drunk: false, animation: 'attack' } } }); return
+              }
+            }
             const prompt = `${unit.name}对你使用【杀】，请选择是否打出【闪】`
-            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', prompt }, message: prompt, history: log(state, prompt) }); return
+            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', armorChecked, prompt }, message: prompt, history: log(base, prompt) }); return
           }
         }
         set(resolveSlash(base, action.unit, targetId)); return
@@ -373,11 +393,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const message = `${player.name}打出【${CARD_LABEL[card.kind]}】响应【${CARD_LABEL[pending.effect]}】`
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
       if (pending.effect === 'slash') {
-        const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card)
+        const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card, pending.armorChecked)
         base = { ...base, ...resolved }
       }
     } else if (pending.effect === 'slash') {
-      base = { ...base, ...resolveSlash(base, pending.source, 'player', null) }
+      base = { ...base, ...resolveSlash(base, pending.source, 'player', null, pending.armorChecked) }
     } else {
       const guard = pending.required === 'dodge' ? loyalGuard(base, 'player') : null
       if (guard) {
