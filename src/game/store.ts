@@ -882,24 +882,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
     if (pending.effect === 'nullify') {
+      const applyUnderlying = (working: GameState): GameState => {
+        if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
+          const required = pending.trick === 'arrows' ? 'dodge' : 'slash'
+          const prompt = `${working.units[pending.source].name}使用【${CARD_LABEL[pending.trick]}】，请打出【${CARD_LABEL[required]}】响应`
+          return { ...working, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, prompt }, message: prompt, history: log(working, prompt) }
+        }
+        if (pending.trick === 'duel') return { ...working, ...continueDuel(working, 'player', pending.source) }
+        if (pending.trick === 'indulgence') {
+          const delayed = working.discard.find(candidate => candidate.id === pending.originCardId)
+          if (delayed) {
+            const player = working.units.player, message = `${working.units[pending.source].name}将【乐不思蜀】置入${player.name}的判定区`
+            return { ...working, units: { ...working.units, player: { ...player, judgement: [...player.judgement, delayed], animation: 'cast' } }, discard: working.discard.filter(candidate => candidate.id !== delayed.id), message, history: log(working, message) }
+          }
+        }
+        if (pending.trick === 'dismantle' || pending.trick === 'snatch') return { ...working, ...takeTargetCard(working, pending.source, 'player', pending.trick === 'snatch') }
+        if (pending.trick === 'borrowedSword') return { ...working, ...resolveBorrowedSword(working, pending.source, 'player') }
+        if (pending.trick === 'fireAttack') return { ...working, ...resolveFireAttack(working, pending.source, 'player') }
+        if (pending.trick === 'ironChain') return { ...working, ...resolveIronChain(working, pending.source, 'player') }
+        return working
+      }
       if (card) {
         const player = base.units.player, message = `${player.name}打出【无懈可击】，抵消【${CARD_LABEL[pending.trick!]}】`
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
-      } else if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
-        const required = pending.trick === 'arrows' ? 'dodge' : 'slash'
-        const prompt = `${base.units[pending.source].name}使用【${CARD_LABEL[pending.trick]}】，请打出【${CARD_LABEL[required]}】响应`
-        base = { ...base, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, prompt }, message: prompt, history: log(base, prompt) }
-      } else if (pending.trick === 'duel') base = { ...base, ...continueDuel(base, 'player', pending.source) }
-      else if (pending.trick === 'indulgence') {
-        const delayed = base.discard.find(candidate => candidate.id === pending.originCardId)
-        if (delayed) {
-          const player = base.units.player, message = `${base.units[pending.source].name}将【乐不思蜀】置入${player.name}的判定区`
-          base = { ...base, units: { ...base.units, player: { ...player, judgement: [...player.judgement, delayed], animation: 'cast' } }, discard: base.discard.filter(candidate => candidate.id !== delayed.id), message, history: log(base, message) }
+        const source = base.units[pending.source], counter = source.hand.find(candidate => candidate.kind === 'nullify')
+        if (counter) {
+          const counterMessage = `${source.name}打出【无懈可击】，反制${player.name}的【无懈可击】`
+          base = { ...base, units: { ...base.units, [pending.source]: { ...source, hand: source.hand.filter(candidate => candidate.id !== counter.id), animation: 'cast' } }, discard: [...base.discard, counter], message: counterMessage, history: log(base, counterMessage) }
+          const another = base.units.player.hand.some(candidate => candidate.kind === 'nullify')
+          if (another) {
+            const prompt = `${source.name}反制了你的【无懈可击】，是否再次打出【无懈可击】？`
+            base = { ...base, pendingResponse: { ...pending, prompt }, message: prompt, history: log(base, prompt) }
+          } else base = applyUnderlying(base)
         }
-      } else if (pending.trick === 'dismantle' || pending.trick === 'snatch') base = { ...base, ...takeTargetCard(base, pending.source, 'player', pending.trick === 'snatch') }
-      else if (pending.trick === 'borrowedSword') base = { ...base, ...resolveBorrowedSword(base, pending.source, 'player') }
-      else if (pending.trick === 'fireAttack') base = { ...base, ...resolveFireAttack(base, pending.source, 'player') }
-      else if (pending.trick === 'ironChain') base = { ...base, ...resolveIronChain(base, pending.source, 'player') }
+      } else base = applyUnderlying(base)
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return

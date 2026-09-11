@@ -556,6 +556,32 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(discarded => discarded.id)).toEqual(expect.arrayContaining([duel.id, nullify.id]))
   })
 
+  it('lets an AI counter a player nullify so the original trick continues', () => {
+    const duel = card('duel', 'spade'), playerNullify = card('nullify', 'club'), counterNullify = card('nullify', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [duel, counterNullify] }, player: { ...state.units.player, hand: [playerNullify] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(playerNullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'duel', required: 'slash' })
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([duel, playerNullify, counterNullify]))
+    expect(state.history.some(entry => entry.includes('反制'))).toBe(true)
+  })
+
+  it('lets the player counter an AI counter-nullify', () => {
+    const duel = card('duel'), first = card('nullify', 'club'), second = card('nullify', 'diamond'), counter = card('nullify', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [duel, counter] }, player: { ...state.units.player, hand: [first, second] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(first.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', required: 'nullify' })
+    useGameStore.getState().respond(second.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.discard).toEqual(expect.arrayContaining([duel, first, second, counter]))
+  })
+
   it('continues from nullify into the underlying duel when declined', () => {
     const duel = card('duel', 'club'), nullify = card('nullify', 'heart')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [duel] }, player: { ...state.units.player, hand: [nullify] } } }))
