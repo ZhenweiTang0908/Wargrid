@@ -23,6 +23,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   longdan: { name: '赵云', title: '少年将军', skill: 'longdan', skills: ['longdan'], faction: 'shu' },
   ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', skills: ['ganglie'], faction: 'wei' },
   feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei' },
+  jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu' },
@@ -93,6 +94,14 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   let winner = determineWinner(units)
   const finalMessage = hp <= 0 ? `${state.units[attackerId].name}击败了${target.name}，其身份是${target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'}！` : rescue ? `${target.name}进入濒死并使用【桃】自救` : message
   let skillText = ''
+  if (hp > 0 && target.skills.includes('jianxiong')) {
+    const gained = discard[discard.length - 1]
+    if (gained) {
+      discard = discard.slice(0, -1)
+      units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
+      skillText = `；${target.name}发动【奸雄】获得造成伤害的【${CARD_LABEL[gained.kind]}】`
+    }
+  }
   if (hp > 0 && target.skill === 'feedback') {
     const attacker = units[attackerId]
     const gained = attacker.hand[0] ?? attacker.equipment.weapon ?? attacker.equipment.armor ?? attacker.equipment.offensiveMount ?? attacker.equipment.defensiveMount
@@ -100,7 +109,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       const equipment = { ...attacker.equipment }
       for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot]?.id === gained.id) delete equipment[slot]
       units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.filter(card => card.id !== gained.id), equipment }, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
-      skillText = `；${target.name}发动【反馈】获得一张牌`
+      skillText += `；${target.name}发动【反馈】获得一张牌`
     }
   }
   if (hp > 0 && target.skill === 'ganglie') {
@@ -112,12 +121,12 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
         const paid = attacker.hand.slice(0, 2)
         units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2), animation: 'hit' } }
         discard = [...discard, ...paid]
-        skillText = `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
+        skillText += `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
       } else {
         units = { ...units, [attackerId]: { ...attacker, hp: Math.max(0, attacker.hp - 1), revealed: attacker.hp <= 1 ? true : attacker.revealed, animation: 'hit' } }
-        skillText = `；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
+        skillText += `；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
       }
-    } else if (judge) skillText = `；【刚烈】判定为红桃，未生效`
+    } else if (judge) skillText += `；【刚烈】判定为红桃，未生效`
   }
   const skillWinner = determineWinner(units)
   if (skillWinner) { winner = skillWinner }

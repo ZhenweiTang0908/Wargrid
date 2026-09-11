@@ -128,6 +128,19 @@ describe('standard card scenarios', () => {
     expect(result.history.some(entry => entry.includes('鬼才'))).toBe(true)
   })
 
+  it('lets Cao Cao gain the damage card through Jianxiong', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const slash = card('slash', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.hand).toContainEqual(slash)
+    expect(state.discard).not.toContainEqual(slash)
+    expect(state.message).toContain('奸雄')
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')
