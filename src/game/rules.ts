@@ -34,7 +34,7 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   doubleSword: 1, iceSword: 1,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
   peachGarden: 2, harvest: 2, fireAttack: 3, ironChain: 3,
-  redHare: 2, dilu: 2,
+  redHare: 1, dayuan: 1, zixing: 1, dilu: 1, jueying: 1, zhaohuang: 1,
 }
 
 export function createDeck(): Card[] {
@@ -120,8 +120,8 @@ export function attackRange(unit: Unit) {
 export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' || unit.skill === 'paoxiao' ? Infinity : 1 }
 export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   const base = pathDistance(state, attacker.position, target.position, attacker.id)
-  const attackBonus = attacker.equipment.offensiveMount?.kind === 'redHare' ? 1 : 0
-  const defenseBonus = target.equipment.defensiveMount?.kind === 'dilu' ? 1 : 0
+  const attackBonus = attacker.equipment.offensiveMount && ['redHare', 'dayuan', 'zixing'].includes(attacker.equipment.offensiveMount.kind) ? 1 : 0
+  const defenseBonus = target.equipment.defensiveMount && ['dilu', 'jueying', 'zhaohuang'].includes(target.equipment.defensiveMount.kind) ? 1 : 0
   const forestCover = terrainAt(state, target.position) === 'forest' ? 1 : 0
   return Math.max(1, base - attackBonus + defenseBonus + forestCover)
 }
@@ -129,7 +129,7 @@ export const effectiveAttackRange = (state: GameState, attacker: Unit) => attack
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
-export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dilu'].includes(kind)
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []

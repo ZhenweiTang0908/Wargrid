@@ -567,7 +567,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ ...base, units, deck, discard, message, history: log(base, message) }); return
       }
       if (isEquipment(kind)) {
-        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
+        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
         const lionHeal = old?.kind === 'silverLion' && unit.hp < unit.maxHp
         const equipped = { ...unit, hp: lionHeal ? unit.hp + 1 : unit.hp, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: lionHeal ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${lionHeal ? '，失去白银狮子并回复 1 点体力' : ''}`
         set({ units: { ...state.units, [action.unit]: equipped }, discard: old ? [...state.discard, old] : state.discard, selectedCardId: null, message, history: log(state, message) }); return
@@ -828,7 +828,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'silverLion', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'silverLion', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
