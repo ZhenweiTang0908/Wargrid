@@ -81,8 +81,9 @@ function triggerLianying(state: GameState, team: Team): GameState {
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
 const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => card.kind === required)
   ?? (unit.skill === 'longdan' ? unit.hand.find(card => card.kind === (required === 'slash' ? 'dodge' : 'slash')) : undefined)
+  ?? (required === 'slash' && unit.skills.includes('wusheng') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
   ?? (required === 'dodge' && unit.skills.includes('qingguo') ? unit.hand.find(card => card.suit === 'spade' || card.suit === 'club') : undefined)
-const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => card.kind === required ? `打出【${CARD_LABEL[required]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
+const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => card.kind === required ? `打出【${CARD_LABEL[required]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
   if (state.units[targetId].identity !== 'lord' || state.units[targetId].faction !== 'wei') return null
   for (const unit of Object.values(state.units)) {
@@ -828,7 +829,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {
@@ -874,13 +875,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'duel') {
       if (card) {
         const player = base.units.player
+        const responseMessage = `${player.name}${responseText(player, card, 'slash')}响应【决斗】`
         if ((pending.requiredCount ?? 1) > 1) {
           const remaining = (pending.requiredCount ?? 1) - 1, prompt = `【无双决斗】还需打出 ${remaining} 张【杀】`
-          base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双决斗】打出第一张【杀】`) }
+          base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, responseMessage) }
           base = triggerLianying(base, 'player')
           set(base); return
         }
-        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card] }
+        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message: responseMessage, history: log(base, responseMessage) }
         base = { ...base, ...continueDuel(base, pending.source, 'player') }
       } else {
         const duelDamage = base.units[pending.source].luoyiActive ? 2 : 1
@@ -899,7 +901,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (card) {
       const player = base.units.player
-      const message = `${player.name}打出【${CARD_LABEL[card.kind]}】响应【${CARD_LABEL[pending.effect]}】`
+      const response = pending.required === 'slash' || pending.required === 'dodge' ? responseText(player, card, pending.required) : `打出【${CARD_LABEL[card.kind]}】`
+      const message = `${player.name}${response}响应【${CARD_LABEL[pending.effect]}】`
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
       base = triggerLianying(base, 'player')
       if (pending.effect === 'slash') {
@@ -1080,7 +1083,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     let target = targetsFor(state, aiId)[0]
     if (!target) return
-    const aggressive = ai.hand.find(c => c.kind === 'slash') ?? (ai.skill === 'longdan' ? ai.hand.find(c => c.kind === 'dodge') : undefined)
+    const aggressive = responseCard(ai, 'slash')
     if (!aggressive || !canSlash(state, ai, target)) {
       const destinations = aggressive ? [{ x: target.position.x + 1, y: target.position.y }, { x: target.position.x - 1, y: target.position.y }, { x: target.position.x, y: target.position.y + 1 }, { x: target.position.x, y: target.position.y - 1 }] : [state.controlPoint]
       let best: Position[] = []
@@ -1095,7 +1098,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'borrowedSword' && !target.equipment.weapon) continue
       if (kind === 'slash' && !canSlash(state, ai, target)) continue
       if (kind === 'snatch' && combatDistance(state, ai, target) > 1) continue
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && card.kind === 'dodge' }); await wait(420); state = get(); ai = state.units[aiId]
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && card.kind !== 'slash' }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse) return
       if (state.phase === 'finished') return
     }

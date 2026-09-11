@@ -611,6 +611,23 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(redTrick)
   })
 
+  it('uses a red card as slash through Wusheng in a duel response', () => {
+    const duel = card('duel', 'spade'), redCard = card('peach', 'heart'), enemySlash = card('slash', 'club')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [redCard] },
+      east: { ...state.units.east, hand: [duel, enemySlash] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'duel', required: 'slash' })
+    useGameStore.getState().respond(redCard.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(redCard)
+    expect(state.history.some(entry => entry.includes('武圣'))).toBe(true)
+  })
+
   it('lets Zhao Yun use slash as dodge through Longdan', () => {
     const attack = card('slash', 'heart'), converted = card('slash', 'club')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [attack] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [converted] } } }))
