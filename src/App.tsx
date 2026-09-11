@@ -124,6 +124,8 @@ function UnitPiece({ team }: { team: Team }) {
   const pieceColors: Record<GeneralSkill, string> = { qianxun: '#397b72', lianying: '#397b72', guose: '#c76a78', liuli: '#c76a78', luoshen: '#7776a7', qingguo: '#7776a7', keji: '#326e6c', kurou: '#9a3a2e', tieqi: '#d7dde0', mashu: '#d7dde0', rende: '#477b4b', jijiang: '#477b4b', wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', jieyin: '#b94e58', xiaoji: '#b94e58', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', lijian: '#a94f79', zhiheng: '#3c9291', jiuyuan: '#3c9291', wushuang: '#9d3028' }
   const darkColors: Record<GeneralSkill, string> = { qianxun: '#183c38', lianying: '#183c38', guose: '#542d39', liuli: '#542d39', luoshen: '#292a50', qingguo: '#292a50', keji: '#183a3a', kurou: '#3f201c', tieqi: '#34475a', mashu: '#34475a', rende: '#244629', jijiang: '#244629', wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', jieyin: '#4f2630', xiaoji: '#4f2630', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', lijian: '#51233b', zhiheng: '#193f42', jiuyuan: '#193f42', wushuang: '#351311' }
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
+  const factionAccent: Record<Faction, string> = { wei: '#607fae', shu: '#59a66c', wu: '#d15b4f', qun: '#9a8a74' }
+  const accent = factionAccent[unit.faction]
   const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
@@ -180,9 +182,34 @@ function UnitPiece({ team }: { team: Team }) {
         <cylinderGeometry args={[.28, .34, .8, 10]} />
         <meshStandardMaterial color={darkColor} roughness={.55} />
       </mesh>
+      <mesh position={[0, .78, -.23]} rotation-x={.08} castShadow>
+        <coneGeometry args={[.43, .88, 6]} />
+        <meshStandardMaterial color={darkColor} roughness={.82} side={THREE.DoubleSide} />
+      </mesh>
+      {[-.35, .35].map(side => <group key={side} position={[side, .82, 0]} rotation-z={side < 0 ? .2 : -.2}>
+        <mesh position-y={-.08}><capsuleGeometry args={[.075, .42, 4, 7]} /><meshStandardMaterial color={darkColor} roughness={.62} /></mesh>
+        <mesh position-y={-.36}><sphereGeometry args={[.085, 9, 7]} /><meshStandardMaterial color="#d6b28a" roughness={.85} /></mesh>
+      </group>)}
+      {[-.16, .16].map(side => <mesh key={side} position={[side, .17, 0]}><capsuleGeometry args={[.1, .3, 4, 7]} /><meshStandardMaterial color="#242329" roughness={.8} /></mesh>)}
       <mesh position-y={1.2} castShadow>
         <sphereGeometry args={[.29, 16, 12]} />
         <meshStandardMaterial color="#d6b28a" roughness={.8} />
+      </mesh>
+      <mesh position={[0, 1.33, -.12]} scale={[1.04, .78, .82]}>
+        <sphereGeometry args={[.27, 12, 9]} />
+        <meshStandardMaterial color={unit.gender === 'female' ? '#332326' : '#24201d'} roughness={.92} />
+      </mesh>
+      {[-.1, .1].map(side => <mesh key={side} position={[side, 1.23, .264]} scale={[1, .55, .5]}>
+        <sphereGeometry args={[.027, 7, 5]} />
+        <meshStandardMaterial color="#151316" roughness={.45} />
+      </mesh>)}
+      <mesh position={[0, 1.1, .276]} rotation-x={Math.PI / 2} scale={[1, .55, 1]}>
+        <torusGeometry args={[.055, .012, 5, 10, Math.PI]} />
+        <meshStandardMaterial color="#6e3a32" roughness={.9} />
+      </mesh>
+      <mesh position={[0, .91, .285]}>
+        <boxGeometry args={[.58, .11, .045]} />
+        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={.18} roughness={.58} />
       </mesh>
       {unit.skill === 'qianxun' && <>
         <mesh position={[0, 1.49, 0]}><boxGeometry args={[.48, .16, .35]} /><meshStandardMaterial color="#51412f" metalness={.68} /></mesh>
@@ -362,12 +389,13 @@ function Battlefield() {
   const cells = useMemo(() => Array.from({ length: size * size }, (_, i) => ({ x: i % size, y: Math.floor(i / size) })), [size])
   return (
     <Canvas shadows dpr={[1, 1.65]} camera={{ position: [9.7, 11.5, 10.7], fov: 40 }} gl={{ antialias: true }}>
-      <color attach="background" args={['#071016']} />
-      <fog attach="fog" args={['#071016', 11, 19]} />
-      <ambientLight intensity={1.2} />
-      <directionalLight position={[4, 9, 5]} intensity={2.1} color="#d5f3ee" castShadow shadow-mapSize={[1024, 1024]} />
-      <pointLight position={[-5, 3, -4]} intensity={18} distance={10} color="#277b96" />
-      <pointLight position={[5, 3, 4]} intensity={12} distance={9} color="#8c3b2c" />
+      <color attach="background" args={['#0b1b22']} />
+      <fog attach="fog" args={['#0b1b22', 12, 21]} />
+      <ambientLight intensity={1.65} />
+      <hemisphereLight args={['#bfe3df', '#251b18', 1.25]} />
+      <directionalLight position={[4, 9, 5]} intensity={2.8} color="#e1fff8" castShadow shadow-mapSize={[1024, 1024]} />
+      <pointLight position={[-5, 3, -4]} intensity={24} distance={11} color="#348ca5" />
+      <pointLight position={[5, 3, 4]} intensity={17} distance={10} color="#b2503e" />
       <Suspense fallback={null}>
         <group position-y={-.05}>
           {cells.map(p => <Tile key={`${p.x}-${p.y}`} position={p} />)}
