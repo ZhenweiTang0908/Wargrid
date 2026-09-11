@@ -1074,6 +1074,16 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().units.player.hand).toEqual(received)
   })
 
+  it('refreshes claimed battlefield facilities when a new round begins', () => {
+    const state = useGameStore.getState()
+    const claimed = { ...state, mapObjects: state.mapObjects.map(object => ({ ...object, claimed: true })) }
+    const midRound = beginTurn(claimed, 'north')
+    expect(midRound.mapObjects.every(object => object.claimed)).toBe(true)
+    const refreshed = beginTurn(claimed, 'player')
+    expect(refreshed.mapObjects.every(object => !object.claimed)).toBe(true)
+    expect(refreshed.history.some(entry => entry.includes('重新补给'))).toBe(true)
+  })
+
   it('uses the healing shrine by sacrificing a card while wounded', () => {
     const payment = card('dodge')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 7, y: 3 }, hp: 2, hand: [payment] } } }))

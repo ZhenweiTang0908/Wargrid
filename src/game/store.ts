@@ -501,6 +501,10 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
 
 export function beginTurn(state: GameState, team: Team): GameState {
   let working = state, unit = state.units[team], skipPlay = false
+  if (team === 'player' && state.mapObjects.some(object => object.claimed)) {
+    const message = '新一轮开始，战场设施已重新补给'
+    working = { ...working, mapObjects: working.mapObjects.map(object => ({ ...object, claimed: false })), message, history: log(working, message) }
+  }
   if (unit.skills.includes('luoshen')) {
     const gained: Card[] = []
     while (working.deck.length || working.discard.length) {
