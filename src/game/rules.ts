@@ -176,6 +176,8 @@ export function createInitialState(deck = createDeck()): GameState {
     mapObjects: [
       { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
       { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
+      { id: 'east-shrine', position: { x: 7, y: 2 }, kind: 'healingShrine', claimed: false },
+      { id: 'west-drum', position: { x: 1, y: 6 }, kind: 'warDrum', claimed: false },
     ],
     units: {
       player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },

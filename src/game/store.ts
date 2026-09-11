@@ -546,10 +546,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.currentUnit !== action.unit || state.turnStage !== 'play' || !object || object.claimed) return
       if (Math.abs(unit.position.x - object.position.x) + Math.abs(unit.position.y - object.position.y) > 1) return
       const payment = unit.hand.find(card => card.id === action.cardId); if (!payment) return
-      const draw = drawCards(state.deck, [...state.discard, payment], 2)
-      const message = `${unit.name}弃置【${CARD_LABEL[payment.kind]}】开启军需箱，获得两张牌`
+      if (object.kind === 'healingShrine' && unit.hp >= unit.maxHp) {
+        if (action.unit === 'player') set({ message: '体力已满，无法使用医庐' })
+        return
+      }
+      const draw = object.kind === 'supplyCache' ? drawCards(state.deck, [...state.discard, payment], 2) : { drawn: [] as Card[], deck: state.deck, discard: [...state.discard, payment] }
+      const effect = object.kind === 'supplyCache'
+        ? { hand: [...unit.hand.filter(card => card.id !== payment.id), ...draw.drawn] }
+        : object.kind === 'healingShrine'
+          ? { hand: unit.hand.filter(card => card.id !== payment.id), hp: Math.min(unit.maxHp, unit.hp + 1) }
+          : { hand: unit.hand.filter(card => card.id !== payment.id), movement: unit.movement + 2, attacksUsed: Math.max(0, unit.attacksUsed - 1) }
+      const message = object.kind === 'supplyCache' ? `${unit.name}弃置【${CARD_LABEL[payment.kind]}】开启军需箱，获得两张牌`
+        : object.kind === 'healingShrine' ? `${unit.name}献牌使用医庐，回复 1 点体力`
+          : `${unit.name}献牌擂响战鼓，获得 2 点移动力并恢复一次出杀机会`
       set({
-        units: { ...state.units, [action.unit]: { ...unit, hand: [...unit.hand.filter(card => card.id !== payment.id), ...draw.drawn], animation: 'cast' } },
+        units: { ...state.units, [action.unit]: { ...unit, ...effect, animation: object.kind === 'healingShrine' ? 'heal' : 'cast' } },
         mapObjects: state.mapObjects.map(item => item.id === object.id ? { ...item, claimed: true } : item),
         deck: draw.deck, discard: draw.discard, selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false,
         message, history: log(state, message),
@@ -953,7 +964,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (get().pendingResponse) return
     }
     state = get(); ai = state.units[aiId]
-    const cache = state.mapObjects.find(item => !item.claimed && Math.abs(ai.position.x - item.position.x) + Math.abs(ai.position.y - item.position.y) <= 1)
+    const cache = state.mapObjects.find(item => !item.claimed && (item.kind !== 'healingShrine' || ai.hp < ai.maxHp) && Math.abs(ai.position.x - item.position.x) + Math.abs(ai.position.y - item.position.y) <= 1)
     const payment = ai.hand.find(card => card.kind === 'dodge' || card.kind === 'slash') ?? ai.hand[ai.hand.length - 1]
     if (cache && payment) {
       get().dispatch({ type: 'INTERACT', unit: aiId, objectId: cache.id, cardId: payment.id }); await wait(320)

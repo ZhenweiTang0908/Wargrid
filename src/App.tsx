@@ -48,10 +48,22 @@ function Tile({ position }: { position: Position }) {
           <Sparkles count={12} scale={.75} size={2} speed={.3} color="#f2c66d" />
         </group>
       )}
-      {mapObject && <group position={[.24, .15, -.22]} rotation-y={-.18}>
-        <mesh position-y={.14}><boxGeometry args={[.4, .25, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#514a3d' : '#8b5528'} roughness={.72} /></mesh>
-        <mesh position={[0, mapObject.claimed ? .32 : .29, mapObject.claimed ? -.13 : 0]} rotation-x={mapObject.claimed ? -1.1 : 0}><boxGeometry args={[.4, .1, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#4c463c' : '#aa6e32'} roughness={.65} /></mesh>
-        {[-.13, .13].map(x => <mesh key={x} position={[x, .17, .002]}><boxGeometry args={[.035, .34, .34]} /><meshStandardMaterial color="#c3a45a" metalness={.65} roughness={.3} /></mesh>)}
+      {mapObject && <group position={[.24, .15, -.22]} rotation-y={-.18} onPointerEnter={() => { if (canInteract) document.body.style.cursor = 'pointer' }} onPointerLeave={() => { document.body.style.cursor = 'default' }} onClick={e => { e.stopPropagation(); if (canInteract && selectedCard) dispatch({ type: 'INTERACT', unit: 'player', objectId: mapObject.id, cardId: selectedCard.id }) }}>
+        {mapObject.kind === 'supplyCache' && <>
+          <mesh position-y={.14}><boxGeometry args={[.4, .25, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#514a3d' : '#8b5528'} roughness={.72} /></mesh>
+          <mesh position={[0, mapObject.claimed ? .32 : .29, mapObject.claimed ? -.13 : 0]} rotation-x={mapObject.claimed ? -1.1 : 0}><boxGeometry args={[.4, .1, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#4c463c' : '#aa6e32'} roughness={.65} /></mesh>
+          {[-.13, .13].map(x => <mesh key={x} position={[x, .17, .002]}><boxGeometry args={[.035, .34, .34]} /><meshStandardMaterial color="#c3a45a" metalness={.65} roughness={.3} /></mesh>)}
+        </>}
+        {mapObject.kind === 'healingShrine' && <>
+          <mesh position-y={.2}><cylinderGeometry args={[.25, .32, .4, 6]} /><meshStandardMaterial color={mapObject.claimed ? '#4b5148' : '#63866a'} roughness={.7} /></mesh>
+          <mesh position-y={.48}><sphereGeometry args={[.13, 10, 8]} /><meshStandardMaterial color={mapObject.claimed ? '#687069' : '#8de0a0'} emissive={mapObject.claimed ? '#000' : '#286e3b'} emissiveIntensity={.9} /></mesh>
+          <mesh position={[0, .5, .14]}><boxGeometry args={[.05, .22, .035]} /><meshStandardMaterial color="#e8f1d7" /></mesh><mesh position={[0, .5, .14]}><boxGeometry args={[.2, .05, .035]} /><meshStandardMaterial color="#e8f1d7" /></mesh>
+        </>}
+        {mapObject.kind === 'warDrum' && <>
+          <mesh position-y={.27} rotation-z={Math.PI / 2}><cylinderGeometry args={[.25, .25, .36, 14]} /><meshStandardMaterial color={mapObject.claimed ? '#554640' : '#9a3d31'} roughness={.6} /></mesh>
+          {[-.2, .2].map(x => <mesh key={x} position={[x, .27, 0]} rotation-z={Math.PI / 2}><torusGeometry args={[.25, .025, 6, 14]} /><meshStandardMaterial color="#c5a04f" metalness={.7} /></mesh>)}
+          <mesh position={[0, .46, .18]} rotation-z={-.5}><cylinderGeometry args={[.018, .025, .55, 6]} /><meshStandardMaterial color="#684425" /></mesh>
+        </>}
         {!mapObject.claimed && <><Sparkles count={8} scale={.65} size={2} speed={.35} color={canInteract ? '#fff0a8' : '#dbbc72'} /><mesh position-y={.04} rotation-x={-Math.PI / 2}><ringGeometry args={[.3, .38, 24]} /><meshBasicMaterial color={canInteract ? '#ffe080' : '#9d7440'} transparent opacity={canInteract ? .9 : .45} side={THREE.DoubleSide} /></mesh></>}
       </group>}
       {terrain === 'forest' && !obstacle && <group position={[-.16, .13, .08]}><mesh position-y={.23}><cylinderGeometry args={[.05, .08, .4, 6]} /><meshStandardMaterial color="#5f4530" /></mesh><mesh position-y={.54}><coneGeometry args={[.25, .56, 7]} /><meshStandardMaterial color="#28553a" /></mesh></group>}
@@ -407,7 +419,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>水域耗 2 移动力；森林提供掩护；山脊射程 +1，瞭望台射程 +2。靠近军需箱后，选一张手牌再点箱子，可弃一摸二。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>水域耗 2 移动力；森林提供掩护；山脊射程 +1，瞭望台射程 +2。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会。</p></div>
       <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>

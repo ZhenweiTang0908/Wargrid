@@ -955,6 +955,39 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().units.player.hand).toEqual(received)
   })
 
+  it('uses the healing shrine by sacrificing a card while wounded', () => {
+    const payment = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 7, y: 3 }, hp: 2, hand: [payment] } } }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'east-shrine', cardId: payment.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(payment)
+    expect(state.mapObjects.find(item => item.id === 'east-shrine')?.claimed).toBe(true)
+    expect(state.message).toContain('医庐')
+  })
+
+  it('does not consume the healing shrine at full health', () => {
+    const payment = card('slash')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 7, y: 3 }, hand: [payment] } } }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'east-shrine', cardId: payment.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([payment])
+    expect(state.mapObjects.find(item => item.id === 'east-shrine')?.claimed).toBe(false)
+  })
+
+  it('uses the war drum to regain movement and a slash opportunity', () => {
+    const payment = card('peach')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 1, y: 7 }, movement: 0, attacksUsed: 1, hand: [payment] } } }))
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'west-drum', cardId: payment.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.movement).toBe(2)
+    expect(state.units.player.attacksUsed).toBe(0)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.mapObjects.find(item => item.id === 'west-drum')?.claimed).toBe(true)
+    expect(state.message).toContain('战鼓')
+  })
+
   it('forces an armed target to slash through Borrowed Sword', () => {
     const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
     useGameStore.setState(state => ({ units: {

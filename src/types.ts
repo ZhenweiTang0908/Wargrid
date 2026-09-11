@@ -22,7 +22,7 @@ export type GeneralSkill = 'kurou' | 'tieqi' | 'mashu' | 'rende' | 'jijiang' | '
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
 export interface Terrain { position: Position; kind: TerrainKind }
-export interface MapObject { id: string; position: Position; kind: 'supplyCache'; claimed: boolean }
+export interface MapObject { id: string; position: Position; kind: 'supplyCache' | 'healingShrine' | 'warDrum'; claimed: boolean }
 export interface Equipment { weapon?: Card; armor?: Card; offensiveMount?: Card; defensiveMount?: Card }
 
 export interface Unit {
