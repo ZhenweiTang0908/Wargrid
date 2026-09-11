@@ -3,6 +3,7 @@ export type Suit = 'spade' | 'heart' | 'club' | 'diamond'
 export type CardKind =
   | 'slash' | 'dodge' | 'peach' | 'wine'
   | 'duel' | 'dismantle' | 'snatch' | 'drawTwo'
+  | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
   | 'crossbow' | 'qinggang' | 'shield'
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
@@ -25,6 +26,8 @@ export interface Unit {
   maxHp: number
   hand: Card[]
   equipment: Equipment
+  judgement: Card[]
+  skill: 'wusheng' | 'resolve'
   movement: number
   attacksUsed: number
   wineUsed: boolean
@@ -46,6 +49,7 @@ export interface GameState {
   scores: Record<Team, number>
   selectedUnit: Team | null
   selectedCardId: string | null
+  selectedAsSlash: boolean
   reachable: Position[]
   pathPreview: Position[]
   winner: Team | null
@@ -55,7 +59,7 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'MOVE'; unit: Team; to: Position }
-  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team }
+  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean }
   | { type: 'END_TURN' }
   | { type: 'RESTART' }
 
@@ -63,6 +67,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   slash: '杀', dodge: '闪', peach: '桃', wine: '酒', duel: '决斗',
   dismantle: '过河拆桥', snatch: '顺手牵羊', drawTwo: '无中生有',
   crossbow: '诸葛连弩', qinggang: '青釭剑', shield: '仁王盾',
+  arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', lightning: '闪电',
 }
 
 export const CARD_COPY: Record<CardKind, string> = {
@@ -70,6 +75,8 @@ export const CARD_COPY: Record<CardKind, string> = {
   wine: '本回合下一张【杀】伤害 +1', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
   qinggang: '攻击范围 2，攻击无视护甲', shield: '使黑色【杀】失效',
+  arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '自动抵消敌方锦囊',
+  indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
 }
 
 export const SUIT_GLYPH: Record<Suit, string> = { spade: '♠', heart: '♥', club: '♣', diamond: '♦' }

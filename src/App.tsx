@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, RoundedBox, Sparkles } from '@react-three/drei'
-import { CircleHelp, RotateCcw, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
+import { CircleHelp, RotateCcw, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
@@ -55,16 +55,18 @@ function Tile({ position }: { position: Position }) {
 function UnitPiece({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const selectedCardId = useGameStore(s => s.selectedCardId)
+  const selectedAsSlash = useGameStore(s => s.selectedAsSlash)
   const state = useGameStore()
   const dispatch = useGameStore(s => s.dispatch)
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
   const color = team === 'player' ? '#35b8d4' : '#e25845'
-  const selectedKind = state.units.player.hand.find(c => c.id === selectedCardId)?.kind
+  const selectedKind = selectedAsSlash ? 'slash' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team === 'enemy' && !!selectedCardId && !!selectedKind && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     selectedKind === 'duel' || selectedKind === 'dismantle' ||
+    selectedKind === 'indulgence' ||
     (selectedKind === 'snatch' && Math.abs(state.units.player.position.x - unit.position.x) + Math.abs(state.units.player.position.y - unit.position.y) <= 1)
   )
 
@@ -89,7 +91,7 @@ function UnitPiece({ team }: { team: Team }) {
       position={worldPosition(unit.position)}
       onClick={e => {
         e.stopPropagation()
-        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: 'enemy' })
+        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: 'enemy', asSlash: selectedAsSlash })
       }}
       onPointerEnter={() => { if (canTarget) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
@@ -181,7 +183,8 @@ function PlayerStatus({ team }: { team: Team }) {
         <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' ? '玩家' : 'AI'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
         <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span></div>
-        <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}</div>
+        <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
+        <div className="skill-line">{unit.skill === 'wusheng' ? '武圣 · 红牌可化杀' : '刚烈 · 受伤摸一牌'}</div>
       </div>
     </section>
   )
@@ -209,7 +212,7 @@ function Tutorial({ close }: { close: () => void }) {
     <div className="steps">
       <div><b>01</b><strong>移动</strong><p>点击青色高亮格。每回合可移动 3 格，并能分段行动。</p></div>
       <div><b>02</b><strong>出牌</strong><p>基础牌、锦囊与装备遵循标准牌逻辑；需要目标时点击敌将。</p></div>
-      <div><b>03</b><strong>地形</strong><p>水域消耗 2 点移动力；森林、山脊、营地与道路构成战场。</p></div>
+      <div><b>03</b><strong>判定</strong><p>乐不思蜀与闪电进入判定区；无懈可击会自动响应锦囊。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
   </section></div>
@@ -221,6 +224,7 @@ function App() {
   const [sound, setSound] = useState(true)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
+  const canWusheng = selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const closeTutorial = () => { localStorage.setItem('wargrid-tutorial', 'seen'); setTutorial(false) }
 
   useEffect(() => {
@@ -253,6 +257,7 @@ function App() {
         {!state.units.player.hand.length && <span className="empty-hand">暂无手牌</span>}
       </div>
       <div className="turn-actions">
+        {canWusheng && <button className={`secondary skill-action ${state.selectedAsSlash ? 'active' : ''}`} onClick={() => state.activateWusheng()}><Swords />武圣</button>}
         {state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
         <button className="end-turn" disabled={state.phase !== 'player'} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />结束回合</button>
       </div>

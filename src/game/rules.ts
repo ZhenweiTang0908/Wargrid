@@ -23,6 +23,7 @@ export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
   snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, shield: 2,
+  arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
 }
 
 export function createDeck(): Card[] {
@@ -128,11 +129,11 @@ export function createInitialState(deck = createDeck()): GameState {
   const state: GameState = {
     size: BOARD_SIZE, terrain: TERRAIN, obstacles: OBSTACLES, controlPoint: CONTROL_POINT,
     units: {
-      player: { id: 'player', name: '关云', title: '义绝千军', team: 'player', position: { x: 4, y: 8 }, hp: 4, maxHp: 4, hand: deck.slice(0, 4), equipment: {}, movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
-      enemy: { id: 'enemy', name: '夏侯烈', title: '独眼苍狼', team: 'enemy', position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      player: { id: 'player', name: '关云', title: '义绝千军', team: 'player', position: { x: 4, y: 8 }, hp: 4, maxHp: 4, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      enemy: { id: 'enemy', name: '夏侯烈', title: '独眼苍狼', team: 'enemy', position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'resolve', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
     },
     deck: deck.slice(8), discard: [], phase: 'player', turnStage: 'play', turn: 1,
-    scores: { player: 0, enemy: 0 }, selectedUnit: 'player', selectedCardId: null,
+    scores: { player: 0, enemy: 0 }, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false,
     reachable: [], pathPreview: [], winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
   }
   state.reachable = reachableCells(state, state.units.player)

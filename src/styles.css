@@ -41,6 +41,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .hearts .full { color: #ea6151; text-shadow: 0 0 8px #d43c31; }
 .status-meta { display: flex; justify-content: space-between; color: #82979c; font-size: 10px; }
 .equipment-line { margin-top: 3px; color: #c8a965; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.skill-line { margin-top: 2px; color: #78b5bf; font-size: 9px; white-space: nowrap; }
 
 .message-bar { position: absolute; z-index: 8; bottom: 122px; left: 50%; transform: translateX(-50%); min-width: 320px; max-width: 70%; padding: 7px 16px; text-align: center; color: #bdd0d2; background: #071216d9; border-top: 1px solid #27464c; font-size: 12px; letter-spacing: .04em; }
 .message-pip { display: inline-block; width: 5px; height: 5px; margin: 0 8px 2px 0; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
@@ -67,6 +68,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .end-turn:disabled { opacity: .4; cursor: wait; }
 .end-turn svg, .secondary svg, .primary svg { width: 17px; }
 .secondary { padding: 0 10px; border: 1px solid #3c555b; color: #9eb2b6; background: #0b191e; }
+.skill-action { border-color: #8d6b34; color: #e2bd70; }
+.skill-action.active { background: #5b3d16; box-shadow: 0 0 14px #d9a84b55; }
 .empty-hand { color: #5e7378; font-size: 13px; }
 
 .overlay { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: #020608d9; backdrop-filter: blur(7px); }
