@@ -335,6 +335,44 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('制衡')
   })
 
+  it('lets Diao Chan discard a card to make two male characters duel through Lijian', () => {
+    useGameStore.getState().selectGeneral('biyue')
+    const payment = card('dodge')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [payment] },
+      north: { ...state.units.north, gender: 'male', hand: [] },
+      east: { ...state.units.east, gender: 'male', hand: [] },
+    } }))
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().activateLijian()
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.discard).toContainEqual(payment)
+    expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
+  })
+
+  it('lets a Wu loyalist Peach rescue Sun Quan for two health through Jiuyuan', () => {
+    useGameStore.getState().selectGeneral('zhiheng')
+    const slash = card('slash'), peach = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 1, position: { x: 4, y: 8 }, hand: [] },
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'wu', hand: [peach] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ required: 'dodge' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(2)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
+    expect(state.history.some(entry => entry.includes('救援'))).toBe(true)
+  })
+
   it('requires two dodges against Lu Bu Wushuang slash', () => {
     useGameStore.getState().selectGeneral('wushuang')
     const slash = card('slash'), onlyDodge = card('dodge')

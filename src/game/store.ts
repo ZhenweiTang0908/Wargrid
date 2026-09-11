@@ -19,6 +19,7 @@ interface GameStore extends GameState {
   activateRende: () => void
   activateKurou: () => void
   activateGuose: () => void
+  activateLijian: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
@@ -47,8 +48,8 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu', gender: 'male' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu', gender: 'female' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu', gender: 'male' },
-  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', skills: ['biyue'], faction: 'qun', gender: 'female' },
-  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
+  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', skills: ['lijian', 'biyue'], faction: 'qun', gender: 'female' },
+  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng', 'jiuyuan'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
 const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { qianxun: 3, guose: 3, luoshen: 3, keji: 4, kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
@@ -96,6 +97,17 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     amount = 1; message += '；【白银狮子】将伤害减至 1'
   }
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
+  let rescuedUnits = state.units
+  if (!skipRescue && hp <= 0 && target.identity === 'lord' && target.faction === 'wu' && target.skills.includes('jiuyuan')) {
+    const helper = Object.values(state.units).find(unit => unit.id !== targetId && unit.identity === 'loyalist' && unit.faction === 'wu' && unit.hp > 0 && unit.hand.some(card => card.kind === 'peach'))
+    const peach = helper?.hand.find(card => card.kind === 'peach')
+    if (helper && peach) {
+      rescuedUnits = { ...rescuedUnits, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== peach.id), animation: 'cast' } }
+      discard = [...discard, peach]
+      hp = 2
+      message += `；${helper.name}响应【救援】，令【桃】额外回复 1 点体力`
+    }
+  }
   const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach' || (target.skills.includes('jijiu') && (c.suit === 'heart' || c.suit === 'diamond'))) : undefined
   if (playerPeach) {
     const prompt = `${target.name}进入濒死状态，是否使用【桃】自救？`
@@ -108,7 +120,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   }
   const rescue = !skipRescue && targetId !== 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
   if (rescue) { hand = hand.filter(c => c.id !== rescue.id); discard = [...discard, rescue]; hp = 1 }
-  let units = { ...state.units, [targetId]: { ...target, hand, hp: Math.max(0, hp), revealed: hp <= 0 ? true : target.revealed, animation: 'hit' as const } }
+  let units = { ...rescuedUnits, [targetId]: { ...target, hand, hp: Math.max(0, hp), revealed: hp <= 0 ? true : target.revealed, animation: 'hit' as const } }
   const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach' || (state.units.player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond'))) : undefined
   if (aidPeach) {
     const prompt = `${target.name}进入濒死状态，是否使用【桃】援救？`
@@ -922,7 +934,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (card.kind === 'dodge' && state.units.player.skill === 'longdan') {
       set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: state.selectedCardId !== id, message: '【龙胆】将【闪】当【杀】使用，请选择敌将' }); return
     }
-    if (card.kind === 'dodge' && !(state.units.player.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club'))) { set({ message: '【闪】在响应窗口中打出' }); return }
+    if (card.kind === 'dodge' && !state.units.player.skills.includes('lijian') && !(state.units.player.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club'))) { set({ message: '【闪】在响应窗口中打出' }); return }
     const needsTarget = ['slash', 'duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'fireAttack', 'ironChain'].includes(card.kind)
     if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
     set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: false, selectedAsDismantle: false, message: needsTarget ? `选择敌将使用【${CARD_LABEL[card.kind]}】` : '再次点击确认使用' })
@@ -1009,6 +1021,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.phase !== 'player' || state.turnStage !== 'play' || !state.units.player.skills.includes('guose') || !card || card.suit !== 'diamond') return
     const active = !state.selectedAsGuose
     set({ selectedAsGuose: active, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, message: active ? '【国色】将方片牌当【乐不思蜀】，请选择目标' : '已取消国色' })
+  },
+  activateLijian: () => {
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('lijian') || player.skillUsed || !state.selectedCardId) return
+    const targets = Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.gender === 'male')
+    if (targets.length < 2) { set({ message: '场上没有两名可发动【离间】的男性角色' }); return }
+    const payment = player.hand.find(card => card.id === state.selectedCardId)
+    if (!payment) return
+    const [duelist, challenged] = targets
+    const message = `${player.name}发动【离间】，弃置一张牌，令${duelist.name}视为对${challenged.name}使用【决斗】`
+    const lijianState: GameState = {
+      ...state,
+      units: { ...state.units, player: { ...player, hand: player.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' } },
+      discard: [...state.discard, payment], selectedCardId: null, message, history: log(state, message),
+    }
+    set({ ...lijianState, ...continueDuel(lijianState, challenged.id, duelist.id) })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
