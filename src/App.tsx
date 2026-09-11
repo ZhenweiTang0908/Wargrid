@@ -681,6 +681,7 @@ function App() {
         {state.turnStage === 'play' && canKurou && <button className="secondary skill-action" onClick={() => state.activateKurou()}><Swords />苦肉</button>}
         {state.turnStage === 'play' && canGuose && <button className={`secondary skill-action ${state.selectedAsGuose ? 'active' : ''}`} onClick={() => state.activateGuose()}><Swords />国色</button>}
         {state.turnStage === 'play' && canLijian && <button className={`secondary skill-action ${state.lijianMode ? 'active' : ''}`} onClick={() => state.activateLijian()}><Swords />{state.lijianTargets.length ? `离间 ${state.lijianTargets.length}/2` : '离间'}</button>}
+        {state.turnStage === 'play' && selectedCard?.kind === 'ironChain' && <button className="secondary" onClick={() => dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCard.id, recast: true })}><RotateCcw />重铸</button>}
         {state.turnStage === 'play' && state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
         <button className="end-turn" disabled={state.phase !== 'player' || !discardReady} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />{state.turnStage === 'discard' ? '确认弃牌' : '结束回合'}</button>
       </div>

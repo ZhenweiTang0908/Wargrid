@@ -704,6 +704,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
       const removed = takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
+      if (action.recast) {
+        if (card.kind !== 'ironChain' || assistant) return
+        const draw = drawCards(state.deck, [...state.discard, card], 1)
+        const message = `${unit.name}重铸【铁索连环】，摸一张牌`
+        set({ units: { ...state.units, [action.unit]: { ...unit, hand: [...removed.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, selectedCardId: null, message, history: log(state, message) })
+        return
+      }
       const virtualDismantle = action.asDismantle && unit.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club')
       const virtualIndulgence = action.asGuose && unit.skills.includes('guose') && card.suit === 'diamond'
       const virtualSlash = !!validJijiang || (action.asSlash && (isSlashKind(card.kind) || spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))

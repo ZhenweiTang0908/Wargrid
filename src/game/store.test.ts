@@ -494,6 +494,18 @@ describe('standard card scenarios', () => {
     expect(state.units.north.chained).toBe(false)
   })
 
+  it('recasts Iron Chain to draw one card without triggering Jizhi', () => {
+    useGameStore.getState().selectGeneral('jizhi')
+    const chain = card('ironChain'), replacement = card('peach')
+    useGameStore.setState(state => ({ deck: [replacement], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [chain] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: chain.id, recast: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([replacement])
+    expect(state.discard).toContainEqual(chain)
+    expect(state.history.some(entry => entry.includes('重铸'))).toBe(true)
+    expect(state.history.some(entry => entry.includes('集智'))).toBe(false)
+  })
+
   it('lets a player-selected Zhao Yun use slash as dodge', () => {
     useGameStore.getState().selectGeneral('longdan')
     const enemySlash = card('slash', 'club'), converted = card('slash', 'heart')

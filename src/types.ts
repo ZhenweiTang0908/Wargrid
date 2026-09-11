@@ -107,7 +107,7 @@ export interface GameState {
 export type GameAction =
   | { type: 'MOVE'; unit: Team; to: Position }
   | { type: 'INTERACT'; unit: Team; objectId: string; cardId: string }
-  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; asSlash?: boolean; asDismantle?: boolean; asFanjian?: boolean; asRende?: boolean; asGuose?: boolean; materialIds?: string[]; lordAssist?: Team }
+  | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; recast?: boolean; asSlash?: boolean; asDismantle?: boolean; asFanjian?: boolean; asRende?: boolean; asGuose?: boolean; materialIds?: string[]; lordAssist?: Team }
   | { type: 'END_TURN' }
   | { type: 'RESTART' }
 
@@ -136,7 +136,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '抵消锦囊或反制另一张【无懈可击】',
   indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '所有存活角色各摸一张牌',
-  fireAttack: '目标展示手牌；弃置同花色牌造成 1 点火焰伤害', ironChain: '令一名角色横置或重置，属性伤害会在横置角色间传导',
+  fireAttack: '目标展示手牌；弃置同花色牌造成 1 点火焰伤害', ironChain: '令角色横置或重置并传导属性伤害；也可重铸摸一张牌',
   redHare: '进攻坐骑：计算距离 -1', dayuan: '进攻坐骑：计算距离 -1', zixing: '进攻坐骑：计算距离 -1',
   dilu: '防御坐骑：他人至你的距离 +1', jueying: '防御坐骑：他人至你的距离 +1', zhaohuang: '防御坐骑：他人至你的距离 +1',
 }
