@@ -5,7 +5,7 @@ export type CardKind =
   | 'slash' | 'dodge' | 'peach' | 'wine'
   | 'duel' | 'dismantle' | 'snatch' | 'drawTwo'
   | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
-  | 'peachGarden' | 'harvest'
+  | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   | 'crossbow' | 'qinggang' | 'spear' | 'axe' | 'halberd' | 'qilinBow'
   | 'shield' | 'bagua' | 'redHare' | 'dilu'
 export type Phase = 'player' | 'ai' | 'finished'
@@ -38,6 +38,7 @@ export interface Unit {
   attacksUsed: number
   wineUsed: boolean
   drunk: boolean
+  chained: boolean
   animation: AnimationKind
 }
 
@@ -47,7 +48,7 @@ export interface PendingResponse {
   target: Team
   required: 'dodge' | 'slash' | 'peach' | 'nullify'
   prompt: string
-  trick?: 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'arrows' | 'barbarians'
+  trick?: 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'arrows' | 'barbarians' | 'fireAttack' | 'ironChain'
   originCardId?: string
   armorChecked?: boolean
 }
@@ -91,7 +92,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   crossbow: '诸葛连弩', qinggang: '青釭剑', shield: '仁王盾',
   spear: '丈八蛇矛', axe: '贯石斧', halberd: '方天画戟', qilinBow: '麒麟弓', bagua: '八卦阵',
   arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', lightning: '闪电',
-  peachGarden: '桃园结义', harvest: '五谷丰登',
+  peachGarden: '桃园结义', harvest: '五谷丰登', fireAttack: '火攻', ironChain: '铁索连环',
   redHare: '赤兔', dilu: '的卢',
 }
 
@@ -104,6 +105,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '在响应窗口抵消锦囊效果',
   indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '所有存活角色各摸一张牌',
+  fireAttack: '目标展示手牌；弃置同花色牌造成 1 点火焰伤害', ironChain: '令一名角色横置或重置，属性伤害会在横置角色间传导',
   redHare: '进攻坐骑：计算距离 -1', dilu: '防御坐骑：他人至你的距离 +1',
 }
 

@@ -88,7 +88,7 @@ function UnitPiece({ team }: { team: Team }) {
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     selectedKind === 'duel' || selectedKind === 'dismantle' ||
-    selectedKind === 'indulgence' ||
+    selectedKind === 'indulgence' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
     (selectedKind === 'snatch' && combatDistance(state, state.units.player, unit) <= 1)
   )
 
@@ -124,6 +124,10 @@ function UnitPiece({ team }: { team: Team }) {
           <meshBasicMaterial color="#ffcb70" transparent opacity={.9} side={THREE.DoubleSide} />
         </mesh>
       )}
+      {unit.chained && <mesh position-y={.34} rotation-x={Math.PI / 2}>
+        <torusGeometry args={[.58, .055, 8, 24]} />
+        <meshStandardMaterial color="#80d8dc" emissive="#167782" emissiveIntensity={1.4} metalness={.75} roughness={.25} />
+      </mesh>}
       <mesh position-y={.18} castShadow>
         <cylinderGeometry args={[.38, .45, .28, 12]} />
         <meshStandardMaterial color={color} roughness={.34} metalness={.45} />
@@ -222,7 +226,7 @@ function PlayerStatus({ team }: { team: Team }) {
       <div className="status-copy">
         <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
-        <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span></div>
+        <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span>{unit.chained && <span>⛓ 连环</span>}</div>
         <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.equipment.offensiveMount ? ` · ${CARD_LABEL[unit.equipment.offensiveMount.kind]}` : ''}{unit.equipment.defensiveMount ? ` · ${CARD_LABEL[unit.equipment.defensiveMount.kind]}` : ''}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
         <div className="skill-line">{skillCopy[unit.skill]}</div>
       </div>

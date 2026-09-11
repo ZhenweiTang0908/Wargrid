@@ -115,6 +115,44 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${finalMessage}${skillText}`, history: log(state, `${finalMessage}${skillText}${rewardText}`) }
 }
 
+function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder'): Partial<GameState> {
+  const target = state.units[targetId]
+  const linked = target.chained ? [targetId, ...state.turnOrder.filter(id => id !== targetId && state.units[id].hp > 0 && state.units[id].chained)] : [targetId]
+  let working: GameState = {
+    ...state,
+    units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, linked.includes(id as Team) ? { ...unit, chained: false } : unit])) as GameState['units'],
+  }
+  const label = nature === 'fire' ? '火焰' : '雷电'
+  for (const id of linked) {
+    const transmitted = id === targetId ? '' : '（铁索传导）'
+    working = { ...working, ...damage(working, attackerId, id, amount, `${working.units[id].name}受到 ${amount} 点${label}伤害${transmitted}`) }
+    if (working.pendingResponse || working.winner) break
+  }
+  return working
+}
+
+function resolveFireAttack(state: GameState, actorId: Team, targetId: Team): Partial<GameState> {
+  const actor = state.units[actorId], target = state.units[targetId]
+  const revealed = target.hand[0]
+  if (!revealed) {
+    const message = `${target.name}没有手牌，【火攻】未生效`
+    return { message, history: log(state, message) }
+  }
+  const paid = actor.hand.find(card => card.suit === revealed.suit)
+  if (!paid) {
+    const message = `${target.name}展示${revealed.suit}牌，${actor.name}没有同花色牌可弃置`
+    return { message, history: log(state, message) }
+  }
+  const paidState: GameState = { ...state, units: { ...state.units, [actorId]: { ...actor, hand: actor.hand.filter(card => card.id !== paid.id), animation: 'cast' } }, discard: [...state.discard, paid] }
+  return elementalDamage(paidState, actorId, targetId, 1, 'fire')
+}
+
+function resolveIronChain(state: GameState, actorId: Team, targetId: Team): Partial<GameState> {
+  const target = state.units[targetId], chained = !target.chained
+  const message = `${state.units[actorId].name}使用【铁索连环】，${target.name}${chained ? '进入' : '解除'}连环状态`
+  return { units: { ...state.units, [targetId]: { ...target, chained, animation: 'cast' } }, message, history: log(state, message) }
+}
+
 function judgeBagua(state: GameState, targetId: Team) {
   const draw = drawCards(state.deck, state.discard, 1), judge = draw.drawn[0]
   if (!judge) return { state, success: false }
@@ -226,7 +264,7 @@ function beginTurn(state: GameState, team: Team): GameState {
     if (delayed.kind === 'indulgence' && judge.suit !== 'heart') skipPlay = true
     if (delayed.kind === 'lightning') {
       const hit = judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9
-      if (hit) working = { ...working, ...damage(working, primaryTarget(working, team), team, 3, `${unit.name}受到【闪电】3 点伤害`) }
+      if (hit) working = { ...working, ...elementalDamage(working, primaryTarget(working, team), team, 3, 'thunder') }
       else {
         const opponent = nextSeat(working, team)
         working = { ...working, units: { ...working.units, [opponent]: { ...working.units[opponent], judgement: [...working.units[opponent].judgement, delayed] } }, discard: working.discard.filter(c => c.id !== delayed.id) }
@@ -280,16 +318,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const kind = virtualSlash ? 'slash' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
       let base: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, animation: 'cast' } }, discard: [...state.discard, card], selectedCardId: null, selectedAsSlash: false }
-      const nullifiable = ['duel', 'dismantle', 'snatch', 'indulgence'].includes(kind)
+      const nullifiable = ['duel', 'dismantle', 'snatch', 'indulgence', 'fireAttack', 'ironChain'].includes(kind)
       if (kind === 'snatch' && combatDistance(state, unit, target) > 1) return
       if (nullifiable && targetId === 'player' && action.unit !== 'player') {
-        const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'indulgence'
+        const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'fireAttack' | 'ironChain'
         const prompt = `${unit.name}对你使用【${CARD_LABEL[trick]}】，是否打出【无懈可击】？`
         set({ ...base, pendingResponse: { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick, originCardId: card.id, prompt }, message: prompt, history: log(state, prompt) }); return
       }
       const nullify = nullifiable ? target.hand.find(c => c.kind === 'nullify') : undefined
       if (nullify) {
-        const message = `${target.name}打出【无懈可击】，抵消【${card.kind === 'duel' ? '决斗' : card.kind === 'arrows' ? '万箭齐发' : card.kind === 'barbarians' ? '南蛮入侵' : card.kind === 'indulgence' ? '乐不思蜀' : card.kind === 'snatch' ? '顺手牵羊' : '过河拆桥'}】`
+        const message = `${target.name}打出【无懈可击】，抵消【${CARD_LABEL[kind]}】`
         set({ units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(state, message) }); return
       }
       if (kind === 'peach') {
@@ -346,6 +384,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set(resolveSlash(base, action.unit, targetId)); return
       }
       if (kind === 'duel') { set(continueDuel(base, targetId, action.unit)); return }
+      if (kind === 'fireAttack') { set(resolveFireAttack(base, action.unit, targetId)); return }
+      if (kind === 'ironChain') { set(resolveIronChain(base, action.unit, targetId)); return }
       if (kind === 'arrows' || kind === 'barbarians') {
         set(resolveGroupTrick(base, action.unit, kind)); return
       }
@@ -429,6 +469,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           base = { ...base, units: { ...base.units, player: { ...player, judgement: [...player.judgement, delayed], animation: 'cast' } }, discard: base.discard.filter(candidate => candidate.id !== delayed.id), message, history: log(base, message) }
         }
       } else if (pending.trick === 'dismantle' || pending.trick === 'snatch') base = { ...base, ...takeTargetCard(base, pending.source, 'player', pending.trick === 'snatch') }
+      else if (pending.trick === 'fireAttack') base = { ...base, ...resolveFireAttack(base, pending.source, 'player') }
+      else if (pending.trick === 'ironChain') base = { ...base, ...resolveIronChain(base, pending.source, 'player') }
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
@@ -471,7 +513,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: state.selectedCardId !== id, message: '【龙胆】将【闪】当【杀】使用，请选择敌将' }); return
     }
     if (card.kind === 'dodge') { set({ message: '【闪】在响应窗口中打出' }); return }
-    const needsTarget = ['slash', 'duel', 'dismantle', 'snatch', 'indulgence'].includes(card.kind)
+    const needsTarget = ['slash', 'duel', 'dismantle', 'snatch', 'indulgence', 'fireAttack', 'ironChain'].includes(card.kind)
     if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
     set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: false, message: needsTarget ? `选择敌将使用【${CARD_LABEL[card.kind]}】` : '再次点击确认使用' })
   },
@@ -517,7 +559,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     state = get(); ai = state.units[aiId]; target = targetsFor(state, aiId)[0]
     if (!target) return
-    for (const kind of ['indulgence', 'dismantle', 'snatch', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
+    for (const kind of ['ironChain', 'fireAttack', 'indulgence', 'dismantle', 'snatch', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
       const card = kind === 'slash' ? responseCard(ai, 'slash') : ai.hand.find(c => c.kind === kind); if (!card) continue
       if (kind === 'slash' && !canSlash(state, ai, target)) continue
       if (kind === 'snatch' && combatDistance(state, ai, target) > 1) continue

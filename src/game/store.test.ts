@@ -57,6 +57,29 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(dodge)
   })
 
+  it('uses fire attack by matching the revealed card suit', () => {
+    const fire = card('fireAttack', 'spade'), payment = card('slash', 'heart'), revealed = card('dodge', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [fire, payment] }, east: { ...state.units.east, hand: [revealed] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: fire.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.east.hand).toContainEqual(revealed)
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([fire.id, payment.id]))
+  })
+
+  it('toggles iron chains and transmits elemental damage through linked units', () => {
+    const chain = card('ironChain'), fire = card('fireAttack', 'diamond'), payment = card('slash', 'club'), revealed = card('dodge', 'club')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [chain, fire, payment] }, north: { ...state.units.north, chained: true }, east: { ...state.units.east, hand: [revealed] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: chain.id, target: 'east' })
+    expect(useGameStore.getState().units.east.chained).toBe(true)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: fire.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.chained).toBe(false)
+    expect(state.units.north.chained).toBe(false)
+  })
+
   it('lets a player-selected Zhao Yun use slash as dodge', () => {
     useGameStore.getState().selectGeneral('longdan')
     const enemySlash = card('slash', 'club'), converted = card('slash', 'heart')

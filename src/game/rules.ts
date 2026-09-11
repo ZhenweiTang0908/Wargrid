@@ -30,7 +30,7 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, shield: 2,
   spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
-  peachGarden: 2, harvest: 2,
+  peachGarden: 2, harvest: 2, fireAttack: 3, ironChain: 3,
   redHare: 2, dilu: 2,
 }
 
@@ -170,10 +170,10 @@ export function createInitialState(deck = createDeck()): GameState {
   const state: GameState = {
     size: BOARD_SIZE, terrain: TERRAIN, obstacles: OBSTACLES, controlPoint: CONTROL_POINT,
     units: {
-      player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
-      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: 'loyalist', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
-      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: 'rebel', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
-      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: 'renegade', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' },
+      player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, animation: 'idle' },
+      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: 'loyalist', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, animation: 'idle' },
+      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: 'rebel', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, animation: 'idle' },
+      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: 'renegade', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, animation: 'idle' },
     },
     deck: deck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
     scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', generalSelected: false, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false, discardSelection: [],
