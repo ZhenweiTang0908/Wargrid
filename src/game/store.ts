@@ -1070,7 +1070,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'silverLion', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
-      if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
+      if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !responseCard(ai, 'slash'))) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id }); await wait(280)
       if (get().pendingResponse) return
     }
@@ -1093,12 +1093,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     state = get(); ai = state.units[aiId]; target = targetsFor(state, aiId)[0]
     if (!target) return
     for (const kind of ['ironChain', 'fireAttack', 'indulgence', 'dismantle', 'snatch', 'borrowedSword', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
-      const card = kind === 'slash' ? responseCard(ai, 'slash') : ai.hand.find(c => c.kind === kind); if (!card) continue
+      const card = kind === 'slash' ? responseCard(ai, 'slash') : kind === 'dismantle' ? ai.hand.find(c => c.kind === 'dismantle') ?? (ai.skills.includes('qixi') ? ai.hand.find(c => c.suit === 'spade' || c.suit === 'club') : undefined) : ai.hand.find(c => c.kind === kind); if (!card) continue
       if (kind === 'borrowedSword') target = targetsFor(state, aiId).find(unit => !!unit.equipment.weapon) ?? target
       if (kind === 'borrowedSword' && !target.equipment.weapon) continue
       if (kind === 'slash' && !canSlash(state, ai, target)) continue
-      if (kind === 'snatch' && combatDistance(state, ai, target) > 1) continue
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && card.kind !== 'slash' }); await wait(420); state = get(); ai = state.units[aiId]
+      if (kind === 'snatch' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && card.kind !== 'slash', asDismantle: kind === 'dismantle' && card.kind !== 'dismantle' }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse) return
       if (state.phase === 'finished') return
     }
