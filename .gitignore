@@ -3,3 +3,6 @@ dist
 .sites-runtime
 .DS_Store
 *.tsbuildinfo
+android/.gradle
+android/local.properties
+android/app/build
