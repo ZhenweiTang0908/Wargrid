@@ -1104,6 +1104,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
         await wait(280); state = get(); ai = state.units[aiId]
       }
     }
+    if (ai.skills.includes('jieyin') && !ai.skillUsed && ai.hp < ai.maxHp && ai.hand.length >= 2) {
+      const companion = alliesFor(state, aiId).filter(unit => unit.id !== aiId && unit.gender === 'male' && unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+      if (companion) {
+        const paid = [...ai.hand].sort(card => card.kind === 'peach' ? 1 : card.kind === 'dodge' ? 0 : -1).slice(0, 2), paidIds = new Set(paid.map(card => card.id))
+        const message = `${ai.name}发动【结姻】，弃置两张牌，与${companion.name}各回复 1 点体力`
+        set({ units: { ...state.units, [aiId]: { ...ai, hp: ai.hp + 1, hand: ai.hand.filter(card => !paidIds.has(card.id)), skillUsed: true, animation: 'heal' }, [companion.id]: { ...companion, hp: companion.hp + 1, animation: 'heal' } }, discard: [...state.discard, ...paid], message, history: log(state, message) })
+        await wait(280); state = get(); ai = state.units[aiId]
+      }
+    }
+    if (ai.skills.includes('kurou') && ai.hp > 2) {
+      const draw = drawCards(state.deck, state.discard, 2), message = `${ai.name}发动【苦肉】，失去 1 点体力并摸两张牌`
+      const drawnState: GameState = { ...state, units: { ...state.units, [aiId]: { ...ai, hand: [...ai.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+      set({ ...drawnState, ...damage(drawnState, aiId, aiId, 1, message) })
+      await wait(280); state = get(); ai = state.units[aiId]
+    }
     const cache = state.mapObjects.find(item => !item.claimed && (item.kind !== 'healingShrine' || ai.hp < ai.maxHp) && Math.abs(ai.position.x - item.position.x) + Math.abs(ai.position.y - item.position.y) <= 1)
     const payment = ai.hand.find(card => card.kind === 'dodge' || card.kind === 'slash') ?? ai.hand[ai.hand.length - 1]
     if (cache && payment) {

@@ -1298,4 +1298,32 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toContainEqual(freshCard)
     expect(state.history.some(entry => entry.includes('制衡'))).toBe(true)
   })
+
+  it('lets AI Sun Shangxiang heal herself and a wounded male ally through Jieyin', async () => {
+    const first = card('nullify'), second = card('nullify', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 3 },
+      north: { ...state.units.north, skill: 'jieyin', skills: ['jieyin', 'xiaoji'], position: state.controlPoint, hp: 2, maxHp: 3, hand: [first, second] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.history.some(entry => entry.includes('结姻'))).toBe(true)
+  })
+
+  it('lets AI Huang Gai use Kurou while above its safety threshold', async () => {
+    const drawA = card('nullify'), drawB = card('nullify', 'heart')
+    useGameStore.setState(state => ({ deck: [drawA, drawB], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'kurou', skills: ['kurou'], position: state.controlPoint, hp: 4, maxHp: 4, hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.hand).toEqual([drawA, drawB])
+    expect(state.history.some(entry => entry.includes('苦肉'))).toBe(true)
+  })
 })
