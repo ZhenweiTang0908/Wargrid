@@ -677,6 +677,25 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('寒冰剑')
   })
 
+  it('caps high damage at one with Silver Lion', () => {
+    const slash = card('slash'), armor = card('silverLion')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], drunk: true }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { armor } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.message).toContain('白银狮子')
+  })
+
+  it('heals when Silver Lion is replaced', () => {
+    const lion = card('silverLion'), replacement = card('bagua')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hp: 3, hand: [replacement], equipment: { armor: lion } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: replacement.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.equipment.armor).toEqual(replacement)
+    expect(state.discard).toContainEqual(lion)
+  })
+
   it('uses a red Bagua judgement as dodge before opening a response window', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({

@@ -65,6 +65,9 @@ const loyalGuard = (state: GameState, targetId: Team) => {
 
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false): Partial<GameState> {
   const target = state.units[targetId]
+  if (amount > 1 && target.equipment.armor?.kind === 'silverLion' && state.units[attackerId].equipment.weapon?.kind !== 'qinggang') {
+    amount = 1; message += '；【白银狮子】将伤害减至 1'
+  }
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
   const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach' || (target.skills.includes('jijiu') && (c.suit === 'heart' || c.suit === 'diamond'))) : undefined
   if (playerPeach) {
@@ -296,8 +299,9 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       if (equipment[slot]) { removed.push(equipment[slot]!); delete equipment[slot] }
     }
     if (removed.length) {
-      const removedIds = new Set(removed.map(card => card.id)), message = `${attacker.name}发动【寒冰剑】，防止伤害并弃置${target.name}${removed.length}张牌`
-      return { ...base, units: { ...units, [targetId]: { ...iceTarget, hand: iceTarget.hand.filter(card => !removedIds.has(card.id)), equipment, animation: 'hit' } }, discard: [...discard, ...removed], message, history: log(base, message) }
+      const lionHeal = removed.some(card => card.kind === 'silverLion') && iceTarget.hp < iceTarget.maxHp
+      const removedIds = new Set(removed.map(card => card.id)), message = `${attacker.name}发动【寒冰剑】，防止伤害并弃置${target.name}${removed.length}张牌${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}`
+      return { ...base, units: { ...units, [targetId]: { ...iceTarget, hp: lionHeal ? iceTarget.hp + 1 : iceTarget.hp, hand: iceTarget.hand.filter(card => !removedIds.has(card.id)), equipment, animation: lionHeal ? 'heal' : 'hit' } }, discard: [...discard, ...removed], message, history: log(base, message) }
     }
   }
   const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
@@ -337,9 +341,10 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
   }
   const equipment = { ...target.equipment }
   for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot]?.id === chosen.id) delete equipment[slot]
-  const message = `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}${target.name}的一张牌`
+  const lionHeal = chosen.kind === 'silverLion' && target.hp > 0 && target.hp < target.maxHp
+  const message = `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}${target.name}的一张牌${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}`
   return {
-    units: { ...state.units, [targetId]: { ...target, hand: target.hand.filter(card => card.id !== chosen.id), equipment, animation: 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
+    units: { ...state.units, [targetId]: { ...target, hp: lionHeal ? target.hp + 1 : target.hp, hand: target.hand.filter(card => card.id !== chosen.id), equipment, animation: lionHeal ? 'heal' : 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
     discard: gain ? state.discard : [...state.discard, chosen], message, history: log(state, message),
   }
 }
@@ -562,8 +567,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ ...base, units, deck, discard, message, history: log(base, message) }); return
       }
       if (isEquipment(kind)) {
-        const slot = card.kind === 'shield' || card.kind === 'bagua' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
-        const equipped = { ...unit, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】`
+        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
+        const lionHeal = old?.kind === 'silverLion' && unit.hp < unit.maxHp
+        const equipped = { ...unit, hp: lionHeal ? unit.hp + 1 : unit.hp, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: lionHeal ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${lionHeal ? '，失去白银狮子并回复 1 点体力' : ''}`
         set({ units: { ...state.units, [action.unit]: equipped }, discard: old ? [...state.discard, old] : state.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
       if (kind === 'slash') {
@@ -822,7 +828,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'silverLion', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue

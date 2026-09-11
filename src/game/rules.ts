@@ -29,7 +29,7 @@ export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
   snatch: 5, drawTwo: 4, borrowedSword: 2, crossbow: 2, qinggang: 2, greenDragon: 1, shield: 2,
-  spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2,
+  spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2, silverLion: 1,
   gudingBlade: 1, vermilionFan: 1,
   doubleSword: 1, iceSword: 1,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
@@ -129,7 +129,7 @@ export const effectiveAttackRange = (state: GameState, attacker: Unit) => attack
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
-export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'redHare', 'dilu'].includes(kind)
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dilu'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []
