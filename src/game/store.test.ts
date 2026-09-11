@@ -1027,4 +1027,27 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.history.some(entry => entry.includes('判定未生效'))).toBe(true)
   })
+
+  it('lets Huang Gai repeatedly trade health for cards through Kurou', () => {
+    useGameStore.getState().selectGeneral('kurou')
+    const rewards = [card('slash'), card('dodge'), card('duel'), card('peach')]
+    useGameStore.setState(state => ({ deck: rewards, discard: [], units: { ...state.units, player: { ...state.units.player, hp: 3, hand: [] } } }))
+    useGameStore.getState().activateKurou()
+    useGameStore.getState().activateKurou()
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toEqual(rewards)
+    expect(state.history.filter(entry => entry.includes('苦肉')).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('opens a dying response after Huang Gai uses Kurou at one health', () => {
+    useGameStore.getState().selectGeneral('kurou')
+    const peach = card('peach', 'heart'), extra = card('slash')
+    useGameStore.setState(state => ({ deck: [peach, extra], discard: [], units: { ...state.units, player: { ...state.units.player, hp: 1, hand: [] } } }))
+    useGameStore.getState().activateKurou()
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'player' })
+    useGameStore.getState().respond(peach.id)
+    expect(useGameStore.getState().units.player.hp).toBe(1)
+    expect(useGameStore.getState().units.player.hand).toEqual([extra])
+  })
 })

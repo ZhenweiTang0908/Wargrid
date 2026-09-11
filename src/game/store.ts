@@ -17,12 +17,14 @@ interface GameStore extends GameState {
   activateFanjian: () => void
   activateJieyin: () => void
   activateRende: () => void
+  activateKurou: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction' | 'gender'>>> = {
+  kurou: { name: '黄盖', title: '轻身为国', skill: 'kurou', skills: ['kurou'], faction: 'wu', gender: 'male' },
   tieqi: { name: '马超', title: '一骑当千', skill: 'tieqi', skills: ['mashu', 'tieqi'], faction: 'shu', gender: 'male' },
   rende: { name: '刘备', title: '乱世的枭雄', skill: 'rende', skills: ['rende', 'jijiang'], faction: 'shu', gender: 'male' },
   wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', skills: ['wusheng'], faction: 'shu', gender: 'male' },
@@ -44,7 +46,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { kurou: 4, tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -916,6 +918,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('rende') || !state.selectedCardId) return
     const active = !state.selectedAsRende
     set({ selectedAsRende: active, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, message: active ? '【仁德】请选择一名其他角色获得此牌' : '已取消仁德' })
+  },
+  activateKurou: () => {
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('kurou') || player.hp <= 0) return
+    const draw = drawCards(state.deck, state.discard, 2)
+    const message = `${player.name}发动【苦肉】，失去 1 点体力并摸两张牌`
+    const drawnState: GameState = { ...state, units: { ...state.units, player: { ...player, hand: [...player.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+    set({ ...drawnState, ...damage(drawnState, 'player', 'player', 1, message) })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
