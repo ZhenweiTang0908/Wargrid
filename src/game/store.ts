@@ -6,6 +6,7 @@ interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
   selectGeneral: (skill: GeneralSkill) => void
   respond: (cardId: string | null) => void
+  chooseHarvest: (cardId: string) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -112,6 +113,37 @@ const loyalGuard = (state: GameState, targetId: Team) => {
     if (dodge) return { unit, dodge }
   }
   return null
+}
+
+const harvestCardValue = (unit: Unit, card: Card) => card.kind === 'peach' && unit.hp < unit.maxHp ? 100
+  : card.kind === 'dodge' ? 80
+    : isSlashKind(card.kind) ? 70
+      : isEquipment(card.kind) ? 60
+        : card.kind === 'drawTwo' ? 55 : 40
+
+function advanceHarvest(state: GameState, pool: Card[], order: Team[]): GameState {
+  let working = state, available = [...pool], waiting = [...order]
+  while (waiting.length && waiting[0] !== 'player') {
+    const team = waiting.shift()!, unit = working.units[team]
+    if (unit.hp <= 0 || !available.length) continue
+    const chosen = [...available].sort((a, b) => harvestCardValue(unit, b) - harvestCardValue(unit, a))[0]
+    available = available.filter(card => card.id !== chosen.id)
+    const message = `${unit.name}从【五谷丰登】中选择【${CARD_LABEL[chosen.kind]}】`
+    working = { ...working, units: { ...working.units, [team]: { ...unit, hand: [...unit.hand, chosen], animation: 'cast' } }, message, history: log(working, message) }
+  }
+  if (waiting.length && waiting[0] === 'player' && working.units.player.hp > 0 && available.length) {
+    const message = `【五谷丰登】轮到你选择一张牌（剩余 ${available.length} 张）`
+    return { ...working, pendingHarvest: { source: state.currentUnit, pool: available, order: waiting }, message, history: log(working, message) }
+  }
+  const message = '【五谷丰登】选择完毕'
+  return { ...working, discard: [...working.discard, ...available], pendingHarvest: null, message, history: log(working, message) }
+}
+
+function beginHarvest(state: GameState, source: Team): GameState {
+  const sourceIndex = state.turnOrder.indexOf(source)
+  const order = [...state.turnOrder.slice(sourceIndex), ...state.turnOrder.slice(0, sourceIndex)].filter(team => state.units[team].hp > 0)
+  const draw = drawCards(state.deck, state.discard, order.length)
+  return advanceHarvest({ ...state, deck: draw.deck, discard: draw.discard }, draw.drawn, order)
 }
 
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false): Partial<GameState> {
@@ -660,7 +692,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -806,14 +838,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ ...base, units, message, history: log(base, message) }); return
       }
       if (kind === 'harvest') {
-        let deck = base.deck, discard = base.discard, units = base.units
-        for (const id of base.turnOrder) {
-          if (units[id].hp <= 0) continue
-          const draw = drawCards(deck, discard, 1); deck = draw.deck; discard = draw.discard
-          units = { ...units, [id]: { ...units[id], hand: [...units[id].hand, ...draw.drawn], animation: 'cast' } }
-        }
-        const message = `${unit.name}使用【五谷丰登】，所有存活角色各摸一张牌`
-        set({ ...base, units, deck, discard, message, history: log(base, message) }); return
+        set(beginHarvest(base, action.unit)); return
       }
       if (isEquipment(kind)) {
         const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
@@ -1036,6 +1061,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(base)
     if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
   },
+  chooseHarvest: cardId => {
+    const state = get(), pending = state.pendingHarvest
+    if (!pending || pending.order[0] !== 'player') return
+    const chosen = pending.pool.find(card => card.id === cardId)
+    if (!chosen) return
+    const player = state.units.player
+    const message = `${player.name}从【五谷丰登】中选择【${CARD_LABEL[chosen.kind]}】`
+    const selected: GameState = {
+      ...state,
+      units: { ...state.units, player: { ...player, hand: [...player.hand, chosen], animation: 'cast' } },
+      pendingHarvest: null,
+      message,
+      history: log(state, message),
+    }
+    set(advanceHarvest(selected, pending.pool.filter(card => card.id !== cardId), pending.order.slice(1)))
+    if (selected.phase === 'ai' && !get().pendingHarvest) setTimeout(() => void get().runAI(), 120)
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1184,7 +1226,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
@@ -1200,7 +1242,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !responseCard(ai, 'slash'))) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id }); await wait(280)
-      if (get().pendingResponse) return
+      if (get().pendingResponse || get().pendingHarvest) return
     }
     state = get(); ai = state.units[aiId]
     if (ai.skills.includes('fanjian') && !ai.skillUsed && ai.hand.length) {

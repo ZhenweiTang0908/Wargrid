@@ -665,6 +665,23 @@ function ResponseWindow() {
   </section></div>
 }
 
+function HarvestWindow() {
+  const pending = useGameStore(s => s.pendingHarvest)
+  const chooseHarvest = useGameStore(s => s.chooseHarvest)
+  if (!pending) return null
+  return <div className="overlay response-overlay"><section className="response-panel harvest-panel panel">
+    <span className="eyebrow">五谷丰登</span>
+    <h1>选择一张公开牌</h1>
+    <p>牌池会按照出牌者开始的座次依次选择；拿走的牌立即加入手牌。</p>
+    <div className="response-cards harvest-cards">
+      {pending.pool.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => chooseHarvest(card.id)}>
+        <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{CARD_COPY[card.kind]}</small>
+      </button>)}
+    </div>
+  </section></div>
+}
+
 function BattleReport({ close }: { close: () => void }) {
   const state = useGameStore()
   return <div className="overlay report-overlay"><section className="battle-report panel">
@@ -759,6 +776,7 @@ function App() {
     {!state.generalSelected && <GeneralSelect />}
     {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
+    {state.generalSelected && !tutorial && state.pendingHarvest && <HarvestWindow />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>

@@ -65,6 +65,12 @@ export interface PendingResponse {
   requiredCount?: number
 }
 
+export interface PendingHarvest {
+  source: Team
+  pool: Card[]
+  order: Team[]
+}
+
 export interface GameState {
   size: number
   terrain: Terrain[]
@@ -100,6 +106,7 @@ export interface GameState {
   reachable: Position[]
   pathPreview: Position[]
   pendingResponse: PendingResponse | null
+  pendingHarvest: PendingHarvest | null
   winner: Team | null
   message: string
   history: string[]

@@ -120,6 +120,9 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .response-cards { min-height: 104px; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .response-cards .card { width: 82px; height: 102px; }
 .response-cards .card:hover { transform: translateY(-7px); box-shadow: 0 10px 25px #000b, 0 0 0 2px var(--gold); }
+.harvest-panel { width: min(720px, 94vw); }
+.harvest-cards { flex-wrap: wrap; }
+.harvest-cards .card { width: 92px; height: 116px; }
 .no-response { color: #81969b; padding: 25px; border: 1px dashed #385158; }
 .decline-response { min-height: 40px; margin-top: 17px; padding: 0 24px; border: 1px solid #86544c; color: #efc1ba; background: #321a18; cursor: pointer; }
 .report-overlay { z-index: 65; }

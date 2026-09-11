@@ -1704,4 +1704,37 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(3)
     expect(state.units.player.animation).toBe('fireHit')
   })
+
+  it('reveals a Harvest pool and lets the player choose before AI seats', () => {
+    const harvest = card('harvest'), peach = card('peach', 'heart'), dodge = card('dodge'), slash = card('slash'), weapon = card('qinggang')
+    useGameStore.setState(state => ({
+      deck: [peach, dodge, slash, weapon], discard: [],
+      units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hand: id === 'player' ? [harvest] : [] }])) as typeof state.units,
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: harvest.id })
+    expect(useGameStore.getState().pendingHarvest?.pool).toHaveLength(4)
+    useGameStore.getState().chooseHarvest(peach.id)
+    const state = useGameStore.getState()
+    expect(state.pendingHarvest).toBeNull()
+    expect(state.units.player.hand).toContainEqual(peach)
+    expect([state.units.north.hand.length, state.units.east.hand.length, state.units.west.hand.length]).toEqual([1, 1, 1])
+  })
+
+  it('lets preceding AI seats choose Harvest cards before the player', () => {
+    const harvest = card('harvest'), peach = card('peach', 'heart'), dodge = card('dodge'), slash = card('slash'), weapon = card('qinggang')
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai', turnStage: 'play', deck: [peach, dodge, slash, weapon], discard: [],
+      units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hand: id === 'north' ? [harvest] : [] }])) as typeof state.units,
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: harvest.id })
+    const pending = useGameStore.getState().pendingHarvest
+    expect(pending?.order).toEqual(['player'])
+    expect(pending?.pool).toHaveLength(1)
+    expect(useGameStore.getState().units.north.hand).toHaveLength(1)
+    expect(useGameStore.getState().units.east.hand).toHaveLength(1)
+    expect(useGameStore.getState().units.west.hand).toHaveLength(1)
+    useGameStore.getState().chooseHarvest(pending!.pool[0].id)
+    expect(useGameStore.getState().pendingHarvest).toBeNull()
+    expect(useGameStore.getState().units.player.hand).toHaveLength(1)
+  })
 })
