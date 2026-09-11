@@ -55,6 +55,9 @@ describe('card and victory rules', () => {
   it('applies terrain movement cost and equipment rules', () => {
     const state = createInitialState(fixedDeck())
     expect(movementCost(state, { x: 0, y: 2 })).toBe(2)
+    expect(terrainAt(state, { x: 4, y: 2 })).toBe('bridge')
+    expect(movementCost(state, { x: 4, y: 2 })).toBe(1)
+    expect(terrainAt(state, { x: 3, y: 6 })).toBe('water')
     expect(terrainAt(state, { x: 0, y: 5 })).toBe('marsh')
     expect(movementCost(state, { x: 0, y: 5 })).toBe(2)
     expect(movementCost(state, { x: 4, y: 4 })).toBe(1)

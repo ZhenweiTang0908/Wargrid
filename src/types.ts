@@ -15,7 +15,7 @@ export type CardKind =
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'fireHit' | 'thunderHit' | 'heal' | 'cast'
-export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp' | 'watchtower' | 'village' | 'marsh'
+export type TerrainKind = 'plain' | 'forest' | 'water' | 'bridge' | 'ridge' | 'road' | 'camp' | 'watchtower' | 'village' | 'marsh'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
 export type GeneralSkill = 'lijian' | 'jiuyuan' | 'qianxun' | 'lianying' | 'guose' | 'liuli' | 'luoshen' | 'qingguo' | 'keji' | 'kurou' | 'tieqi' | 'mashu' | 'rende' | 'jijiang' | 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'guicai' | 'jianxiong' | 'yiji' | 'tiandu' | 'qingnang' | 'jijiu' | 'yingzi' | 'fanjian' | 'guanxing' | 'kongcheng' | 'tuxi' | 'luoyi' | 'jieyin' | 'xiaoji' | 'paoxiao' | 'jizhi' | 'qicai' | 'qixi' | 'biyue' | 'zhiheng' | 'wushuang'
 

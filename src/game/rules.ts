@@ -9,13 +9,17 @@ export const OBSTACLES: Position[] = [
 const terrainLine = (kind: TerrainKind, cells: Position[]): Terrain[] => cells.map(position => ({ position, kind }))
 export const TERRAIN: Terrain[] = [
   ...terrainLine('road', Array.from({ length: 9 }, (_, y) => ({ x: 4, y }))),
-  ...terrainLine('water', [{ x: 0, y: 2 }, { x: 1, y: 2 }, { x: 7, y: 6 }, { x: 8, y: 6 }]),
+  ...terrainLine('water', [
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 2 })),
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 6 })),
+  ]),
   ...terrainLine('forest', [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 6, y: 7 }, { x: 7, y: 7 }, { x: 1, y: 7 }, { x: 7, y: 1 }]),
   ...terrainLine('ridge', [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 5 }]),
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
   ...terrainLine('watchtower', [{ x: 0, y: 3 }, { x: 8, y: 5 }]),
   ...terrainLine('village', [{ x: 2, y: 0 }, { x: 6, y: 8 }]),
   ...terrainLine('marsh', [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 7, y: 3 }, { x: 8, y: 3 }]),
+  ...terrainLine('bridge', [{ x: 4, y: 2 }, { x: 4, y: 6 }]),
 ]
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
