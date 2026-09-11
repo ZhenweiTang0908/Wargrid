@@ -270,6 +270,31 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().history.some(entry => entry.includes('2 点'))).toBe(true)
   })
 
+  it('lets Sun Shangxiang heal herself and a wounded male through Jieyin', () => {
+    useGameStore.getState().selectGeneral('jieyin')
+    const first = card('slash'), second = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hp: 2, hand: [first, second] }, north: { ...state.units.north, hp: 2, gender: 'male' } } }))
+    useGameStore.getState().activateJieyin()
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+  })
+
+  it('lets Sun Shangxiang draw two cards when replacing equipment through Xiaoji', () => {
+    useGameStore.getState().selectGeneral('jieyin')
+    const oldWeapon = card('qinggang'), newWeapon = card('spear'), insightA = card('peach'), insightB = card('dodge')
+    useGameStore.setState(state => ({ deck: [insightA, insightB], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [newWeapon], equipment: { weapon: oldWeapon } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: newWeapon.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toEqual(newWeapon)
+    expect(state.units.player.hand).toEqual([insightA, insightB])
+    expect(state.discard).toContainEqual(oldWeapon)
+    expect(state.message).toContain('枭姬')
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')

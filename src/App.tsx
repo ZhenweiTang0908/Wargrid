@@ -97,8 +97,8 @@ function UnitPiece({ team }: { team: Team }) {
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
-  const pieceColors: Record<GeneralSkill, string> = { wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', zhiheng: '#3c9291', wushuang: '#9d3028' }
-  const darkColors: Record<GeneralSkill, string> = { wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', zhiheng: '#193f42', wushuang: '#351311' }
+  const pieceColors: Record<GeneralSkill, string> = { wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', jieyin: '#b94e58', xiaoji: '#b94e58', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', zhiheng: '#3c9291', wushuang: '#9d3028' }
+  const darkColors: Record<GeneralSkill, string> = { wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', jieyin: '#4f2630', xiaoji: '#4f2630', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', zhiheng: '#193f42', wushuang: '#351311' }
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
   const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
@@ -234,6 +234,12 @@ function UnitPiece({ team }: { team: Team }) {
         {[-.48, .48].map((x, i) => <group key={x} position={[x, .72, 0]} rotation-z={x < 0 ? .28 : -.28}><mesh position-y={.28}><cylinderGeometry args={[.04, .04, 1.25, 8]} /><meshStandardMaterial color="#4d3020" /></mesh><mesh position-y={.94}><sphereGeometry args={[.22, 10, 8]} /><meshStandardMaterial color="#8c7658" metalness={.86} roughness={.25} /></mesh></group>)}
         <mesh position={[0, 1.02, .25]}><boxGeometry args={[.5, .2, .08]} /><meshStandardMaterial color="#b58b4f" roughness={.8} /></mesh>
       </>}
+      {unit.skill === 'jieyin' && <>
+        <mesh position={[0, 1.48, 0]}><torusGeometry args={[.25, .045, 7, 16, Math.PI]} /><meshStandardMaterial color="#d5ae58" metalness={.8} /></mesh>
+        {[-.34, .34].map(x => <mesh key={x} position={[x, .92, 0]}><dodecahedronGeometry args={[.19, 0]} /><meshStandardMaterial color="#a94651" metalness={.55} roughness={.42} /></mesh>)}
+        <group position={[.43, .84, 0]} rotation-z={-.32}><mesh position-y={.35}><torusGeometry args={[.28, .025, 6, 18]} /><meshStandardMaterial color="#b88745" /></mesh><mesh position={[0, .35, 0]}><cylinderGeometry args={[.018, .018, .72, 6]} /><meshStandardMaterial color="#d4c29b" /></mesh></group>
+        <group position={[-.4, .78, .08]}>{[-.12, 0, .12].map((x, i) => <mesh key={i} position={[x, i * .1, 0]} rotation-z={-.15}><boxGeometry args={[.06, .65, .04]} /><meshStandardMaterial color="#d5d3c5" metalness={.8} /></mesh>)}</group>
+      </>}
       {unit.skill === 'paoxiao' && <>
         <mesh position={[0, 1.43, 0]}><torusGeometry args={[.24, .11, 6, 9, Math.PI]} /><meshStandardMaterial color="#1c1512" roughness={1} /></mesh>
         <mesh position={[0, 1.02, .24]}><coneGeometry args={[.24, .62, 8]} /><meshStandardMaterial color="#17100e" roughness={1} /></mesh>
@@ -340,8 +346,8 @@ function Hearts({ hp, max }: { hp: number; max: number }) {
 function PlayerStatus({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
-  const portraits: Record<GeneralSkill, string> = { wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', qingnang: '/heroes/hua-tuo.png', jijiu: '/heroes/hua-tuo.png', yingzi: '/heroes/zhou-yu.png', fanjian: '/heroes/zhou-yu.png', guanxing: '/heroes/zhuge-liang.png', kongcheng: '/heroes/zhuge-liang.png', tuxi: '/heroes/zhang-liao.png', luoyi: '/heroes/xu-chu.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
-  const skillCopy = { wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄 · 受伤后获得伤害牌', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', qingnang: '青囊/急救 · 弃牌治疗/红牌救人', jijiu: '急救 · 红牌可当桃', yingzi: '英姿/反间 · 摸三张/猜花色', fanjian: '反间 · 赠牌猜花色', guanxing: '观星/空城 · 调牌堆/免杀与决斗', kongcheng: '空城 · 无手牌免杀与决斗', tuxi: '突袭 · 从两名角色处获得手牌', luoyi: '裸衣 · 少摸一张并强化杀/决斗', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '闭月 · 回合结束摸一张牌', zhiheng: '制衡 · 每回合换任意手牌', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
+  const portraits: Record<GeneralSkill, string> = { wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', qingnang: '/heroes/hua-tuo.png', jijiu: '/heroes/hua-tuo.png', yingzi: '/heroes/zhou-yu.png', fanjian: '/heroes/zhou-yu.png', guanxing: '/heroes/zhuge-liang.png', kongcheng: '/heroes/zhuge-liang.png', tuxi: '/heroes/zhang-liao.png', luoyi: '/heroes/xu-chu.png', jieyin: '/heroes/sun-shangxiang.png', xiaoji: '/heroes/sun-shangxiang.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
+  const skillCopy = { wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄 · 受伤后获得伤害牌', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', qingnang: '青囊/急救 · 弃牌治疗/红牌救人', jijiu: '急救 · 红牌可当桃', yingzi: '英姿/反间 · 摸三张/猜花色', fanjian: '反间 · 赠牌猜花色', guanxing: '观星/空城 · 调牌堆/免杀与决斗', kongcheng: '空城 · 无手牌免杀与决斗', tuxi: '突袭 · 从两名角色处获得手牌', luoyi: '裸衣 · 少摸一张并强化杀/决斗', jieyin: '结姻/枭姬 · 双疗/失装备摸牌', xiaoji: '枭姬 · 失去装备摸两张', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '闭月 · 回合结束摸一张牌', zhiheng: '制衡 · 每回合换任意手牌', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
   const factionLabel: Record<Faction, string> = { wei: '魏', shu: '蜀', wu: '吴', qun: '群' }
   const lordSkill = unit.identity === 'lord' ? unit.faction === 'shu' ? ' · 激将' : unit.faction === 'wei' ? ' · 护驾' : '' : ''
   return (
@@ -400,6 +406,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'guanxing', name: '诸葛亮', title: '迟暮的丞相', faction: '蜀', portrait: '/heroes/zhuge-liang.png', skillName: '观星 · 空城', copy: '回合开始调整牌堆顶；没有手牌时不能成为杀或决斗目标。' },
   { skill: 'tuxi', name: '张辽', title: '前将军', faction: '魏', portrait: '/heroes/zhang-liao.png', skillName: '突袭', copy: '摸牌阶段改为从至多两名有手牌的敌方角色各获得一张牌。' },
   { skill: 'luoyi', name: '许褚', title: '虎痴', faction: '魏', portrait: '/heroes/xu-chu.png', skillName: '裸衣', copy: '摸牌阶段少摸一张，本回合杀与决斗造成的伤害增加 1。' },
+  { skill: 'jieyin', name: '孙尚香', title: '弓腰姬', faction: '吴', portrait: '/heroes/sun-shangxiang.png', skillName: '结姻 · 枭姬', copy: '弃两牌与受伤男性各回复体力；失去装备后摸两张牌。' },
   { skill: 'paoxiao', name: '张飞', title: '万夫不当', faction: '蜀', portrait: '/heroes/zhang-fei.png', skillName: '咆哮', copy: '出牌阶段使用【杀】没有次数限制。' },
   { skill: 'jizhi', name: '黄月英', title: '归隐的杰女', faction: '蜀', portrait: '/heroes/huang-yueying.png', skillName: '集智 · 奇才', copy: '普通锦囊摸一张；锦囊牌无距离限制。' },
   { skill: 'qixi', name: '甘宁', title: '锦帆游侠', faction: '吴', portrait: '/heroes/gan-ning.png', skillName: '奇袭', copy: '黑色牌可以当【过河拆桥】使用。' },
@@ -474,6 +481,7 @@ function App() {
   const canZhiheng = state.units.player.skill === 'zhiheng' && !state.units.player.skillUsed
   const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))
   const canFanjian = state.units.player.skills.includes('fanjian') && !state.units.player.skillUsed && !!selectedCard
+  const canJieyin = state.units.player.skills.includes('jieyin') && !state.units.player.skillUsed && state.units.player.hp < state.units.player.maxHp && state.units.player.hand.length >= 2 && Object.values(state.units).some(unit => unit.id !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male')
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
   const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired
@@ -517,6 +525,7 @@ function App() {
         {state.turnStage === 'play' && canZhiheng && <button className={`secondary skill-action ${state.zhihengMode ? 'active' : ''}`} onClick={() => state.activateZhiheng()}><Swords />{state.zhihengMode && state.zhihengSelection.length ? `制衡${state.zhihengSelection.length}` : '制衡'}</button>}
         {state.turnStage === 'play' && canQingnang && <button className="secondary skill-action" onClick={() => state.activateQingnang()}><Swords />青囊</button>}
         {state.turnStage === 'play' && canFanjian && <button className={`secondary skill-action ${state.selectedAsFanjian ? 'active' : ''}`} onClick={() => state.activateFanjian()}><Swords />反间</button>}
+        {state.turnStage === 'play' && canJieyin && <button className="secondary skill-action" onClick={() => state.activateJieyin()}><Swords />结姻</button>}
         {state.turnStage === 'play' && state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
         <button className="end-turn" disabled={state.phase !== 'player' || !discardReady} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />{state.turnStage === 'discard' ? '确认弃牌' : '结束回合'}</button>
       </div>
