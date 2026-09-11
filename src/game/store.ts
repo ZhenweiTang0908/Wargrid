@@ -7,6 +7,7 @@ interface GameStore extends GameState {
   selectGeneral: (skill: GeneralSkill) => void
   respond: (cardId: string | null) => void
   selectCard: (id: string | null) => void
+  toggleDiscard: (id: string) => void
   activateWusheng: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
@@ -230,7 +231,7 @@ function beginTurn(state: GameState, team: Team): GameState {
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
   const draw = drawCards(working.deck, working.discard, 2)
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' }
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -356,10 +357,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
     if (action.type === 'END_TURN' && state.phase === 'player') {
-      let next = discardOverflow({ ...state, turnStage: 'discard' }, 'player'); next = scoreControlPoint(next, 'player')
+      const player = state.units.player, excess = Math.max(0, player.hand.length - player.hp)
+      let turnState = state
+      if (state.turnStage !== 'discard' && excess > 0) {
+        const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
+        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, reachable: [], pathPreview: [], message, history: log(state, message) }); return
+      }
+      if (state.turnStage === 'discard') {
+        if (state.discardSelection.length !== excess) return
+        const chosen = player.hand.filter(card => state.discardSelection.includes(card.id))
+        const message = `${player.name}弃置 ${chosen.length} 张手牌`
+        const units = { ...state.units, player: { ...player, hand: player.hand.filter(card => !state.discardSelection.includes(card.id)) } }
+        turnState = { ...state, units, discard: [...state.discard, ...chosen], history: log(state, message), message }
+      }
+      let next = scoreControlPoint({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player')
       if (next.winner) { set(next); return }
       const nextUnit = nextSeat(next, 'player'); next = beginTurn({ ...next, turnStage: 'finish' }, nextUnit); set(next); void get().runAI()
     }
+  },
+  toggleDiscard: id => {
+    const state = get(); if (state.phase !== 'player' || state.turnStage !== 'discard') return
+    const excess = Math.max(0, state.units.player.hand.length - state.units.player.hp)
+    if (!state.units.player.hand.some(card => card.id === id)) return
+    const selected = state.discardSelection.includes(id)
+    if (!selected && state.discardSelection.length >= excess) return
+    const discardSelection = selected ? state.discardSelection.filter(cardId => cardId !== id) : [...state.discardSelection, id]
+    set({ discardSelection, message: `弃牌阶段 · 已选择 ${discardSelection.length}/${excess} 张` })
   },
   respond: cardId => {
     const state = get(), pending = state.pendingResponse

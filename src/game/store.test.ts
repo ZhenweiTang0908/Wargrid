@@ -21,6 +21,29 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toEqual(northHand)
   })
 
+  it('requires the player to choose overflow cards during the discard phase', () => {
+    const hand = Array.from({ length: 7 }, (_, index) => card(index % 2 ? 'slash' : 'dodge'))
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand } } }))
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    let state = useGameStore.getState()
+    expect(state.phase).toBe('player')
+    expect(state.turnStage).toBe('discard')
+    expect(state.currentUnit).toBe('player')
+
+    useGameStore.getState().toggleDiscard(hand[0].id)
+    useGameStore.getState().toggleDiscard(hand[1].id)
+    useGameStore.getState().toggleDiscard(hand[2].id)
+    state = useGameStore.getState()
+    expect(state.discardSelection).toEqual([hand[0].id, hand[1].id])
+
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    state = useGameStore.getState()
+    expect(state.currentUnit).toBe('north')
+    expect(state.units.player.hand).toHaveLength(5)
+    expect(state.discard.map(discarded => discarded.id)).toEqual(expect.arrayContaining([hand[0].id, hand[1].id]))
+    expect(state.discardSelection).toEqual([])
+  })
+
   it('lets a player-selected Zhao Yun use dodge as slash', () => {
     useGameStore.getState().selectGeneral('longdan')
     const dodge = card('dodge', 'diamond')

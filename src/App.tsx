@@ -232,11 +232,13 @@ function PlayerStatus({ team }: { team: Team }) {
 
 function CardView({ card, selected }: { card: Card; selected: boolean }) {
   const selectCard = useGameStore(s => s.selectCard)
+  const toggleDiscard = useGameStore(s => s.toggleDiscard)
   const state = useGameStore()
-  const disabled = state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (card.kind === 'slash' && state.units.player.attacksUsed >= (state.units.player.equipment.weapon?.kind === 'crossbow' ? Infinity : 1)) || (card.kind === 'wine' && state.units.player.wineUsed)
+  const discarding = state.phase === 'player' && state.turnStage === 'discard'
+  const disabled = !discarding && (state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (card.kind === 'slash' && state.units.player.attacksUsed >= (state.units.player.equipment.weapon?.kind === 'crossbow' ? Infinity : 1)) || (card.kind === 'wine' && state.units.player.wineUsed))
   const red = card.suit === 'heart' || card.suit === 'diamond'
   return (
-    <button className={`card ${card.kind} ${selected ? 'selected' : ''}`} disabled={disabled} onClick={() => selectCard(card.id)}>
+    <button className={`card ${card.kind} ${selected ? 'selected' : ''} ${discarding ? 'discarding' : ''}`} disabled={disabled} onClick={() => discarding ? toggleDiscard(card.id) : selectCard(card.id)}>
       <span className={`card-suit ${red ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
       <strong>{CARD_LABEL[card.kind]}</strong>
       <small>{CARD_COPY[card.kind]}</small>
@@ -309,6 +311,8 @@ function App() {
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const currentName = state.units[state.currentUnit]?.name
+  const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
+  const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired
   const closeTutorial = () => { localStorage.setItem('wargrid-tutorial', 'seen'); setTutorial(false) }
 
   useEffect(() => {
@@ -335,15 +339,15 @@ function App() {
     <div className="message-bar"><span className="message-pip" />{state.message}</div>
 
     <footer className="command-deck">
-      <div className="movement"><span>{state.turnStage === 'play' ? '出牌阶段' : state.turnStage}</span><div>{[1, 2, 3].map(n => <i key={n} className={n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
+      <div className="movement"><span>{state.turnStage === 'play' ? '出牌阶段' : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{[1, 2, 3].map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
       <div className="hand" aria-label="你的手牌">
-        {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={selectedCard?.id === card.id} />)}
+        {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : selectedCard?.id === card.id} />)}
         {!state.units.player.hand.length && <span className="empty-hand">暂无手牌</span>}
       </div>
       <div className="turn-actions">
-        {canWusheng && <button className={`secondary skill-action ${state.selectedAsSlash ? 'active' : ''}`} onClick={() => state.activateWusheng()}><Swords />武圣</button>}
-        {state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
-        <button className="end-turn" disabled={state.phase !== 'player'} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />结束回合</button>
+        {state.turnStage === 'play' && canWusheng && <button className={`secondary skill-action ${state.selectedAsSlash ? 'active' : ''}`} onClick={() => state.activateWusheng()}><Swords />武圣</button>}
+        {state.turnStage === 'play' && state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
+        <button className="end-turn" disabled={state.phase !== 'player' || !discardReady} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />{state.turnStage === 'discard' ? '确认弃牌' : '结束回合'}</button>
       </div>
     </footer>
 

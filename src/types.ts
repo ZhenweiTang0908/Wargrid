@@ -70,6 +70,7 @@ export interface GameState {
   selectedUnit: Team | null
   selectedCardId: string | null
   selectedAsSlash: boolean
+  discardSelection: string[]
   reachable: Position[]
   pathPreview: Position[]
   pendingResponse: PendingResponse | null
