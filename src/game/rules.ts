@@ -114,7 +114,7 @@ export function attackRange(unit: Unit) {
   const ranges: Partial<Record<CardKind, number>> = { qinggang: 2, greenDragon: 3, spear: 3, axe: 3, halberd: 4, qilinBow: 5 }
   return unit.equipment.weapon ? ranges[unit.equipment.weapon.kind] ?? 1 : 1
 }
-export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' ? Infinity : 1 }
+export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' || unit.skill === 'paoxiao' ? Infinity : 1 }
 export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   const base = pathDistance(state, attacker.position, target.position, attacker.id)
   const attackBonus = attacker.equipment.offensiveMount?.kind === 'redHare' ? 1 : 0

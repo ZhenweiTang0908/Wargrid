@@ -20,6 +20,8 @@ const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill
   longdan: { name: '赵云', title: '少年将军', skill: 'longdan' },
   ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie' },
   feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback' },
+  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao' },
+  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi' },
 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
@@ -326,10 +328,15 @@ function beginTurn(state: GameState, team: Team): GameState {
 export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
   selectGeneral: skill => {
-    const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill) ?? 'player'
+    const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill)
     if (sourceId === 'player') { set({ generalSelected: true, message: `已选择${state.units.player.name}，准备开战` }); return }
-    const player = state.units.player, source = state.units[sourceId]
+    const player = state.units.player
     const chosen = GENERAL_PROFILE[skill], replacement = GENERAL_PROFILE[player.skill]
+    if (!sourceId) {
+      set({ generalSelected: true, units: { ...state.units, player: { ...player, ...chosen, hp: 5, maxHp: 5 } }, message: `已选择${chosen.name}，准备开战` })
+      return
+    }
+    const source = state.units[sourceId]
     set({
       generalSelected: true,
       units: {
@@ -366,17 +373,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
       const remainingHand = spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
       let base: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' } }, discard: [...state.discard, ...playedCards], selectedCardId: null, selectedAsSlash: false, spearMode: false, spearSelection: [] }
+      const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
+      if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
+        const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
+        const skillMessage = `${unit.name}发动【集智】，摸一张牌`
+        base = { ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...insight.drawn] } }, deck: insight.deck, discard: insight.discard, message: skillMessage, history: log(base, skillMessage) }
+      }
       const nullifiable = ['duel', 'dismantle', 'snatch', 'indulgence', 'fireAttack', 'ironChain'].includes(kind)
       if (kind === 'snatch' && combatDistance(state, unit, target) > 1) return
       if (nullifiable && targetId === 'player' && action.unit !== 'player') {
         const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'fireAttack' | 'ironChain'
         const prompt = `${unit.name}对你使用【${CARD_LABEL[trick]}】，是否打出【无懈可击】？`
-        set({ ...base, pendingResponse: { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick, originCardId: card.id, prompt }, message: prompt, history: log(state, prompt) }); return
+        set({ ...base, pendingResponse: { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
       }
       const nullify = nullifiable ? target.hand.find(c => c.kind === 'nullify') : undefined
       if (nullify) {
         const message = `${target.name}打出【无懈可击】，抵消【${CARD_LABEL[kind]}】`
-        set({ units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(state, message) }); return
+        set({ ...base, units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(base, message) }); return
       }
       if (kind === 'peach') {
         if (!canPeach(unit)) return
@@ -390,12 +403,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (kind === 'drawTwo') {
         const draw = drawCards(base.deck, base.discard, 2), actor = base.units[action.unit], message = `${unit.name}使用【无中生有】，摸两张牌`
-        set({ units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }); return
+        set({ ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: draw.discard, message, history: log(base, message) }); return
       }
       if (kind === 'peachGarden') {
         const units = Object.fromEntries(Object.entries(base.units).map(([id, actor]) => [id, actor.hp > 0 ? { ...actor, hp: Math.min(actor.maxHp, actor.hp + 1), animation: actor.hp < actor.maxHp ? 'heal' as const : actor.animation } : actor])) as GameState['units']
         const message = `${unit.name}使用【桃园结义】，所有存活角色回复体力`
-        set({ units, message, history: log(state, message) }); return
+        set({ ...base, units, message, history: log(base, message) }); return
       }
       if (kind === 'harvest') {
         let deck = base.deck, discard = base.discard, units = base.units
@@ -405,7 +418,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           units = { ...units, [id]: { ...units[id], hand: [...units[id].hand, ...draw.drawn], animation: 'cast' } }
         }
         const message = `${unit.name}使用【五谷丰登】，所有存活角色各摸一张牌`
-        set({ units, deck, discard, message, history: log(state, message) }); return
+        set({ ...base, units, deck, discard, message, history: log(base, message) }); return
       }
       if (isEquipment(kind)) {
         const slot = card.kind === 'shield' || card.kind === 'bagua' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]

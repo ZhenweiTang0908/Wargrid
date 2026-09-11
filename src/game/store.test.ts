@@ -21,6 +21,14 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toEqual(northHand)
   })
 
+  it('selects a new general who is not already seated', () => {
+    useGameStore.getState().selectGeneral('paoxiao')
+    const state = useGameStore.getState()
+    expect(state.generalSelected).toBe(true)
+    expect(state.units.player).toMatchObject({ name: '张飞', skill: 'paoxiao', identity: 'lord', hp: 5, maxHp: 5 })
+    expect(state.units.north.name).toBe('赵云')
+  })
+
   it('requires the player to choose overflow cards during the discard phase', () => {
     const hand = Array.from({ length: 7 }, (_, index) => card(index % 2 ? 'slash' : 'dodge'))
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand, position: { x: 4, y: 7 } } } }))
@@ -55,6 +63,27 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hp).toBe(3)
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.discard).toContainEqual(dodge)
+  })
+
+  it('lets Zhang Fei use multiple slashes through Paoxiao', () => {
+    useGameStore.getState().selectGeneral('paoxiao')
+    const first = card('slash', 'heart'), second = card('slash', 'club')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [first, second] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: first.id, target: 'north' })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: second.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.units.player.attacksUsed).toBe(2)
+  })
+
+  it('lets Huang Yueying draw through Jizhi after using an instant trick', () => {
+    useGameStore.getState().selectGeneral('jizhi')
+    const trick = card('drawTwo'), insight = card('peach', 'heart'), bonusA = card('slash'), bonusB = card('dodge')
+    useGameStore.setState(state => ({ deck: [insight, bonusA, bonusB], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [trick] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand.map(item => item.id)).toEqual([insight.id, bonusA.id, bonusB.id])
+    expect(state.history.some(entry => entry.includes('集智'))).toBe(true)
   })
 
   it('uses fire attack by matching the revealed card suit', () => {

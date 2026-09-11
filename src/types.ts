@@ -13,7 +13,7 @@ export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
-export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback'
+export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'paoxiao' | 'jizhi'
 
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }

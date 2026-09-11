@@ -54,6 +54,7 @@ describe('card and victory rules', () => {
     expect(attackRange(qinggang)).toBe(2)
     expect(attackRange(halberd)).toBe(4)
     expect(slashLimit(crossbow)).toBe(Infinity)
+    expect(slashLimit({ ...state.units.player, skill: 'paoxiao' })).toBe(Infinity)
     const attacker = { ...state.units.player, position: { x: 4, y: 2 }, equipment: { offensiveMount: { id: 'r', kind: 'redHare' as const, suit: 'heart' as const, rank: 5 } } }
     const defender = { ...state.units.north, position: { x: 4, y: 0 }, equipment: { defensiveMount: { id: 'd', kind: 'dilu' as const, suit: 'club' as const, rank: 5 } } }
     const mountedState = { ...state, units: { ...state.units, player: attacker, north: defender } }
