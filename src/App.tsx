@@ -682,6 +682,25 @@ function HarvestWindow() {
   </section></div>
 }
 
+function FanjianWindow() {
+  const pending = useGameStore(s => s.pendingFanjian)
+  const chooseFanjianSuit = useGameStore(s => s.chooseFanjianSuit)
+  const source = useGameStore(s => pending ? s.units[pending.source] : null)
+  if (!pending || !source) return null
+  const suits: Card['suit'][] = ['spade', 'heart', 'club', 'diamond']
+  const labels: Record<Card['suit'], string> = { spade: '黑桃', heart: '红桃', club: '梅花', diamond: '方片' }
+  return <div className="overlay response-overlay"><section className="response-panel fanjian-panel panel">
+    <span className="eyebrow">反间</span>
+    <h1>{source.name}请你猜测花色</h1>
+    <p>选择后才会展示并获得这张牌；猜错将受到 1 点伤害。</p>
+    <div className="suit-choices">
+      {suits.map(suit => <button key={suit} className={suit === 'heart' || suit === 'diamond' ? 'red' : ''} onClick={() => chooseFanjianSuit(suit)}>
+        <strong>{SUIT_GLYPH[suit]}</strong><span>{labels[suit]}</span>
+      </button>)}
+    </div>
+  </section></div>
+}
+
 function BattleReport({ close }: { close: () => void }) {
   const state = useGameStore()
   return <div className="overlay report-overlay"><section className="battle-report panel">
@@ -777,6 +796,7 @@ function App() {
     {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && <HarvestWindow />}
+    {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>

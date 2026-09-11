@@ -71,6 +71,11 @@ export interface PendingHarvest {
   order: Team[]
 }
 
+export interface PendingFanjian {
+  source: Team
+  card: Card
+}
+
 export interface GameState {
   size: number
   terrain: Terrain[]
@@ -107,6 +112,7 @@ export interface GameState {
   pathPreview: Position[]
   pendingResponse: PendingResponse | null
   pendingHarvest: PendingHarvest | null
+  pendingFanjian: PendingFanjian | null
   winner: Team | null
   message: string
   history: string[]

@@ -1750,4 +1750,36 @@ describe('standard card scenarios', () => {
     expect(state.pendingHarvest?.pool.some(card => card.id === harvest.id)).toBe(false)
     expect(state.discard).toContainEqual(harvest)
   })
+
+  it('lets the player guess before revealing an AI Fanjian card', () => {
+    const gift = card('dodge', 'heart', 8)
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai', turnStage: 'play',
+      units: { ...state.units, north: { ...state.units.north, skill: 'yingzi', skills: ['yingzi', 'fanjian'], hand: [gift] }, player: { ...state.units.player, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: gift.id, target: 'player', asFanjian: true })
+    let state = useGameStore.getState()
+    expect(state.pendingFanjian).toMatchObject({ source: 'north', card: gift })
+    expect(state.units.player.hand).not.toContainEqual(gift)
+    useGameStore.getState().chooseFanjianSuit('spade')
+    state = useGameStore.getState()
+    expect(state.pendingFanjian).toBeNull()
+    expect(state.units.player.hand).toContainEqual(gift)
+    expect(state.units.player.hp).toBe(4)
+    expect(state.message).toContain('猜错')
+  })
+
+  it('prevents Fanjian damage when the player guesses the suit', () => {
+    const gift = card('slash', 'club', 6)
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai', turnStage: 'play',
+      units: { ...state.units, north: { ...state.units.north, skill: 'yingzi', skills: ['yingzi', 'fanjian'], hand: [gift] }, player: { ...state.units.player, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: gift.id, target: 'player', asFanjian: true })
+    useGameStore.getState().chooseFanjianSuit('club')
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toContainEqual(gift)
+    expect(state.message).toContain('猜中')
+  })
 })

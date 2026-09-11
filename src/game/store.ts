@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
+import { CARD_LABEL, SUIT_GLYPH, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
 import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 interface GameStore extends GameState {
@@ -7,6 +7,7 @@ interface GameStore extends GameState {
   selectGeneral: (skill: GeneralSkill) => void
   respond: (cardId: string | null) => void
   chooseHarvest: (cardId: string) => void
+  chooseFanjianSuit: (suit: Card['suit']) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -692,7 +693,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -759,7 +760,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (action.asFanjian) {
         const targetId = action.target, gift = unit.hand.find(card => card.id === action.cardId)
         if (!targetId || targetId === action.unit || !gift || !unit.skills.includes('fanjian') || unit.skillUsed || state.units[targetId].hp <= 0) return
-        const target = state.units[targetId], suits: Card['suit'][] = ['spade', 'heart', 'club', 'diamond']
+        const target = state.units[targetId]
+        if (targetId === 'player' && action.unit !== 'player') {
+          const prompt = `${unit.name}对你发动【反间】，请在查看赠牌前猜一种花色`
+          set({
+            units: { ...state.units, [action.unit]: { ...unit, hand: unit.hand.filter(card => card.id !== gift.id), skillUsed: true, animation: 'cast' } },
+            pendingFanjian: { source: action.unit, card: gift },
+            message: prompt,
+            history: log(state, prompt),
+          })
+          return
+        }
+        const suits: Card['suit'][] = ['spade', 'heart', 'club', 'diamond']
         const guessedSuit = suits[(state.turn + state.turnOrder.indexOf(targetId)) % suits.length]
         const transferred: GameState = { ...state, units: { ...state.units, [action.unit]: { ...unit, hand: unit.hand.filter(card => card.id !== gift.id), skillUsed: true, animation: 'cast' }, [targetId]: { ...target, hand: [...target.hand, gift], animation: 'cast' } }, selectedCardId: null, selectedAsFanjian: false }
         const message = `${unit.name}发动【反间】，${target.name}猜${guessedSuit}，展示牌为${gift.suit}${gift.rank}`
@@ -1078,6 +1090,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(advanceHarvest(selected, pending.pool.filter(card => card.id !== cardId), pending.order.slice(1)))
     if (selected.phase === 'ai' && !get().pendingHarvest) setTimeout(() => void get().runAI(), 120)
   },
+  chooseFanjianSuit: suit => {
+    const state = get(), pending = state.pendingFanjian
+    if (!pending) return
+    const player = state.units.player, source = state.units[pending.source]
+    const revealed: GameState = {
+      ...state,
+      units: { ...state.units, player: { ...player, hand: [...player.hand, pending.card], animation: 'cast' } },
+      pendingFanjian: null,
+    }
+    const guessed = `${SUIT_GLYPH[suit]}${suit}`, shown = `${SUIT_GLYPH[pending.card.suit]}${pending.card.suit}${pending.card.rank}`
+    const message = `${player.name}猜${guessed}，${source.name}展示${shown}${suit === pending.card.suit ? '，猜中免受伤害' : '，猜错并受到 1 点伤害'}`
+    const resolved = suit === pending.card.suit
+      ? { ...revealed, message, history: log(revealed, message) }
+      : { ...revealed, ...damage(revealed, pending.source, 'player', 1, message) }
+    set(resolved)
+    if (resolved.phase === 'ai' && !resolved.pendingResponse && !resolved.winner) setTimeout(() => void get().runAI(), 120)
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1226,7 +1255,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
@@ -1250,6 +1279,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (victim && gift) {
         get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: gift.id, target: victim.id, asFanjian: true })
         await wait(280); state = get(); ai = state.units[aiId]
+        if (state.pendingFanjian) return
       }
     }
     if (ai.skills.includes('rende') && ai.hand.length) {
