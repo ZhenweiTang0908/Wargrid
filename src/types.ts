@@ -126,7 +126,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
 
 export const CARD_COPY: Record<CardKind, string> = {
   slash: '攻击范围内造成 1 点伤害', fireSlash: '视为【杀】，造成火焰伤害并传导铁索', thunderSlash: '视为【杀】，造成雷电伤害并传导铁索', dodge: '响应【杀】或【万箭齐发】', peach: '回复 1 点体力',
-  wine: '本回合下一张【杀】伤害 +1', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
+  wine: '本回合下一张【杀】伤害 +1；濒死时可对自己使用', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
   borrowedSword: '令有武器的角色出【杀】，否则获得其武器',
   qinggang: '攻击范围 2，攻击无视护甲', greenDragon: '攻击范围 3；【杀】被闪避后可继续出【杀】', spear: '攻击范围 3；两张手牌可当【杀】', axe: '攻击范围 3；闪避后弃两牌可强制命中', halberd: '攻击范围 4；最后手牌的【杀】可攻击三人', qilinBow: '攻击范围 5；造成伤害后弃置目标坐骑',

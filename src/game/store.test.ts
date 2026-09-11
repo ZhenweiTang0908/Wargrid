@@ -686,6 +686,17 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
+  it('lets an AI character use wine for self-rescue', () => {
+    const slash = card('slash'), wine = card('wine')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [wine] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(1)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(wine)
+    expect(state.history.some(entry => entry.includes('【酒】自救'))).toBe(true)
+  })
+
   it('resolves arrows with an automatic dodge response', () => {
     const arrows = card('arrows'), dodge = card('dodge', 'diamond', 2)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [arrows] }, north: { ...state.units.north, hand: [dodge] } } }))
@@ -1029,6 +1040,30 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.discard).toContainEqual(peach)
     expect(state.winner).toBeNull()
+  })
+
+  it('lets a dying player use wine to rescue only themselves', () => {
+    const enemySlash = card('slash'), wine = card('wine', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [enemySlash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [wine] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: enemySlash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'player' })
+    useGameStore.getState().respond(wine.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(wine)
+    expect(state.message).toContain('【酒】自救')
+  })
+
+  it('does not allow wine to rescue another character', () => {
+    const slash = card('slash'), wine = card('wine')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [slash, wine] }, east: { ...state.units.east, position: { x: 8, y: 4 }, hp: 1, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.east.hp).toBe(0)
+    expect(state.units.player.hand).toContainEqual(wine)
   })
 
   it('requires enough peaches to recover from negative health', () => {

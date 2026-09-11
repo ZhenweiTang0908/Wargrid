@@ -79,6 +79,7 @@ const alliesFor = (state: GameState, team: Team) => {
 }
 const rescueCard = (unit: Unit) => unit.hand.find(card => card.kind === 'peach')
   ?? (unit.skills.includes('jijiu') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
+const selfRescueCard = (unit: Unit) => rescueCard(unit) ?? unit.hand.find(card => card.kind === 'wine')
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
 function triggerLianying(state: GameState, team: Team): GameState {
   const unit = state.units[team]
@@ -120,10 +121,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       message += `；${helper.name}响应【救援】，令【桃】额外回复 1 点体力`
     }
   }
-  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach' || (target.skills.includes('jijiu') && (c.suit === 'heart' || c.suit === 'diamond'))) : undefined
+  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? selfRescueCard({ ...target, hand }) : undefined
   if (playerPeach) {
     const requiredCount = 1 - hp
-    const prompt = `${target.name}进入濒死状态，需要 ${requiredCount} 张【桃】才能救回，是否使用？`
+    const prompt = `${target.name}进入濒死状态，需要 ${requiredCount} 张【桃】或【酒】才能救回，是否使用？`
     return {
       units: { ...state.units, [targetId]: { ...target, hp, animation: 'hit' } },
       pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt },
@@ -132,10 +133,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     }
   }
   while (!skipRescue && targetId !== 'player' && hp <= 0) {
-    const selfAid = rescueCard({ ...target, hand })
+    const selfAid = selfRescueCard({ ...target, hand })
     if (selfAid) {
       hand = hand.filter(card => card.id !== selfAid.id); discard = [...discard, selfAid]; hp += 1
-      message += `；${target.name}${selfAid.kind === 'peach' ? '使用【桃】自救' : '发动【急救】自救'}`
+      message += `；${target.name}${selfAid.kind === 'peach' ? '使用【桃】自救' : selfAid.kind === 'wine' ? '使用【酒】自救' : '发动【急救】自救'}`
       continue
     }
     const helper = alliesFor({ ...state, units: rescuedUnits }, targetId).find(unit => unit.id !== targetId && unit.id !== 'player' && rescueCard(unit))
@@ -866,7 +867,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {
@@ -875,12 +876,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const nextHp = target.hp + 1, stillDying = nextHp <= 0
         const rescuedPlayer = { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), ...(pending.target === 'player' ? { hp: nextHp, animation: 'heal' as const } : {}) }
         const units = { ...base.units, player: rescuedPlayer, [pending.target]: pending.target === 'player' ? rescuedPlayer : { ...target, hp: nextHp, animation: 'heal' as const } }
-        const rescueName = card.kind === 'peach' ? '桃' : '急救'
+        const rescueName = card.kind === 'peach' ? '桃' : card.kind === 'wine' ? '酒' : '急救'
         const message = stillDying
           ? `${player.name}使用【${rescueName}】，${target.name}仍处于濒死状态（体力 ${nextHp}）`
           : pending.target === 'player' ? `${player.name}使用【${rescueName}】自救，回复至 1 点体力` : `${player.name}对${target.name}使用【${rescueName}】，将其救回至 1 点体力`
         const requiredCount = Math.max(0, 1 - nextHp)
-        base = { ...base, units, discard: [...base.discard, card], pendingResponse: stillDying ? { ...pending, requiredCount, prompt: `${target.name}仍需 ${requiredCount} 张【桃】，请继续使用或放弃` } : null, message, history: log(base, message) }
+        const rescuePrompt = pending.target === 'player' ? `【桃】或【酒】` : '【桃】'
+        base = { ...base, units, discard: [...base.discard, card], pendingResponse: stillDying ? { ...pending, requiredCount, prompt: `${target.name}仍需 ${requiredCount} 张${rescuePrompt}，请继续使用或放弃` } : null, message, history: log(base, message) }
       } else {
         const target = base.units[pending.target]
         const deathBase = { ...base, units: { ...base.units, [pending.target]: { ...target, hp: 1 } } }
