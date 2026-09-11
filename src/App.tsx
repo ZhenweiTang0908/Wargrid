@@ -4,7 +4,7 @@ import { CircleHelp, RotateCcw, SkipForward, Swords, Volume2, VolumeX, X } from 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
-import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Position, type Team } from './types'
+import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type GeneralSkill, type Position, type Team } from './types'
 import { canSlash, combatDistance, samePosition, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
@@ -81,9 +81,9 @@ function UnitPiece({ team }: { team: Team }) {
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
-  const pieceColors: Record<Team, string> = { player: '#2f8a68', north: '#b6cbd0', east: '#a84635', west: '#78528d' }
-  const darkColors: Record<Team, string> = { player: '#174d3a', north: '#526f78', east: '#61251e', west: '#3d294b' }
-  const color = pieceColors[team]
+  const pieceColors: Record<GeneralSkill, string> = { wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d' }
+  const darkColors: Record<GeneralSkill, string> = { wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b' }
+  const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
   const selectedKind = selectedAsSlash ? 'slash' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
@@ -130,13 +130,13 @@ function UnitPiece({ team }: { team: Team }) {
       </mesh>
       <mesh position-y={.7} castShadow>
         <cylinderGeometry args={[.28, .34, .8, 10]} />
-        <meshStandardMaterial color={darkColors[team]} roughness={.55} />
+        <meshStandardMaterial color={darkColor} roughness={.55} />
       </mesh>
       <mesh position-y={1.2} castShadow>
         <sphereGeometry args={[.29, 16, 12]} />
         <meshStandardMaterial color="#d6b28a" roughness={.8} />
       </mesh>
-      {team === 'player' && <>
+      {unit.skill === 'wusheng' && <>
         <mesh position={[0, 1.43, 0]} rotation-z={-.14}><capsuleGeometry args={[.24, .2, 4, 8]} /><meshStandardMaterial color="#285942" roughness={.65} /></mesh>
         <mesh position={[0, 1.02, .24]} rotation-x={-.12}><coneGeometry args={[.15, .72, 7]} /><meshStandardMaterial color="#201714" roughness={1} /></mesh>
         <group position={[.43, .75, 0]} rotation-z={-.18}>
@@ -145,7 +145,7 @@ function UnitPiece({ team }: { team: Team }) {
           <mesh position={[0, .82, 0]}><torusGeometry args={[.11, .027, 6, 14]} /><meshStandardMaterial color="#d9ae52" metalness={.75} /></mesh>
         </group>
       </>}
-      {team === 'north' && <>
+      {unit.skill === 'longdan' && <>
         <mesh position={[0, 1.43, 0]}><coneGeometry args={[.28, .34, 8]} /><meshStandardMaterial color="#d5e2df" metalness={.8} roughness={.22} /></mesh>
         <mesh position={[0, 1.7, 0]} rotation-z={-.18}><capsuleGeometry args={[.035, .34, 3, 6]} /><meshStandardMaterial color="#b53831" roughness={.7} /></mesh>
         <group position={[-.42, .82, 0]} rotation-z={.18}>
@@ -153,13 +153,13 @@ function UnitPiece({ team }: { team: Team }) {
           <mesh position={[0, 1.27, 0]}><coneGeometry args={[.12, .48, 5]} /><meshStandardMaterial color="#d7e5e2" metalness={.95} roughness={.14} /></mesh>
         </group>
       </>}
-      {team === 'east' && <>
+      {unit.skill === 'ganglie' && <>
         <mesh position={[0, 1.43, 0]}><cylinderGeometry args={[.3, .25, .24, 8]} /><meshStandardMaterial color="#4b2722" metalness={.6} /></mesh>
         <mesh position={[-.12, 1.23, .265]} rotation-z={-.1}><boxGeometry args={[.2, .09, .035]} /><meshStandardMaterial color="#171313" roughness={1} /></mesh>
         {[-.34, .34].map((x, i) => <mesh key={i} position={[x, .91, 0]} rotation-z={x < 0 ? -.35 : .35}><dodecahedronGeometry args={[.2, 0]} /><meshStandardMaterial color="#7d3128" metalness={.5} roughness={.45} /></mesh>)}
         <group position={[-.43, .8, 0]} rotation-z={.23}><mesh position-y={.25}><cylinderGeometry args={[.035, .035, 1.65, 7]} /><meshStandardMaterial color="#4a3021" /></mesh><mesh position={[0, 1.02, 0]}><octahedronGeometry args={[.2]} /><meshStandardMaterial color="#aeb6b0" metalness={.85} /></mesh></group>
       </>}
-      {team === 'west' && <>
+      {unit.skill === 'feedback' && <>
         <mesh position={[0, 1.48, 0]}><boxGeometry args={[.56, .12, .42]} /><meshStandardMaterial color="#25202b" roughness={.55} /></mesh>
         <mesh position={[0, 1.62, 0]}><boxGeometry args={[.25, .22, .3]} /><meshStandardMaterial color="#33263b" roughness={.7} /></mesh>
         <group position={[-.43, .83, .08]} rotation={[0, 0, .35]}>
@@ -169,7 +169,7 @@ function UnitPiece({ team }: { team: Team }) {
       </>}
       <mesh position={[0, .78, .18]} rotation-x={-.18}>
         <planeGeometry args={[.62, .88]} />
-        <meshStandardMaterial color={darkColors[team]} side={THREE.DoubleSide} roughness={.9} />
+        <meshStandardMaterial color={darkColor} side={THREE.DoubleSide} roughness={.9} />
       </mesh>
       {unit.animation === 'heal' && <Sparkles count={28} scale={1.35} size={4} speed={1} color="#78e89b" position-y={.7} />}
       {unit.hp <= 0 && <mesh position-y={.5}><sphereGeometry args={[.8]} /><meshBasicMaterial color="#000" transparent opacity={.6} /></mesh>}
@@ -214,11 +214,11 @@ function Hearts({ hp, max }: { hp: number; max: number }) {
 function PlayerStatus({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
-  const portraits: Record<Team, string> = { player: '/heroes/guan-yun.png', north: '/heroes/zhao-ling.png', east: '/heroes/xiahou-lie.png', west: '/heroes/sima-xuan.png' }
+  const portraits: Record<GeneralSkill, string> = { wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png' }
   const skillCopy = { wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈 · 受伤获得来源牌' } as const
   return (
     <section className={`status ${team}`}>
-      <div className="avatar"><img src={portraits[team]} alt="" /><span>{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</span></div>
+      <div className="avatar"><img src={portraits[unit.skill]} alt="" /><span>{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</span></div>
       <div className="status-copy">
         <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
@@ -258,12 +258,34 @@ function Tutorial({ close }: { close: () => void }) {
   </section></div>
 }
 
+const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; faction: string; portrait: string; skillName: string; copy: string }[] = [
+  { skill: 'wusheng', name: '关羽', title: '美髯公', faction: '蜀', portrait: '/heroes/guan-yun.png', skillName: '武圣', copy: '红色牌可以当【杀】使用。' },
+  { skill: 'longdan', name: '赵云', title: '少年将军', faction: '蜀', portrait: '/heroes/zhao-ling.png', skillName: '龙胆', copy: '【杀】与【闪】可以相互转化。' },
+  { skill: 'ganglie', name: '夏侯惇', title: '独眼的罗刹', faction: '魏', portrait: '/heroes/xiahou-lie.png', skillName: '刚烈', copy: '受伤后判定，反击伤害来源。' },
+  { skill: 'feedback', name: '司马懿', title: '狼顾之鬼', faction: '魏', portrait: '/heroes/sima-xuan.png', skillName: '反馈', copy: '受伤后获得伤害来源的一张牌。' },
+]
+
+function GeneralSelect() {
+  const selectGeneral = useGameStore(s => s.selectGeneral)
+  return <div className="overlay general-select-overlay"><section className="general-select panel">
+    <span className="eyebrow">主公选将</span>
+    <h1>选择本局武将</h1>
+    <div className="general-grid">
+      {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}`} onClick={() => selectGeneral(option.skill)}>
+        <img src={option.portrait} alt={`${option.name}武将原画`} />
+        <span className="faction">{option.faction}</span>
+        <div><strong>{option.name}</strong><small>{option.title}</small><b>{option.skillName}</b><p>{option.copy}</p></div>
+      </button>)}
+    </div>
+  </section></div>
+}
+
 function ResponseWindow() {
   const pending = useGameStore(s => s.pendingResponse)
-  const hand = useGameStore(s => s.units.player.hand)
+  const player = useGameStore(s => s.units.player)
   const respond = useGameStore(s => s.respond)
   if (!pending) return null
-  const responses = hand.filter(card => card.kind === pending.required)
+  const responses = player.hand.filter(card => card.kind === pending.required || (player.skill === 'longdan' && ((pending.required === 'dodge' && card.kind === 'slash') || (pending.required === 'slash' && card.kind === 'dodge'))))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
@@ -271,7 +293,7 @@ function ResponseWindow() {
     <div className="response-cards">
       {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
-        <strong>{CARD_LABEL[card.kind]}</strong><small>打出响应</small>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.kind === pending.required ? '打出响应' : `龙胆 → ${CARD_LABEL[pending.required]}`}</small>
       </button>)}
       {!responses.length && <span className="no-response">手牌中没有【{CARD_LABEL[pending.required]}】</span>}
     </div>
@@ -285,7 +307,7 @@ function App() {
   const [sound, setSound] = useState(true)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
-  const canWusheng = selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
+  const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const currentName = state.units[state.currentUnit]?.name
   const closeTutorial = () => { localStorage.setItem('wargrid-tutorial', 'seen'); setTutorial(false) }
 
@@ -325,8 +347,9 @@ function App() {
       </div>
     </footer>
 
-    {tutorial && <Tutorial close={closeTutorial} />}
-    {!tutorial && state.pendingResponse && <ResponseWindow />}
+    {!state.generalSelected && <GeneralSelect />}
+    {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
+    {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>
       <div className="result-seal">{state.winner === 'player' ? '胜' : '败'}</div>

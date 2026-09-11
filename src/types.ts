@@ -13,6 +13,7 @@ export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
+export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback'
 
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
@@ -32,7 +33,7 @@ export interface Unit {
   hand: Card[]
   equipment: Equipment
   judgement: Card[]
-  skill: 'wusheng' | 'longdan' | 'ganglie' | 'feedback'
+  skill: GeneralSkill
   movement: number
   attacksUsed: number
   wineUsed: boolean
@@ -65,6 +66,7 @@ export interface GameState {
   scores: Record<Team, number>
   turnOrder: Team[]
   currentUnit: Team
+  generalSelected: boolean
   selectedUnit: Team | null
   selectedCardId: string | null
   selectedAsSlash: boolean

@@ -9,6 +9,46 @@ const card = (kind: Card['kind'], suit: Card['suit'] = 'spade', rank = 7): Card 
 describe('standard card scenarios', () => {
   beforeEach(() => useGameStore.setState(createInitialState(Array.from({ length: 24 }, () => card('slash')))))
 
+  it('swaps the selected general into the player seat without changing identities', () => {
+    const before = useGameStore.getState()
+    const playerHand = before.units.player.hand, northHand = before.units.north.hand
+    useGameStore.getState().selectGeneral('longdan')
+    const state = useGameStore.getState()
+    expect(state.generalSelected).toBe(true)
+    expect(state.units.player).toMatchObject({ name: '赵云', skill: 'longdan', identity: 'lord', hp: 5, maxHp: 5 })
+    expect(state.units.north).toMatchObject({ name: '关羽', skill: 'wusheng', identity: 'loyalist', hp: 4, maxHp: 4 })
+    expect(state.units.player.hand).toEqual(playerHand)
+    expect(state.units.north.hand).toEqual(northHand)
+  })
+
+  it('lets a player-selected Zhao Yun use dodge as slash', () => {
+    useGameStore.getState().selectGeneral('longdan')
+    const dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [dodge] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] } } }))
+    useGameStore.getState().selectCard(dodge.id)
+    expect(useGameStore.getState()).toMatchObject({ selectedCardId: dodge.id, selectedAsSlash: true })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: dodge.id, target: 'north', asSlash: true })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.discard).toContainEqual(dodge)
+  })
+
+  it('lets a player-selected Zhao Yun use slash as dodge', () => {
+    useGameStore.getState().selectGeneral('longdan')
+    const enemySlash = card('slash', 'club'), converted = card('slash', 'heart')
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [enemySlash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [converted] }, north: { ...state.units.north, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: enemySlash.id, target: 'player' })
+    useGameStore.getState().respond(converted.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.message).toContain('龙胆')
+  })
+
   it('places indulgence into the target judgement area', () => {
     const delayed = card('indulgence', 'heart', 6)
     useGameStore.setState(state => ({

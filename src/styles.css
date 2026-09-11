@@ -96,6 +96,19 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .result.enemy .result-seal { border-color: var(--red); color: var(--red); box-shadow: inset 0 0 25px #e2584533, 0 0 35px #e2584533; }
 .result h1 { margin-bottom: 8px; }
 .result p { color: #869da2; font-size: 13px; }
+.general-select-overlay { z-index: 70; }
+.general-select { width: min(880px, 96vw); padding: 22px; }
+.general-select h1 { margin-bottom: 16px; }
+.general-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.general-option { position: relative; min-width: 0; padding: 0; overflow: hidden; border: 1px solid #405b61; color: #ecf3ef; background: #0b181d; text-align: left; cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s; }
+.general-option:hover, .general-option:focus-visible { transform: translateY(-5px); border-color: var(--gold); box-shadow: 0 12px 28px #000b, 0 0 18px #d6aa4d33; }
+.general-option img { width: 100%; height: 145px; display: block; object-fit: cover; object-position: 50% 18%; filter: saturate(.9) contrast(1.06); }
+.general-option > div { padding: 10px 11px 12px; display: grid; }
+.general-option strong { font-family: serif; font-size: 21px; }
+.general-option small { color: #82979c; font-size: 10px; }
+.general-option b { margin-top: 8px; color: var(--gold); font-size: 13px; }
+.general-option p { min-height: 32px; margin: 3px 0 0; color: #93a7aa; font-size: 10px; line-height: 1.5; }
+.general-option .faction { position: absolute; top: 8px; left: 8px; width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid #ffffff99; border-radius: 50%; background: #132329dd; font: 700 12px serif; }
 .response-overlay { z-index: 60; }
 .response-panel { width: min(520px, 92vw); }
 .response-panel h1 { margin-bottom: 8px; font-size: clamp(20px, 3vw, 30px); }
@@ -116,6 +129,13 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .steps strong { margin-top: 2px; font-size: 13px; }
   .steps p { margin-top: 3px; font-size: 10px; line-height: 1.35; }
   .primary { min-height: 34px; margin-top: 10px; }
+  .general-select { padding: 10px 14px; }
+  .general-select h1 { margin-bottom: 8px; }
+  .general-option img { height: 92px; }
+  .general-option > div { padding: 5px 7px 7px; }
+  .general-option strong { font-size: 16px; }
+  .general-option b { margin-top: 3px; font-size: 11px; }
+  .general-option p { min-height: 0; font-size: 8px; line-height: 1.3; }
 }
 
 @media (max-width: 760px) and (orientation: landscape) {

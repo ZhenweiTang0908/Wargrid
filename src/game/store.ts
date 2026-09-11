@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import { CARD_LABEL, type Card, type GameAction, type GameState, type Position, type Team, type Unit } from '../types'
+import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
 import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, findPath, isEquipment, pathCost, pathDistance, reachableCells, samePosition, scoreControlPoint } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
+  selectGeneral: (skill: GeneralSkill) => void
   respond: (cardId: string | null) => void
   selectCard: (id: string | null) => void
   activateWusheng: () => void
@@ -12,6 +13,12 @@ interface GameStore extends GameState {
   resetAnimation: (team: Team) => void
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill'>> = {
+  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng' },
+  longdan: { name: '赵云', title: '少年将军', skill: 'longdan' },
+  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie' },
+  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback' },
+}
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -230,6 +237,21 @@ function beginTurn(state: GameState, team: Team): GameState {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
+  selectGeneral: skill => {
+    const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill) ?? 'player'
+    if (sourceId === 'player') { set({ generalSelected: true, message: `已选择${state.units.player.name}，准备开战` }); return }
+    const player = state.units.player, source = state.units[sourceId]
+    const chosen = GENERAL_PROFILE[skill], replacement = GENERAL_PROFILE[player.skill]
+    set({
+      generalSelected: true,
+      units: {
+        ...state.units,
+        player: { ...player, ...chosen, hp: 5, maxHp: 5 },
+        [sourceId]: { ...source, ...replacement, hp: 4, maxHp: 4 },
+      },
+      message: `已选择${chosen.name}，准备开战`,
+    })
+  },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState() }); return }
     const state = get(); if (state.phase === 'finished' || state.pendingResponse) return
@@ -342,7 +364,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   respond: cardId => {
     const state = get(), pending = state.pendingResponse
     if (!pending || pending.target !== 'player') return
-    const card = cardId ? state.units.player.hand.find(candidate => candidate.id === cardId && candidate.kind === pending.required) : undefined
+    const player = state.units.player
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {
@@ -412,6 +435,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, selectedAsSlash: false, message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id); if (!card) return
+    if (card.kind === 'dodge' && state.units.player.skill === 'longdan') {
+      set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: state.selectedCardId !== id, message: '【龙胆】将【闪】当【杀】使用，请选择敌将' }); return
+    }
     if (card.kind === 'dodge') { set({ message: '【闪】在响应窗口中打出' }); return }
     const needsTarget = ['slash', 'duel', 'dismantle', 'snatch', 'indulgence'].includes(card.kind)
     if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
@@ -419,7 +445,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   activateWusheng: () => {
     const state = get(), card = state.units.player.hand.find(c => c.id === state.selectedCardId)
-    if (!card || card.kind === 'slash' || (card.suit !== 'heart' && card.suit !== 'diamond')) return
+    if (state.units.player.skill !== 'wusheng' || !card || card.kind === 'slash' || (card.suit !== 'heart' && card.suit !== 'diamond')) return
     set({ selectedAsSlash: true, message: `【武圣】将${CARD_LABEL[card.kind]}当【杀】使用，请选择敌将` })
   },
   hoverCell: position => {
