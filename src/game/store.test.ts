@@ -599,21 +599,21 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
-  it('lets an AI ally spend peach to rescue a dying ally', () => {
-    const slash = card('slash', 'heart'), peach = card('peach', 'diamond', 3)
+  it('lets an AI ally spend enough peaches to rescue a deeply wounded ally', () => {
+    const slash = card('slash', 'heart'), peach = card('peach', 'diamond', 3), secondPeach = card('peach', 'heart', 4)
     useGameStore.setState(state => ({
       units: {
         ...state.units,
-        player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], drunk: true },
         north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [] },
-        west: { ...state.units.west, identity: 'loyalist', hand: [peach] },
+        west: { ...state.units.west, identity: 'loyalist', hand: [peach, secondPeach] },
       },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(1)
     expect(state.units.west.hand).toHaveLength(0)
-    expect(state.discard).toContainEqual(peach)
+    expect(state.discard).toEqual(expect.arrayContaining([peach, secondPeach]))
     expect(state.history.some(entry => entry.includes('援救'))).toBe(true)
     expect(state.winner).toBeNull()
   })
@@ -961,6 +961,30 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.discard).toContainEqual(peach)
     expect(state.winner).toBeNull()
+  })
+
+  it('requires enough peaches to recover from negative health', () => {
+    const slash = card('slash', 'heart'), firstPeach = card('peach', 'heart', 3), secondPeach = card('peach', 'diamond', 4)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash], drunk: true }, player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [firstPeach, secondPeach] }, north: { ...state.units.north, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    let state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(-1)
+    expect(state.pendingResponse).toMatchObject({ effect: 'dying', requiredCount: 2 })
+
+    useGameStore.getState().respond(firstPeach.id)
+    state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(0)
+    expect(state.pendingResponse).toMatchObject({ effect: 'dying', requiredCount: 1 })
+
+    useGameStore.getState().respond(secondPeach.id)
+    state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.pendingResponse).toBeNull()
+    expect(state.discard).toEqual(expect.arrayContaining([firstPeach, secondPeach]))
   })
 
   it('lets the player use peach to rescue another dying general', () => {
