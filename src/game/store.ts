@@ -40,7 +40,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   longdan: { name: '赵云', title: '少年将军', skill: 'longdan', skills: ['longdan'], faction: 'shu', gender: 'male' },
   ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', skills: ['ganglie'], faction: 'wei', gender: 'male' },
   feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei', gender: 'male' },
-  jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei', gender: 'male' },
+  jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong', 'hujia'], faction: 'wei', gender: 'male' },
   yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei', gender: 'male' },
   qingnang: { name: '华佗', title: '神医', skill: 'qingnang', skills: ['qingnang', 'jijiu'], faction: 'qun', gender: 'male' },
   yingzi: { name: '周瑜', title: '大都督', skill: 'yingzi', skills: ['yingzi', 'fanjian'], faction: 'wu', gender: 'male' },
@@ -106,7 +106,7 @@ const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find
   ?? (required === 'dodge' && unit.skills.includes('qingguo') ? unit.hand.find(card => card.suit === 'spade' || card.suit === 'club') : undefined)
 const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
-  if (state.units[targetId].identity !== 'lord' || state.units[targetId].faction !== 'wei') return null
+  if (state.units[targetId].identity !== 'lord' || !state.units[targetId].skills.includes('hujia')) return null
   for (const unit of Object.values(state.units)) {
     const dodge = unit.identity === 'loyalist' && unit.faction === 'wei' && unit.hp > 0 ? responseCard(unit, 'dodge') : undefined
     if (dodge) return { unit, dodge }
@@ -724,7 +724,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return
       }
       const assistant = action.lordAssist ? state.units[action.lordAssist] : undefined
-      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.faction === 'shu' && assistant.identity === 'loyalist' && assistant.faction === 'shu'
+      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.skills.includes('jijiang') && assistant.identity === 'loyalist' && assistant.faction === 'shu'
       const assistedCard = validJijiang ? responseCard(assistant, 'slash') : undefined
       if (action.lordAssist && (!assistedCard || assistedCard.id !== action.cardId)) return
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
@@ -1061,7 +1061,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   activateJijiang: () => {
     const state = get(), lord = state.units.player
-    if (state.phase !== 'player' || state.turnStage !== 'play' || lord.identity !== 'lord' || lord.faction !== 'shu' || lord.attacksUsed >= slashLimit(lord)) return
+    if (state.phase !== 'player' || state.turnStage !== 'play' || lord.identity !== 'lord' || !lord.skills.includes('jijiang') || lord.attacksUsed >= slashLimit(lord)) return
     const helper = Object.values(state.units).find(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && responseCard(unit, 'slash'))
     if (!helper) { set({ message: '没有蜀势力忠臣可以响应【激将】' }); return }
     const offered = responseCard(helper, 'slash')!
