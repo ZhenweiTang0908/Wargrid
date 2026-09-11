@@ -304,6 +304,32 @@ describe('standard card scenarios', () => {
     expect(state.units.east.attacksUsed).toBe(1)
   })
 
+  it('lets Stone Axe discard two cards to force a hit after dodge', () => {
+    const slash = card('slash', 'heart'), axe = card('axe'), costA = card('peach'), costB = card('drawTwo'), dodge = card('dodge')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, costA, costB], equipment: { weapon: axe } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([slash.id, dodge.id, costA.id, costB.id]))
+    expect(state.message).toContain('贯石斧')
+  })
+
+  it('lets Qilin Bow discard a mount after slash damage', () => {
+    const slash = card('slash', 'heart'), bow = card('qilinBow'), mount = card('dilu')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [slash], equipment: { weapon: bow } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { defensiveMount: mount } } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.equipment.defensiveMount).toBeUndefined()
+    expect(state.discard).toContainEqual(mount)
+    expect(state.message).toContain('麒麟弓')
+  })
+
   it('uses a red Bagua judgement as dodge before opening a response window', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({

@@ -166,7 +166,15 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   if (!armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
     const judged = judgeBagua(state, targetId)
     state = judged.state; attacker = state.units[attackerId]; target = state.units[targetId]
-    if (judged.success) return { ...state, units: { ...state.units, [attackerId]: { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' } } }
+    if (judged.success) {
+      const updatedAttacker = { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' as const }
+      if (attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
+        const paid = attacker.hand.slice(0, 2)
+        const forcedState: GameState = { ...state, units: { ...state.units, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) } }, discard: [...state.discard, ...paid] }
+        return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
+      }
+      return { ...state, units: { ...state.units, [attackerId]: updatedAttacker } }
+    }
   }
   const slashCard = state.discard[state.discard.length - 1]
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
@@ -176,11 +184,29 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   if (shieldBlocks || dodge || guard) {
     const updatedTarget = dodge ? { ...target, hand: target.hand.filter(c => c.id !== dodge.id) } : target
     const guardedUnits = guard ? { ...state.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' as const } } : state.units
+    const responseDiscard = dodge ? [...state.discard, dodge] : guard ? [...state.discard, guard.dodge] : state.discard
+    if (!shieldBlocks && attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
+      const paid = attacker.hand.slice(0, 2)
+      const forcedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) }, [targetId]: updatedTarget }, discard: [...responseDiscard, ...paid] }
+      return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
+    }
     const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : `${target.name}${responseText(target, dodge!, 'dodge')}`
-    return { units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: dodge ? [...state.discard, dodge] : guard ? [...state.discard, guard.dodge] : state.discard, message, history: log(state, message) }
+    return { units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
   }
-  const base = { ...state, units: { ...state.units, [attackerId]: updatedAttacker } }
-  return damage(base, attackerId, targetId, attacker.drunk ? 2 : 1, `${target.name}受到${attacker.drunk ? ' 2 ' : ' 1 '}点伤害`)
+  let units = { ...state.units, [attackerId]: updatedAttacker }, discard = state.discard
+  let weaponText = ''
+  if (attacker.equipment.weapon?.kind === 'qilinBow') {
+    const slot = target.equipment.defensiveMount ? 'defensiveMount' : target.equipment.offensiveMount ? 'offensiveMount' : null
+    if (slot) {
+      const mount = target.equipment[slot]!
+      const equipment = { ...target.equipment }; delete equipment[slot]
+      units = { ...units, [targetId]: { ...target, equipment } }
+      discard = [...discard, mount]
+      weaponText = `；【麒麟弓】弃置${target.name}的【${CARD_LABEL[mount.kind]}】`
+    }
+  }
+  const base: GameState = { ...state, units, discard }
+  return damage(base, attackerId, targetId, attacker.drunk ? 2 : 1, `${target.name}受到${attacker.drunk ? ' 2 ' : ' 1 '}点伤害${weaponText}`)
 }
 
 function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial<GameState> {

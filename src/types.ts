@@ -100,7 +100,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   slash: '攻击范围内造成 1 点伤害', dodge: '响应【杀】或【万箭齐发】', peach: '回复 1 点体力',
   wine: '本回合下一张【杀】伤害 +1', duel: '双方轮流打出【杀】', dismantle: '弃置敌方一张牌',
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
-  qinggang: '攻击范围 2，攻击无视护甲', spear: '攻击范围 3', axe: '攻击范围 3', halberd: '攻击范围 4', qilinBow: '攻击范围 5',
+  qinggang: '攻击范围 2，攻击无视护甲', spear: '攻击范围 3', axe: '攻击范围 3；闪避后弃两牌可强制命中', halberd: '攻击范围 4', qilinBow: '攻击范围 5；造成伤害后弃置目标坐骑',
   shield: '使黑色【杀】失效', bagua: '受到【杀】时红色判定视为【闪】',
   arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '在响应窗口抵消锦囊效果',
   indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
