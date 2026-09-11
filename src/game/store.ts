@@ -162,6 +162,20 @@ function judgeBagua(state: GameState, targetId: Team) {
   return { state: { ...state, deck: draw.deck, discard: [...draw.discard, judge], message, history: log(state, message) }, success }
 }
 
+function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> | null {
+  const attacker = state.units[attackerId]
+  if (attacker.equipment.weapon?.kind !== 'greenDragon') return null
+  const nextSlash = responseCard(attacker, 'slash')
+  if (!nextSlash) return null
+  const message = `${attacker.name}发动【青龙偃月刀】，继续对${state.units[targetId].name}使用【杀】`
+  const chaseState: GameState = {
+    ...state,
+    units: { ...state.units, [attackerId]: { ...attacker, hand: attacker.hand.filter(card => card.id !== nextSlash.id), animation: 'attack' } },
+    discard: [...state.discard, nextSlash], message, history: log(state, message),
+  }
+  return resolveSlash(chaseState, attackerId, targetId)
+}
+
 function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false): Partial<GameState> {
   let attacker = state.units[attackerId], target = state.units[targetId]
   if (!armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
@@ -174,7 +188,8 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
         const forcedState: GameState = { ...state, units: { ...state.units, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) } }, discard: [...state.discard, ...paid] }
         return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
       }
-      return { ...state, units: { ...state.units, [attackerId]: updatedAttacker } }
+      const defendedState: GameState = { ...state, units: { ...state.units, [attackerId]: updatedAttacker } }
+      return greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
     }
   }
   const slashCard = state.discard[state.discard.length - 1]
@@ -192,7 +207,8 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
     }
     const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : `${target.name}${responseText(target, dodge!, 'dodge')}`
-    return { units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
+    const defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
+    return shieldBlocks ? defendedState : greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
   }
   let units = { ...state.units, [attackerId]: updatedAttacker }, discard = state.discard
   let weaponText = ''
@@ -594,7 +610,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'qinggang', 'crossbow', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
