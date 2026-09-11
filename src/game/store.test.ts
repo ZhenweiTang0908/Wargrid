@@ -1355,4 +1355,20 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toEqual(expect.arrayContaining([first, second]))
     expect(state.history.filter(entry => entry.includes('仁德')).length).toBeGreaterThanOrEqual(2)
   })
+
+  it('lets AI Diao Chan make two male enemies duel through Lijian', async () => {
+    const payment = card('nullify')
+    useGameStore.setState(state => ({ deck: [card('nullify', 'heart')], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'lijian', skills: ['lijian', 'biyue'], position: state.controlPoint, hand: [payment] },
+      east: { ...state.units.east, gender: 'male', hand: [] },
+      west: { ...state.units.west, gender: 'male', hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.skillUsed).toBe(true)
+    expect(state.units.west.hp).toBe(3)
+    expect(state.discard).toContainEqual(payment)
+    expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
+  })
 })

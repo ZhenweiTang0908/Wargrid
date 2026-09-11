@@ -1098,6 +1098,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
         await wait(140); state = get(); ai = state.units[aiId]
       }
     }
+    if (ai.skills.includes('lijian') && !ai.skillUsed && ai.hand.length) {
+      const prioritized = [...targetsFor(state, aiId), ...Object.values(state.units).filter(unit => unit.id !== aiId)]
+      const males = prioritized.filter((unit, index, list) => unit.hp > 0 && unit.gender === 'male' && list.findIndex(candidate => candidate.id === unit.id) === index)
+      const payment = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]
+      if (males.length >= 2 && payment) {
+        const [duelist, challenged] = males, message = `${ai.name}发动【离间】，弃置一张牌，令${duelist.name}视为对${challenged.name}使用【决斗】`
+        const lijianState: GameState = { ...state, units: { ...state.units, [aiId]: { ...ai, hand: ai.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' } }, discard: [...state.discard, payment], message, history: log(state, message) }
+        set({ ...lijianState, ...continueDuel(lijianState, challenged.id, duelist.id) })
+        await wait(280); state = get(); ai = state.units[aiId]
+        if (state.pendingResponse || state.winner) return
+      }
+    }
     if (ai.skills.includes('qingnang') && !ai.skillUsed && ai.hand.length) {
       const patient = alliesFor(state, aiId).filter(unit => unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
       const payment = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]
