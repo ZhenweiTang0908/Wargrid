@@ -59,6 +59,9 @@ describe('card and victory rules', () => {
     const defender = { ...state.units.north, position: { x: 4, y: 0 }, equipment: { defensiveMount: { id: 'd', kind: 'dilu' as const, suit: 'club' as const, rank: 5 } } }
     const mountedState = { ...state, units: { ...state.units, player: attacker, north: defender } }
     expect(combatDistance(mountedState, attacker, defender)).toBe(2)
+    const cavalry = { ...attacker, equipment: {}, skills: ['mashu' as const] }
+    const cavalryState = { ...state, units: { ...state.units, player: cavalry, north: defender } }
+    expect(combatDistance(cavalryState, cavalry, defender)).toBe(2)
   })
 
   it('uses forests as cover and ridges as high ground', () => {

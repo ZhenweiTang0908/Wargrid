@@ -23,6 +23,7 @@ interface GameStore extends GameState {
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction' | 'gender'>>> = {
+  tieqi: { name: '马超', title: '一骑当千', skill: 'tieqi', skills: ['mashu', 'tieqi'], faction: 'shu', gender: 'male' },
   rende: { name: '刘备', title: '乱世的枭雄', skill: 'rende', skills: ['rende', 'jijiang'], faction: 'shu', gender: 'male' },
   wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', skills: ['wusheng'], faction: 'shu', gender: 'male' },
   longdan: { name: '赵云', title: '少年将军', skill: 'longdan', skills: ['longdan'], faction: 'shu', gender: 'male' },
@@ -43,7 +44,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { tieqi: 4, rende: 4, wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, yingzi: 3, guanxing: 3, tuxi: 4, luoyi: 4, jieyin: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -225,6 +226,16 @@ function judgeBagua(state: GameState, targetId: Team) {
   return { state: { ...state, units: tiandu ? { ...state.units, [targetId]: { ...target, hand: [...target.hand, judge], animation: 'cast' } } : state.units, deck: draw.deck, discard: tiandu ? draw.discard : [...draw.discard, judge], message, history: log(state, message) }, success }
 }
 
+function judgeTieqi(state: GameState, attackerId: Team) {
+  const attacker = state.units[attackerId]
+  if (!attacker.skills.includes('tieqi')) return { state, locked: false }
+  const draw = drawCards(state.deck, state.discard, 1), judge = draw.drawn[0]
+  if (!judge) return { state, locked: false }
+  const locked = judge.suit === 'heart' || judge.suit === 'diamond'
+  const message = `${attacker.name}发动【铁骑】，判定为${judge.suit}${judge.rank}${locked ? '，目标不能使用【闪】' : '，判定未生效'}`
+  return { state: { ...state, deck: draw.deck, discard: [judge, ...draw.discard], message, history: log(state, message) }, locked }
+}
+
 function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> | null {
   const attacker = state.units[attackerId]
   if (attacker.equipment.weapon?.kind !== 'greenDragon') return null
@@ -241,6 +252,12 @@ function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): P
 
 function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false): Partial<GameState> {
   let attacker = state.units[attackerId], target = state.units[targetId]
+  if (manualResponse === undefined) {
+    const tieqi = judgeTieqi(state, attackerId)
+    state = tieqi.state
+    if (tieqi.locked) { manualResponse = null; armorChecked = true }
+    attacker = state.units[attackerId]; target = state.units[targetId]
+  }
   if (attacker.equipment.weapon?.kind === 'doubleSword' && attacker.gender !== target.gender) {
     if (target.hand.length) {
       const paid = target.hand[0], message = `${attacker.name}发动【雌雄双股剑】，${target.name}弃置一张手牌`
@@ -640,6 +657,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'slash') {
         if (!canSlash(state, unit, target)) return
         if (targetId === 'player' && action.unit !== 'player') {
+          const tieqi = judgeTieqi(base, action.unit); base = tieqi.state
+          if (tieqi.locked) { set({ ...base, ...resolveSlash(base, action.unit, targetId, null, true) }); return }
           const slashCard = base.discard[base.discard.length - 1]
           const shieldBlocks = target.equipment.armor?.kind === 'shield' && (slashCard.suit === 'spade' || slashCard.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
           if (!shieldBlocks) {

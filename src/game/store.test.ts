@@ -1005,4 +1005,26 @@ describe('standard card scenarios', () => {
     const result = beginTurn(state, 'player')
     expect(result.units.player.rendeGiven).toBe(0)
   })
+
+  it('lets Ma Chao prevent dodge after a red Tieqi judgement', () => {
+    useGameStore.getState().selectGeneral('tieqi')
+    const slash = card('slash', 'spade'), dodge = card('dodge'), redJudge = card('peach', 'heart', 8)
+    useGameStore.setState(state => ({ deck: [redJudge], discard: [], units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.hand).toContainEqual(dodge)
+    expect(state.history.some(entry => entry.includes('不能使用【闪】'))).toBe(true)
+  })
+
+  it('allows dodge after a black Tieqi judgement', () => {
+    useGameStore.getState().selectGeneral('tieqi')
+    const slash = card('slash'), dodge = card('dodge'), blackJudge = card('duel', 'club', 4)
+    useGameStore.setState(state => ({ deck: [blackJudge], discard: [], units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.history.some(entry => entry.includes('判定未生效'))).toBe(true)
+  })
 })

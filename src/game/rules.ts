@@ -121,9 +121,10 @@ export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 
 export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   const base = pathDistance(state, attacker.position, target.position, attacker.id)
   const attackBonus = attacker.equipment.offensiveMount && ['redHare', 'dayuan', 'zixing'].includes(attacker.equipment.offensiveMount.kind) ? 1 : 0
+  const cavalryBonus = attacker.skills.includes('mashu') ? 1 : 0
   const defenseBonus = target.equipment.defensiveMount && ['dilu', 'jueying', 'zhaohuang'].includes(target.equipment.defensiveMount.kind) ? 1 : 0
   const forestCover = terrainAt(state, target.position) === 'forest' ? 1 : 0
-  return Math.max(1, base - attackBonus + defenseBonus + forestCover)
+  return Math.max(1, base - attackBonus - cavalryBonus + defenseBonus + forestCover)
 }
 export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : terrainAt(state, attacker.position) === 'watchtower' ? 2 : 0)
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && !(target.skills.includes('kongcheng') && target.hand.length === 0) && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
