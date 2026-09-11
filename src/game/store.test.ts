@@ -347,6 +347,41 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
+  it('lets the player use peach to rescue another dying general', () => {
+    const slash = card('slash', 'spade'), peach = card('peach', 'heart')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [slash, peach] }, east: { ...state.units.east, position: { x: 8, y: 4 }, hp: 1, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    let state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'dying', target: 'east', required: 'peach' })
+    expect(state.units.east.hp).toBe(0)
+    expect(state.units.east.revealed).toBe(false)
+
+    useGameStore.getState().respond(peach.id)
+    state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.east.hp).toBe(1)
+    expect(state.units.east.revealed).toBe(false)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.winner).toBeNull()
+  })
+
+  it('settles identity rewards after declining to rescue another general', () => {
+    const slash = card('slash', 'diamond'), peach = card('peach', 'heart')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [slash, peach] }, east: { ...state.units.east, position: { x: 8, y: 4 }, hp: 1, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(0)
+    expect(state.units.east.revealed).toBe(true)
+    expect(state.units.player.hand).toHaveLength(4)
+    expect(state.units.player.hand).toContainEqual(peach)
+    expect(state.message).toContain('击败')
+  })
+
   it('rewards the killer with three cards for defeating a rebel', () => {
     const slash = card('slash', 'heart')
     useGameStore.setState(state => ({
@@ -365,6 +400,8 @@ describe('standard card scenarios', () => {
       units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, spare], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'north' })
+    useGameStore.getState().respond(null)
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(0)
     expect(state.units.player.hand).toHaveLength(0)

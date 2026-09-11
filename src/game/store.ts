@@ -48,10 +48,10 @@ const loyalGuard = (state: GameState, targetId: Team) => {
   return null
 }
 
-function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string): Partial<GameState> {
+function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false): Partial<GameState> {
   const target = state.units[targetId]
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
-  const playerPeach = targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
+  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
   if (playerPeach) {
     const prompt = `${target.name}进入濒死状态，是否使用【桃】自救？`
     return {
@@ -61,9 +61,15 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       history: log(state, `${target.name}进入濒死状态`),
     }
   }
-  const rescue = hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
+  const rescue = !skipRescue && targetId !== 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
   if (rescue) { hand = hand.filter(c => c.id !== rescue.id); discard = [...discard, rescue]; hp = 1 }
   let units = { ...state.units, [targetId]: { ...target, hand, hp: Math.max(0, hp), revealed: hp <= 0 ? true : target.revealed, animation: 'hit' as const } }
+  const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach') : undefined
+  if (aidPeach) {
+    const prompt = `${target.name}进入濒死状态，是否使用【桃】援救？`
+    units = { ...units, [targetId]: { ...units[targetId], revealed: target.revealed } }
+    return { units, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
+  }
   let deck = state.deck
   if (hp <= 0 && target.identity === 'rebel') {
     const reward = drawCards(deck, discard, 3); deck = reward.deck; discard = reward.discard
@@ -386,19 +392,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   respond: cardId => {
     const state = get(), pending = state.pendingResponse
-    if (!pending || pending.target !== 'player') return
+    if (!pending) return
     const player = state.units.player
     const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {
       if (card) {
-        const player = base.units.player, message = `${player.name}使用【桃】自救，回复至 1 点体力`
-        base = { ...base, units: { ...base.units, player: { ...player, hp: 1, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'heal' } }, discard: [...base.discard, card], message, history: log(base, message) }
+        const player = base.units.player, target = base.units[pending.target]
+        const rescuedPlayer = { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), ...(pending.target === 'player' ? { hp: 1, animation: 'heal' as const } : {}) }
+        const units = { ...base.units, player: rescuedPlayer, [pending.target]: pending.target === 'player' ? rescuedPlayer : { ...target, hp: 1, animation: 'heal' as const } }
+        const message = pending.target === 'player' ? `${player.name}使用【桃】自救，回复至 1 点体力` : `${player.name}对${target.name}使用【桃】，将其救回至 1 点体力`
+        base = { ...base, units, discard: [...base.discard, card], message, history: log(base, message) }
       } else {
-        const units = { ...base.units, player: { ...base.units.player, hp: 0, revealed: true, animation: 'hit' as const } }
-        const winner = determineWinner(units), message = `${base.units.player.name}放弃自救，阵亡！`
-        base = { ...base, units, winner, phase: winner ? 'finished' : base.phase, message, history: log(base, message) }
+        const target = base.units[pending.target]
+        const deathBase = { ...base, units: { ...base.units, [pending.target]: { ...target, hp: 1 } } }
+        base = { ...base, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true) }
       }
       set(base)
       if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
