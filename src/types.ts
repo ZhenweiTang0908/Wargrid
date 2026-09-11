@@ -14,7 +14,7 @@ export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
-export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'paoxiao' | 'jizhi' | 'qixi' | 'biyue'
+export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'paoxiao' | 'jizhi' | 'qixi' | 'biyue' | 'zhiheng' | 'wushuang'
 
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
@@ -41,6 +41,7 @@ export interface Unit {
   wineUsed: boolean
   drunk: boolean
   chained: boolean
+  skillUsed: boolean
   animation: AnimationKind
 }
 
@@ -53,6 +54,7 @@ export interface PendingResponse {
   trick?: 'duel' | 'dismantle' | 'snatch' | 'indulgence' | 'arrows' | 'barbarians' | 'fireAttack' | 'ironChain'
   originCardId?: string
   armorChecked?: boolean
+  requiredCount?: number
 }
 
 export interface GameState {
@@ -77,6 +79,8 @@ export interface GameState {
   spearMode: boolean
   spearSelection: string[]
   jijiangSource: Team | null
+  zhihengMode: boolean
+  zhihengSelection: string[]
   discardSelection: string[]
   reachable: Position[]
   pathPreview: Position[]

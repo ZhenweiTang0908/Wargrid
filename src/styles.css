@@ -101,7 +101,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .general-select-overlay { z-index: 70; }
 .general-select { width: min(880px, 96vw); padding: 22px; }
 .general-select h1 { margin-bottom: 16px; }
-.general-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.general-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .general-option { position: relative; min-width: 0; padding: 0; overflow: hidden; border: 1px solid #405b61; color: #ecf3ef; background: #0b181d; text-align: left; cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s; }
 .general-option:hover, .general-option:focus-visible { transform: translateY(-5px); border-color: var(--gold); box-shadow: 0 12px 28px #000b, 0 0 18px #d6aa4d33; }
 .general-option img { width: 100%; height: 145px; display: block; object-fit: cover; object-position: 50% 18%; filter: saturate(.9) contrast(1.06); }
@@ -134,7 +134,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .general-select { padding: 10px 14px; }
   .general-select h1 { margin-bottom: 8px; }
   .general-option img { height: 92px; }
-  .general-grid { grid-template-columns: repeat(4, 1fr); }
+  .general-grid { grid-template-columns: repeat(5, 1fr); }
   .general-option img { height: 68px; }
   .general-option > div { padding: 5px 7px 7px; }
   .general-option strong { font-size: 16px; }

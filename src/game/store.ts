@@ -12,6 +12,7 @@ interface GameStore extends GameState {
   activateSpear: () => void
   activateJijiang: () => void
   activateQixi: () => void
+  activateZhiheng: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
@@ -26,6 +27,8 @@ const GENERAL_PROFILE: Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', faction: 'shu' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', faction: 'wu' },
   biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', faction: 'qun' },
+  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', faction: 'wu' },
+  wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', faction: 'qun' },
 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
@@ -200,19 +203,23 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   }
   const slashCard = state.discard[state.discard.length - 1]
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
-  const dodge = !shieldBlocks ? (manualResponse === undefined ? responseCard(target, 'dodge') : manualResponse ?? undefined) : undefined
-  const guard = !shieldBlocks && !dodge ? loyalGuard(state, targetId) : null
+  const availableDodges = target.hand.filter(card => card.kind === 'dodge' || (target.skill === 'longdan' && card.kind === 'slash'))
+  const requiredDodges = attacker.skill === 'wushuang' && manualResponse === undefined ? 2 : 1
+  const dodgeCards = shieldBlocks ? [] : manualResponse === undefined ? (availableDodges.length >= requiredDodges ? availableDodges.slice(0, requiredDodges) : []) : manualResponse ? [manualResponse] : []
+  const dodge = dodgeCards[0]
+  const guard = !shieldBlocks && !dodge && attacker.skill !== 'wushuang' ? loyalGuard(state, targetId) : null
   const updatedAttacker = { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' as const }
   if (shieldBlocks || dodge || guard) {
-    const updatedTarget = dodge ? { ...target, hand: target.hand.filter(c => c.id !== dodge.id) } : target
+    const dodgeIds = new Set(dodgeCards.map(card => card.id))
+    const updatedTarget = dodge ? { ...target, hand: target.hand.filter(c => !dodgeIds.has(c.id)) } : target
     const guardedUnits = guard ? { ...state.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' as const } } : state.units
-    const responseDiscard = dodge ? [...state.discard, dodge] : guard ? [...state.discard, guard.dodge] : state.discard
+    const responseDiscard = dodge ? [...state.discard, ...dodgeCards] : guard ? [...state.discard, guard.dodge] : state.discard
     if (!shieldBlocks && attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
       const paid = attacker.hand.slice(0, 2)
       const forcedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) }, [targetId]: updatedTarget }, discard: [...responseDiscard, ...paid] }
       return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
     }
-    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : `${target.name}${responseText(target, dodge!, 'dodge')}`
+    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : `${target.name}${dodgeCards.length > 1 ? '连续打出两张【闪】响应【无双】' : responseText(target, dodge!, 'dodge')}`
     const defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
     return shieldBlocks ? defendedState : greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
   }
@@ -235,17 +242,19 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
 function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial<GameState> {
   let working = state, current = currentId, other = otherId
   for (let round = 0; round < 20; round++) {
+    const requiredCount = working.units[other].skill === 'wushuang' ? 2 : 1
     if (current === 'player') {
-      const prompt = `${working.units[other].name}在【决斗】中出杀，请打出【杀】响应`
-      return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', prompt }, message: prompt, history: log(working, prompt) }
-    }
-    const slash = responseCard(working.units[current], 'slash')
-    if (!slash) {
-      return damage(working, other, current, 1, `${working.units[current].name}未能在【决斗】中出杀，受到 1 点伤害`)
+      const prompt = `${working.units[other].name}在【决斗】中出杀，请${requiredCount === 2 ? '连续' : ''}打出${requiredCount}张【杀】响应`
+      return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', requiredCount, prompt }, message: prompt, history: log(working, prompt) }
     }
     const responder = working.units[current]
-    const message = `${responder.name}${responseText(responder, slash, 'slash')}响应【决斗】`
-    working = { ...working, units: { ...working.units, [current]: { ...responder, hand: responder.hand.filter(c => c.id !== slash.id), animation: 'cast' } }, discard: [...working.discard, slash], message, history: log(working, message) }
+    const slashes = responder.hand.filter(card => card.kind === 'slash' || (responder.skill === 'longdan' && card.kind === 'dodge')).slice(0, requiredCount)
+    if (slashes.length < requiredCount) {
+      return damage(working, other, current, 1, `${working.units[current].name}未能在【决斗】中出杀，受到 1 点伤害`)
+    }
+    const slashIds = new Set(slashes.map(card => card.id))
+    const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
+    working = { ...working, units: { ...working.units, [current]: { ...responder, hand: responder.hand.filter(c => !slashIds.has(c.id)), animation: 'cast' } }, discard: [...working.discard, ...slashes], message, history: log(working, message) }
     ;[current, other] = [other, current]
   }
   return working
@@ -332,8 +341,8 @@ function beginTurn(state: GameState, team: Team): GameState {
   unit = { ...working.units[team], judgement: [] }
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
   const draw = drawCards(working.deck, working.discard, 2)
-  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, animation: 'idle' }
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
+  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, skillUsed: false, animation: 'idle' }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : `${refreshed.name}的`}出牌阶段 · 摸两张牌`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}摸两张牌`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -459,8 +468,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 set({ ...base, units: { ...base.units, [action.unit]: { ...base.units[action.unit], attacksUsed: base.units[action.unit].attacksUsed + 1, drunk: false, animation: 'attack' } } }); return
               }
             }
-            const prompt = `${unit.name}对你使用【杀】，请选择是否打出【闪】`
-            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', armorChecked, prompt }, message: prompt, history: log(base, prompt) }); return
+            const requiredCount = unit.skill === 'wushuang' ? 2 : 1
+            const prompt = `${unit.name}对你使用【杀】，${requiredCount === 2 ? '【无双】要求连续打出两张【闪】' : '请选择是否打出【闪】'}`
+            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked, prompt }, message: prompt, history: log(base, prompt) }); return
           }
         }
         if (action.unit === 'player' && unit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
@@ -500,7 +510,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       let turnState = state
       if (state.turnStage !== 'discard' && excess > 0) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
-        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, reachable: [], pathPreview: [], message, history: log(state, message) }); return
+        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
       }
       if (state.turnStage === 'discard') {
         if (state.discardSelection.length !== excess) return
@@ -571,12 +581,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'duel') {
       if (card) {
         const player = base.units.player
+        if ((pending.requiredCount ?? 1) > 1) {
+          const remaining = (pending.requiredCount ?? 1) - 1, prompt = `【无双决斗】还需打出 ${remaining} 张【杀】`
+          base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双决斗】打出第一张【杀】`) }
+          set(base); return
+        }
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card] }
         base = { ...base, ...continueDuel(base, pending.source, 'player') }
       } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能在【决斗】中出杀，受到 1 点伤害`) }
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
+    }
+    if (pending.effect === 'slash' && card && (pending.requiredCount ?? 1) > 1) {
+      const player = base.units.player, remaining = (pending.requiredCount ?? 1) - 1
+      const prompt = `【无双】还需打出 ${remaining} 张【闪】，或放弃并承受伤害`
+      base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双】打出第一张【闪】`) }
+      set(base); return
     }
     if (card) {
       const player = base.units.player
@@ -600,8 +621,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
-    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, message: '已取消选牌' }); return }
+    if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id); if (!card) return
+    if (state.zhihengMode) {
+      const selected = state.zhihengSelection.includes(id)
+      const zhihengSelection = selected ? state.zhihengSelection.filter(cardId => cardId !== id) : [...state.zhihengSelection, id]
+      set({ zhihengSelection, message: `【制衡】已选择 ${zhihengSelection.length} 张牌，再次点击制衡确认` }); return
+    }
     if (state.spearMode) {
       const selected = state.spearSelection.includes(id)
       const spearSelection = selected ? state.spearSelection.filter(cardId => cardId !== id) : state.spearSelection.length < 2 ? [...state.spearSelection, id] : state.spearSelection
@@ -638,6 +664,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), card = state.units.player.hand.find(item => item.id === state.selectedCardId)
     if (state.units.player.skill !== 'qixi' || !card || (card.suit !== 'spade' && card.suit !== 'club')) return
     set({ selectedAsDismantle: true, selectedAsSlash: false, message: `【奇袭】将${CARD_LABEL[card.kind]}当【过河拆桥】使用，请选择敌将` })
+  },
+  activateZhiheng: () => {
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || player.skill !== 'zhiheng' || player.skillUsed) return
+    if (!state.zhihengMode) {
+      set({ zhihengMode: true, zhihengSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, message: '【制衡】请选择任意张手牌，再次点击制衡确认' }); return
+    }
+    if (!state.zhihengSelection.length) { set({ zhihengMode: false, message: '已取消制衡' }); return }
+    const chosen = player.hand.filter(card => state.zhihengSelection.includes(card.id))
+    const remaining = player.hand.filter(card => !state.zhihengSelection.includes(card.id))
+    const draw = drawCards(state.deck, [...state.discard, ...chosen], chosen.length)
+    const message = `${player.name}发动【制衡】，弃置并重摸 ${chosen.length} 张牌`
+    set({ units: { ...state.units, player: { ...player, hand: [...remaining, ...draw.drawn], skillUsed: true, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, zhihengMode: false, zhihengSelection: [], message, history: log(state, message) })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }

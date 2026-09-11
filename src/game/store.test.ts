@@ -130,6 +130,54 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('闭月'))).toBe(true)
   })
 
+  it('lets Sun Quan exchange multiple selected cards once through Zhiheng', () => {
+    useGameStore.getState().selectGeneral('zhiheng')
+    const keep = card('peach'), oldA = card('slash'), oldB = card('dodge'), freshA = card('drawTwo'), freshB = card('duel')
+    useGameStore.setState(state => ({ deck: [freshA, freshB], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [keep, oldA, oldB] } } }))
+    useGameStore.getState().activateZhiheng()
+    useGameStore.getState().selectCard(oldA.id)
+    useGameStore.getState().selectCard(oldB.id)
+    useGameStore.getState().activateZhiheng()
+    const state = useGameStore.getState()
+    expect(state.units.player.hand.map(item => item.id)).toEqual([keep.id, freshA.id, freshB.id])
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.zhihengMode).toBe(false)
+    expect(state.message).toContain('制衡')
+  })
+
+  it('requires two dodges against Lu Bu Wushuang slash', () => {
+    useGameStore.getState().selectGeneral('wushuang')
+    const slash = card('slash'), onlyDodge = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [onlyDodge] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.hand).toContainEqual(onlyDodge)
+  })
+
+  it('asks the player for two sequential dodges against Wushuang', () => {
+    const slash = card('slash'), first = card('dodge'), second = card('dodge', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, skill: 'wushuang', position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [first, second] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse?.requiredCount).toBe(2)
+    useGameStore.getState().respond(first.id)
+    expect(useGameStore.getState().pendingResponse?.requiredCount).toBe(1)
+    useGameStore.getState().respond(second.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toHaveLength(0)
+  })
+
+  it('requires two slashes per duel response against Wushuang', () => {
+    useGameStore.getState().selectGeneral('wushuang')
+    const duel = card('duel'), onlySlash = card('slash')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel] }, north: { ...state.units.north, hand: [onlySlash] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    expect(useGameStore.getState().units.north.hp).toBe(3)
+    expect(useGameStore.getState().units.north.hand).toContainEqual(onlySlash)
+  })
+
   it('uses fire attack by matching the revealed card suit', () => {
     const fire = card('fireAttack', 'spade'), payment = card('slash', 'heart'), revealed = card('dodge', 'heart')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [fire, payment] }, east: { ...state.units.east, hand: [revealed] } } }))
