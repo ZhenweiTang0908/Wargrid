@@ -162,6 +162,33 @@ describe('standard card scenarios', () => {
     expect(damaged.message).toContain('遗计')
   })
 
+  it('lets Hua Tuo heal with Qingnang once per turn', () => {
+    useGameStore.getState().selectGeneral('qingnang')
+    const payment = card('slash')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hp: 2, hand: [payment] } } }))
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().activateQingnang()
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.discard).toContainEqual(payment)
+  })
+
+  it('lets Hua Tuo treat a red card as peach through Jijiu', () => {
+    useGameStore.getState().selectGeneral('qingnang')
+    const slash = card('slash', 'spade'), redCard = card('dodge', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [redCard] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying' })
+    useGameStore.getState().respond(redCard.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.message).toContain('急救')
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')

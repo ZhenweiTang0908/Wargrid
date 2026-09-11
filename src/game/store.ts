@@ -13,6 +13,7 @@ interface GameStore extends GameState {
   activateJijiang: () => void
   activateQixi: () => void
   activateZhiheng: () => void
+  activateQingnang: () => void
   hoverCell: (position: Position | null) => void
   runAI: () => Promise<void>
   resetAnimation: (team: Team) => void
@@ -25,6 +26,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei' },
   jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei' },
   yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei' },
+  qingnang: { name: '华佗', title: '神医', skill: 'qingnang', skills: ['qingnang', 'jijiu'], faction: 'qun' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu' },
@@ -32,7 +34,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun' },
 }
-const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -64,7 +66,7 @@ const loyalGuard = (state: GameState, targetId: Team) => {
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false): Partial<GameState> {
   const target = state.units[targetId]
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
-  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
+  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach' || (target.skills.includes('jijiu') && (c.suit === 'heart' || c.suit === 'diamond'))) : undefined
   if (playerPeach) {
     const prompt = `${target.name}进入濒死状态，是否使用【桃】自救？`
     return {
@@ -77,7 +79,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   const rescue = !skipRescue && targetId !== 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
   if (rescue) { hand = hand.filter(c => c.id !== rescue.id); discard = [...discard, rescue]; hp = 1 }
   let units = { ...state.units, [targetId]: { ...target, hand, hp: Math.max(0, hp), revealed: hp <= 0 ? true : target.revealed, animation: 'hit' as const } }
-  const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach') : undefined
+  const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach' || (state.units.player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond'))) : undefined
   if (aidPeach) {
     const prompt = `${target.name}进入濒死状态，是否使用【桃】援救？`
     units = { ...units, [targetId]: { ...units[targetId], revealed: target.revealed } }
@@ -625,7 +627,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && candidate.kind === 'slash') || (pending.required === 'slash' && candidate.kind === 'dodge'))))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'dying') {
@@ -633,7 +635,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const player = base.units.player, target = base.units[pending.target]
         const rescuedPlayer = { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), ...(pending.target === 'player' ? { hp: 1, animation: 'heal' as const } : {}) }
         const units = { ...base.units, player: rescuedPlayer, [pending.target]: pending.target === 'player' ? rescuedPlayer : { ...target, hp: 1, animation: 'heal' as const } }
-        const message = pending.target === 'player' ? `${player.name}使用【桃】自救，回复至 1 点体力` : `${player.name}对${target.name}使用【桃】，将其救回至 1 点体力`
+        const rescueName = card.kind === 'peach' ? '桃' : '急救'
+        const message = pending.target === 'player' ? `${player.name}使用【${rescueName}】自救，回复至 1 点体力` : `${player.name}对${target.name}使用【${rescueName}】，将其救回至 1 点体力`
         base = { ...base, units, discard: [...base.discard, card], message, history: log(base, message) }
       } else {
         const target = base.units[pending.target]
@@ -766,6 +769,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const draw = drawCards(state.deck, [...state.discard, ...chosen], chosen.length)
     const message = `${player.name}发动【制衡】，弃置并重摸 ${chosen.length} 张牌`
     set({ units: { ...state.units, player: { ...player, hand: [...remaining, ...draw.drawn], skillUsed: true, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, zhihengMode: false, zhihengSelection: [], message, history: log(state, message) })
+  },
+  activateQingnang: () => {
+    const state = get(), healer = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !healer.skills.includes('qingnang') || healer.skillUsed || !state.selectedCardId) return
+    const payment = healer.hand.find(card => card.id === state.selectedCardId); if (!payment) return
+    const candidates = Object.values(state.units).filter(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))
+    const target = candidates.sort((a, b) => (b.maxHp - b.hp) - (a.maxHp - a.hp))[0]
+    if (!target) { set({ message: '没有可由【青囊】治疗的友方角色' }); return }
+    const updatedHealer = { ...healer, hand: healer.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' as const }
+    const units = { ...state.units, player: updatedHealer, [target.id]: { ...(target.id === 'player' ? updatedHealer : target), hp: target.hp + 1, animation: 'heal' as const } }
+    const message = `${healer.name}发动【青囊】，弃置【${CARD_LABEL[payment.kind]}】令${target.name}回复 1 点体力`
+    set({ units, discard: [...state.discard, payment], selectedCardId: null, message, history: log(state, message) })
   },
   hoverCell: position => {
     const state = get(); if (!position || state.phase !== 'player') { set({ pathPreview: [] }); return }
