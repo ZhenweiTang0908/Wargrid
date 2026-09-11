@@ -81,8 +81,8 @@ function UnitPiece({ team }: { team: Team }) {
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
-  const pieceColors: Record<Team, string> = { player: '#35b8d4', north: '#6fcf8a', east: '#e25845', west: '#a87ddd' }
-  const darkColors: Record<Team, string> = { player: '#14748a', north: '#287549', east: '#972f2b', west: '#5b377a' }
+  const pieceColors: Record<Team, string> = { player: '#2f8a68', north: '#b6cbd0', east: '#a84635', west: '#78528d' }
+  const darkColors: Record<Team, string> = { player: '#174d3a', north: '#526f78', east: '#61251e', west: '#3d294b' }
   const color = pieceColors[team]
   const selectedKind = selectedAsSlash ? 'slash' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
@@ -136,23 +136,37 @@ function UnitPiece({ team }: { team: Team }) {
         <sphereGeometry args={[.29, 16, 12]} />
         <meshStandardMaterial color="#d6b28a" roughness={.8} />
       </mesh>
-      <mesh position={[0, 1.42, 0]} rotation-z={team === 'player' ? -.18 : .18}>
-        <coneGeometry args={[.27, .42, 6]} />
-        <meshStandardMaterial color={color} metalness={.35} />
-      </mesh>
-      <group position={team === 'player' ? [.43, .75, 0] : [-.4, .82, 0]} rotation-z={team === 'player' ? -.18 : .2}>
-        <mesh position-y={.25}>
-          <cylinderGeometry args={[.025, .025, 1.7, 6]} />
-          <meshStandardMaterial color="#7b5531" roughness={.7} />
-        </mesh>
-        {team === 'player' ? <>
-          <mesh position={[0, 1.14, 0]} rotation-z={-.35}>
-            <boxGeometry args={[.13, .65, .055]} />
-            <meshStandardMaterial color="#b7c7c5" metalness={.85} roughness={.2} />
-          </mesh>
-          <mesh position={[0, .82, 0]}><torusGeometry args={[.1, .025, 6, 14]} /><meshStandardMaterial color="#d8a94d" metalness={.7} /></mesh>
-        </> : <mesh position={[0, 1.08, 0]}><coneGeometry args={[.13, .48, 5]} /><meshStandardMaterial color="#c7d0cc" metalness={.9} roughness={.18} /></mesh>}
-      </group>
+      {team === 'player' && <>
+        <mesh position={[0, 1.43, 0]} rotation-z={-.14}><capsuleGeometry args={[.24, .2, 4, 8]} /><meshStandardMaterial color="#285942" roughness={.65} /></mesh>
+        <mesh position={[0, 1.02, .24]} rotation-x={-.12}><coneGeometry args={[.15, .72, 7]} /><meshStandardMaterial color="#201714" roughness={1} /></mesh>
+        <group position={[.43, .75, 0]} rotation-z={-.18}>
+          <mesh position-y={.25}><cylinderGeometry args={[.027, .027, 1.8, 7]} /><meshStandardMaterial color="#6a3d20" roughness={.7} /></mesh>
+          <mesh position={[0, 1.15, 0]} rotation-z={-.36}><boxGeometry args={[.15, .7, .06]} /><meshStandardMaterial color="#a9c6bd" metalness={.9} roughness={.18} /></mesh>
+          <mesh position={[0, .82, 0]}><torusGeometry args={[.11, .027, 6, 14]} /><meshStandardMaterial color="#d9ae52" metalness={.75} /></mesh>
+        </group>
+      </>}
+      {team === 'north' && <>
+        <mesh position={[0, 1.43, 0]}><coneGeometry args={[.28, .34, 8]} /><meshStandardMaterial color="#d5e2df" metalness={.8} roughness={.22} /></mesh>
+        <mesh position={[0, 1.7, 0]} rotation-z={-.18}><capsuleGeometry args={[.035, .34, 3, 6]} /><meshStandardMaterial color="#b53831" roughness={.7} /></mesh>
+        <group position={[-.42, .82, 0]} rotation-z={.18}>
+          <mesh position-y={.3}><cylinderGeometry args={[.024, .024, 1.9, 7]} /><meshStandardMaterial color="#7c5935" /></mesh>
+          <mesh position={[0, 1.27, 0]}><coneGeometry args={[.12, .48, 5]} /><meshStandardMaterial color="#d7e5e2" metalness={.95} roughness={.14} /></mesh>
+        </group>
+      </>}
+      {team === 'east' && <>
+        <mesh position={[0, 1.43, 0]}><cylinderGeometry args={[.3, .25, .24, 8]} /><meshStandardMaterial color="#4b2722" metalness={.6} /></mesh>
+        <mesh position={[-.12, 1.23, .265]} rotation-z={-.1}><boxGeometry args={[.2, .09, .035]} /><meshStandardMaterial color="#171313" roughness={1} /></mesh>
+        {[-.34, .34].map((x, i) => <mesh key={i} position={[x, .91, 0]} rotation-z={x < 0 ? -.35 : .35}><dodecahedronGeometry args={[.2, 0]} /><meshStandardMaterial color="#7d3128" metalness={.5} roughness={.45} /></mesh>)}
+        <group position={[-.43, .8, 0]} rotation-z={.23}><mesh position-y={.25}><cylinderGeometry args={[.035, .035, 1.65, 7]} /><meshStandardMaterial color="#4a3021" /></mesh><mesh position={[0, 1.02, 0]}><octahedronGeometry args={[.2]} /><meshStandardMaterial color="#aeb6b0" metalness={.85} /></mesh></group>
+      </>}
+      {team === 'west' && <>
+        <mesh position={[0, 1.48, 0]}><boxGeometry args={[.56, .12, .42]} /><meshStandardMaterial color="#25202b" roughness={.55} /></mesh>
+        <mesh position={[0, 1.62, 0]}><boxGeometry args={[.25, .22, .3]} /><meshStandardMaterial color="#33263b" roughness={.7} /></mesh>
+        <group position={[-.43, .83, .08]} rotation={[0, 0, .35]}>
+          {[0, 1, 2, 3, 4].map(i => <mesh key={i} position={[(i - 2) * .055, .43 + Math.abs(i - 2) * .025, 0]} rotation-z={(i - 2) * -.1}><capsuleGeometry args={[.035, .48, 3, 6]} /><meshStandardMaterial color="#d9d2b8" roughness={.8} /></mesh>)}
+          <mesh position={[0, .15, .01]}><boxGeometry args={[.32, .12, .05]} /><meshStandardMaterial color="#6f4c2e" /></mesh>
+        </group>
+      </>}
       <mesh position={[0, .78, .18]} rotation-x={-.18}>
         <planeGeometry args={[.62, .88]} />
         <meshStandardMaterial color={darkColors[team]} side={THREE.DoubleSide} roughness={.9} />

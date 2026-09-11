@@ -40,10 +40,10 @@ export interface Unit {
 }
 
 export interface PendingResponse {
-  effect: 'slash' | 'arrows' | 'barbarians'
+  effect: 'slash' | 'arrows' | 'barbarians' | 'dying'
   source: Team
   target: Team
-  required: 'dodge' | 'slash'
+  required: 'dodge' | 'slash' | 'peach'
   prompt: string
 }
 

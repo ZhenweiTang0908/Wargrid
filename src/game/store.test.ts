@@ -160,6 +160,28 @@ describe('standard card scenarios', () => {
     expect(state.units.east.attacksUsed).toBe(1)
   })
 
+  it('opens a dying window and lets the player use peach to self-rescue', () => {
+    const slash = card('slash', 'heart'), peach = card('peach', 'heart', 3)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [peach] }, north: { ...state.units.north, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    let state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'dying', required: 'peach' })
+    expect(state.units.player.hp).toBe(0)
+    expect(state.units.player.hand).toContainEqual(peach)
+
+    useGameStore.getState().respond(peach.id)
+    state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
+    expect(state.winner).toBeNull()
+  })
+
   it('rewards the killer with three cards for defeating a rebel', () => {
     const slash = card('slash', 'heart')
     useGameStore.setState(state => ({

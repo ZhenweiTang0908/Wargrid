@@ -43,6 +43,16 @@ const loyalGuard = (state: GameState, targetId: Team) => {
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string): Partial<GameState> {
   const target = state.units[targetId]
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
+  const playerPeach = targetId === 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
+  if (playerPeach) {
+    const prompt = `${target.name}进入濒死状态，是否使用【桃】自救？`
+    return {
+      units: { ...state.units, [targetId]: { ...target, hp: 0, animation: 'hit' } },
+      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', prompt },
+      message: prompt,
+      history: log(state, `${target.name}进入濒死状态`),
+    }
+  }
   const rescue = hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
   if (rescue) { hand = hand.filter(c => c.id !== rescue.id); discard = [...discard, rescue]; hp = 1 }
   let units = { ...state.units, [targetId]: { ...target, hand, hp: Math.max(0, hp), revealed: hp <= 0 ? true : target.revealed, animation: 'hit' as const } }
@@ -299,6 +309,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const card = cardId ? state.units.player.hand.find(candidate => candidate.id === cardId && candidate.kind === pending.required) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
+    if (pending.effect === 'dying') {
+      if (card) {
+        const player = base.units.player, message = `${player.name}使用【桃】自救，回复至 1 点体力`
+        base = { ...base, units: { ...base.units, player: { ...player, hp: 1, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'heal' } }, discard: [...base.discard, card], message, history: log(base, message) }
+      } else {
+        const units = { ...base.units, player: { ...base.units.player, hp: 0, revealed: true, animation: 'hit' as const } }
+        const winner = determineWinner(units), message = `${base.units.player.name}放弃自救，阵亡！`
+        base = { ...base, units, winner, phase: winner ? 'finished' : base.phase, message, history: log(base, message) }
+      }
+      set(base)
+      if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
+      return
+    }
     if (card) {
       const player = base.units.player
       const message = `${player.name}打出【${CARD_LABEL[card.kind]}】响应【${CARD_LABEL[pending.effect]}】`
@@ -308,13 +331,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         base = { ...base, ...resolved }
       }
     } else if (pending.effect === 'slash') {
-      base = { ...base, ...resolveSlash(base, pending.source, 'player', null), pendingResponse: null }
+      base = { ...base, ...resolveSlash(base, pending.source, 'player', null) }
     } else {
       const guard = pending.required === 'dodge' ? loyalGuard(base, 'player') : null
       if (guard) {
         const message = `${guard.unit.name}发动【护驾】保护主公`
         base = { ...base, units: { ...base.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(candidate => candidate.id !== guard.dodge.id), animation: 'cast' } }, discard: [...base.discard, guard.dodge], message, history: log(base, message) }
-      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能响应【${CARD_LABEL[pending.effect]}】，受到 1 点伤害`), pendingResponse: null }
+      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能响应【${CARD_LABEL[pending.effect]}】，受到 1 点伤害`) }
     }
     set(base)
     if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
