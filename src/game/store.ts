@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -221,7 +221,16 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
   const label = nature === 'fire' ? '火焰' : '雷电'
   for (const id of linked) {
     const transmitted = id === targetId ? '' : '（铁索传导）'
-    working = { ...working, ...damage(working, attackerId, id, amount, `${working.units[id].name}受到 ${amount} 点${label}伤害${transmitted}`) }
+    const terrain = terrainAt(working, working.units[id].position)
+    const modifier = nature === 'fire' && terrain === 'forest' ? 1
+      : nature === 'fire' && terrain === 'water' ? -1
+        : nature === 'thunder' && (terrain === 'water' || terrain === 'marsh') ? 1 : 0
+    const terrainText = modifier > 0 ? `（${terrain === 'forest' ? '森林助燃' : '湿地导雷'} +1）` : modifier < 0 ? '（水域抑火 -1）' : ''
+    const finalAmount = Math.max(0, amount + modifier)
+    if (!finalAmount) {
+      const message = `${working.units[id].name}所处水域熄灭了火焰${transmitted}`
+      working = { ...working, message, history: log(working, message) }
+    } else working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`) }
     if (working.pendingResponse || working.winner) break
   }
   return working

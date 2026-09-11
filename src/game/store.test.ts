@@ -437,6 +437,21 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([fire.id, payment.id]))
   })
 
+  it('amplifies fire in forests and extinguishes it in water', () => {
+    const forestFire = card('fireAttack'), forestPayment = card('slash', 'heart'), forestReveal = card('dodge', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [forestFire, forestPayment] }, north: { ...state.units.north, position: { x: 1, y: 1 }, hand: [forestReveal] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: forestFire.id, target: 'north' })
+    expect(useGameStore.getState().units.north.hp).toBe(2)
+    expect(useGameStore.getState().history.some(entry => entry.includes('森林助燃'))).toBe(true)
+
+    const waterState = createInitialState(Array.from({ length: 24 }, () => card('slash')))
+    const waterFire = card('fireAttack'), waterPayment = card('slash', 'diamond'), waterReveal = card('dodge', 'diamond')
+    useGameStore.setState({ ...waterState, units: { ...waterState.units, player: { ...waterState.units.player, hand: [waterFire, waterPayment] }, north: { ...waterState.units.north, position: { x: 0, y: 2 }, hand: [waterReveal] } } })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: waterFire.id, target: 'north' })
+    expect(useGameStore.getState().units.north.hp).toBe(4)
+    expect(useGameStore.getState().history.some(entry => entry.includes('熄灭了火焰'))).toBe(true)
+  })
+
   it('toggles iron chains and transmits elemental damage through linked units', () => {
     const chain = card('ironChain'), fire = card('fireAttack', 'diamond'), payment = card('slash', 'club'), revealed = card('dodge', 'club')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [chain, fire, payment] }, north: { ...state.units.north, chained: true }, east: { ...state.units.east, hand: [revealed] } } }))
@@ -498,6 +513,16 @@ describe('standard card scenarios', () => {
     expect(result.discard).toContainEqual(safeJudge)
     expect(result.discard).not.toContainEqual(lightning)
     expect(result.history.some(entry => entry.includes('传递给'))).toBe(true)
+  })
+
+  it('amplifies lightning damage on wet terrain', () => {
+    const lightning = card('lightning'), hit = card('slash', 'spade', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [hit, drawA, drawB]
+    state.units.player = { ...state.units.player, position: { x: 0, y: 2 }, judgement: [lightning] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hp).toBe(1)
+    expect(result.history.some(entry => entry.includes('湿地导雷'))).toBe(true)
   })
 
   it('automatically nullifies a hostile tactic', () => {
