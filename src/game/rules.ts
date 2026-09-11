@@ -13,6 +13,7 @@ export const TERRAIN: Terrain[] = [
   ...terrainLine('forest', [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 6, y: 7 }, { x: 7, y: 7 }, { x: 1, y: 7 }, { x: 7, y: 1 }]),
   ...terrainLine('ridge', [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 5 }]),
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
+  ...terrainLine('watchtower', [{ x: 0, y: 3 }, { x: 8, y: 5 }]),
 ]
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
@@ -123,7 +124,7 @@ export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   const forestCover = terrainAt(state, target.position) === 'forest' ? 1 : 0
   return Math.max(1, base - attackBonus + defenseBonus + forestCover)
 }
-export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : 0)
+export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : terrainAt(state, attacker.position) === 'watchtower' ? 2 : 0)
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'

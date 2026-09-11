@@ -13,7 +13,7 @@ export type CardKind =
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
-export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp'
+export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp' | 'watchtower'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
 export type GeneralSkill = 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'guicai' | 'jianxiong' | 'yiji' | 'tiandu' | 'paoxiao' | 'jizhi' | 'qicai' | 'qixi' | 'biyue' | 'zhiheng' | 'wushuang'
 

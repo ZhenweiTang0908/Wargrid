@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -74,6 +74,13 @@ describe('card and victory rules', () => {
     const ridgeState = { ...state, units: { ...state.units, player: ridgeAttacker, north: ridgeDefender } }
     expect(effectiveAttackRange(ridgeState, ridgeAttacker)).toBe(2)
     expect(canSlash(ridgeState, ridgeAttacker, ridgeDefender)).toBe(true)
+  })
+
+  it('grants two extra attack range from a watchtower', () => {
+    const state = createInitialState(fixedDeck())
+    const attacker = { ...state.units.player, position: { x: 0, y: 3 } }
+    expect(terrainAt(state, attacker.position)).toBe('watchtower')
+    expect(effectiveAttackRange(state, attacker)).toBe(attackRange(attacker) + 2)
   })
 
   it('draws one supply card when a turn ends in a camp', () => {
