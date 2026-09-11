@@ -31,7 +31,7 @@ export interface Unit {
   hand: Card[]
   equipment: Equipment
   judgement: Card[]
-  skill: 'wusheng' | 'resolve'
+  skill: 'wusheng' | 'longdan' | 'ganglie' | 'feedback'
   movement: number
   attacksUsed: number
   wineUsed: boolean

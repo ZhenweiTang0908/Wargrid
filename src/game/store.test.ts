@@ -41,8 +41,8 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(1)
-    expect(state.units.north.hand).toHaveLength(1)
-    expect(state.units.north.hand[0].kind).toBe('slash')
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
     expect(state.winner).toBeNull()
   })
 
@@ -72,6 +72,42 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hp).toBe(3)
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.discard).toContainEqual(redTrick)
+  })
+
+  it('lets Zhao Yun use slash as dodge through Longdan', () => {
+    const attack = card('slash', 'heart'), converted = card('slash', 'club')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [attack] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [converted] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.message).toContain('龙胆')
+    expect(state.discard).toContainEqual(converted)
+  })
+
+  it('resolves Xiahou Dun Ganglie judgement and retaliation', () => {
+    const attack = card('slash', 'heart'), judgement = card('dismantle', 'spade', 8)
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: { ...state.units, player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [attack] }, east: { ...state.units.east, position: { x: 8, y: 4 }, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.player.hp).toBe(4)
+    expect(state.message).toContain('刚烈')
+    expect(state.discard).toContainEqual(judgement)
+  })
+
+  it('lets Sima Yi gain a source card through Feedback', () => {
+    const attack = card('slash', 'heart'), spare = card('peach', 'diamond', 3)
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 0, y: 3 }, hand: [attack, spare] }, west: { ...state.units.west, position: { x: 0, y: 4 }, hand: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'west' })
+    const state = useGameStore.getState()
+    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hand).toContainEqual(spare)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.message).toContain('反馈')
   })
 
   it('lets a loyalist provide dodge for the lord', () => {
