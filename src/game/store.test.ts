@@ -980,4 +980,29 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toContainEqual(weapon)
     expect(state.message).toContain('获得其')
   })
+
+  it('lets Liu Bei gift cards and heals once when Rende reaches two cards', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const first = card('dodge'), second = card('slash'), third = card('peach')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hp: 3, hand: [first, second, third] }, north: { ...state.units.north, hand: [] } } }))
+    for (const gift of [first, second, third]) {
+      useGameStore.getState().selectCard(gift.id)
+      useGameStore.getState().activateRende()
+      useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: gift.id, target: 'north', asRende: true })
+    }
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.rendeGiven).toBe(3)
+    expect(state.units.north.hand).toEqual([first, second, third])
+    expect(state.history.some(entry => entry.includes('累计给出两张牌'))).toBe(true)
+  })
+
+  it('resets Liu Bei Rende count at the start of his next turn', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const state = useGameStore.getState()
+    state.units.player = { ...state.units.player, rendeGiven: 3, hand: [] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.rendeGiven).toBe(0)
+  })
 })
