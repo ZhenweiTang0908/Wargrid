@@ -31,6 +31,7 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   snatch: 5, drawTwo: 4, borrowedSword: 2, crossbow: 2, qinggang: 2, greenDragon: 1, shield: 2,
   spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2,
   gudingBlade: 1, vermilionFan: 1,
+  doubleSword: 1, iceSword: 1,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
   peachGarden: 2, harvest: 2, fireAttack: 3, ironChain: 3,
   redHare: 2, dilu: 2,
@@ -113,7 +114,7 @@ export function pathDistance(state: Pick<GameState, 'size' | 'obstacles' | 'unit
 }
 
 export function attackRange(unit: Unit) {
-  const ranges: Partial<Record<CardKind, number>> = { qinggang: 2, greenDragon: 3, spear: 3, axe: 3, halberd: 4, qilinBow: 5, gudingBlade: 2, vermilionFan: 4 }
+  const ranges: Partial<Record<CardKind, number>> = { qinggang: 2, greenDragon: 3, spear: 3, axe: 3, halberd: 4, qilinBow: 5, gudingBlade: 2, vermilionFan: 4, doubleSword: 2, iceSword: 2 }
   return unit.equipment.weapon ? ranges[unit.equipment.weapon.kind] ?? 1 : 1
 }
 export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' || unit.skill === 'paoxiao' ? Infinity : 1 }
@@ -128,7 +129,7 @@ export const effectiveAttackRange = (state: GameState, attacker: Unit) => attack
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
-export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'shield', 'bagua', 'redHare', 'dilu'].includes(kind)
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'redHare', 'dilu'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []
@@ -176,10 +177,10 @@ export function createInitialState(deck = createDeck()): GameState {
       { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
     ],
     units: {
-      player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
-      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: 'loyalist', faction: 'shu', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
-      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: 'rebel', faction: 'wei', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', skills: ['ganglie'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
-      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: 'renegade', faction: 'wei', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
+      player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
+      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: 'loyalist', faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
+      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: 'rebel', faction: 'wei', gender: 'male', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', skills: ['ganglie'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
+      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: 'renegade', faction: 'wei', gender: 'male', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, chained: false, skillUsed: false, animation: 'idle' },
     },
     deck: deck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
     scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', generalSelected: false, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [],

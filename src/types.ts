@@ -1,6 +1,7 @@
 export type Team = 'player' | 'north' | 'east' | 'west'
 export type Identity = 'lord' | 'loyalist' | 'rebel' | 'renegade'
 export type Faction = 'wei' | 'shu' | 'wu' | 'qun'
+export type Gender = 'male' | 'female'
 export type Suit = 'spade' | 'heart' | 'club' | 'diamond'
 export type CardKind =
   | 'slash' | 'dodge' | 'peach' | 'wine'
@@ -9,6 +10,7 @@ export type CardKind =
   | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
   | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   | 'crossbow' | 'qinggang' | 'greenDragon' | 'spear' | 'axe' | 'halberd' | 'qilinBow' | 'gudingBlade' | 'vermilionFan'
+  | 'doubleSword' | 'iceSword'
   | 'shield' | 'bagua' | 'redHare' | 'dilu'
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
@@ -30,6 +32,7 @@ export interface Unit {
   team: Team
   identity: Identity
   faction: Faction
+  gender: Gender
   revealed: boolean
   position: Position
   hp: number
@@ -106,6 +109,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   dismantle: '过河拆桥', snatch: '顺手牵羊', drawTwo: '无中生有',
   borrowedSword: '借刀杀人',
   crossbow: '诸葛连弩', qinggang: '青釭剑', greenDragon: '青龙偃月刀', shield: '仁王盾',
+  doubleSword: '雌雄双股剑', iceSword: '寒冰剑',
   spear: '丈八蛇矛', axe: '贯石斧', halberd: '方天画戟', qilinBow: '麒麟弓', bagua: '八卦阵',
   gudingBlade: '古锭刀', vermilionFan: '朱雀羽扇',
   arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', lightning: '闪电',
@@ -119,6 +123,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   snatch: '获得距离 1 敌方一张牌', drawTwo: '摸两张牌', crossbow: '本回合可使用多张【杀】',
   borrowedSword: '令有武器的角色出【杀】，否则获得其武器',
   qinggang: '攻击范围 2，攻击无视护甲', greenDragon: '攻击范围 3；【杀】被闪避后可继续出【杀】', spear: '攻击范围 3；两张手牌可当【杀】', axe: '攻击范围 3；闪避后弃两牌可强制命中', halberd: '攻击范围 4；最后手牌的【杀】可攻击三人', qilinBow: '攻击范围 5；造成伤害后弃置目标坐骑',
+  doubleSword: '攻击范围 2；异性目标弃一张牌，否则你摸一张', iceSword: '攻击范围 2；防止伤害并弃置目标两张牌',
   gudingBlade: '攻击范围 2；无手牌目标受到伤害 +1', vermilionFan: '攻击范围 4；普通【杀】改为火焰伤害',
   shield: '使黑色【杀】失效', bagua: '受到【杀】时红色判定视为【闪】',
   arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '在响应窗口抵消锦囊效果',

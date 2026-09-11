@@ -656,6 +656,27 @@ describe('standard card scenarios', () => {
     expect(state.units.east.chained).toBe(false)
   })
 
+  it('triggers Double Sword against an opposite-gender target', () => {
+    const slash = card('slash'), weapon = card('doubleSword'), payment = card('peach')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, gender: 'male', position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } }, north: { ...state.units.north, gender: 'female', position: { x: 4, y: 0 }, hand: [payment] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(payment)
+  })
+
+  it('lets Ice Sword prevent damage and discard two target cards', () => {
+    const slash = card('slash'), weapon = card('iceSword'), first = card('peach'), second = card('drawTwo')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [first, second] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([first.id, second.id]))
+    expect(state.message).toContain('寒冰剑')
+  })
+
   it('uses a red Bagua judgement as dodge before opening a response window', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({

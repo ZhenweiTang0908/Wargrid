@@ -19,20 +19,20 @@ interface GameStore extends GameState {
   resetAnimation: (team: Team) => void
 }
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction'>>> = {
-  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', skills: ['wusheng'], faction: 'shu' },
-  longdan: { name: '赵云', title: '少年将军', skill: 'longdan', skills: ['longdan'], faction: 'shu' },
-  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', skills: ['ganglie'], faction: 'wei' },
-  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei' },
-  jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei' },
-  yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei' },
-  qingnang: { name: '华佗', title: '神医', skill: 'qingnang', skills: ['qingnang', 'jijiu'], faction: 'qun' },
-  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu' },
-  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu' },
-  qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu' },
-  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', skills: ['biyue'], faction: 'qun' },
-  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu' },
-  wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun' },
+const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' | 'skill' | 'skills' | 'faction' | 'gender'>>> = {
+  wusheng: { name: '关羽', title: '美髯公', skill: 'wusheng', skills: ['wusheng'], faction: 'shu', gender: 'male' },
+  longdan: { name: '赵云', title: '少年将军', skill: 'longdan', skills: ['longdan'], faction: 'shu', gender: 'male' },
+  ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', skills: ['ganglie'], faction: 'wei', gender: 'male' },
+  feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei', gender: 'male' },
+  jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei', gender: 'male' },
+  yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei', gender: 'male' },
+  qingnang: { name: '华佗', title: '神医', skill: 'qingnang', skills: ['qingnang', 'jijiu'], faction: 'qun', gender: 'male' },
+  paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu', gender: 'male' },
+  jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu', gender: 'female' },
+  qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu', gender: 'male' },
+  biyue: { name: '貂蝉', title: '绝世的舞姬', skill: 'biyue', skills: ['biyue'], faction: 'qun', gender: 'female' },
+  zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu', gender: 'male' },
+  wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun', gender: 'male' },
 }
 const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, qingnang: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
@@ -229,6 +229,16 @@ function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): P
 
 function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false): Partial<GameState> {
   let attacker = state.units[attackerId], target = state.units[targetId]
+  if (attacker.equipment.weapon?.kind === 'doubleSword' && attacker.gender !== target.gender) {
+    if (target.hand.length) {
+      const paid = target.hand[0], message = `${attacker.name}发动【雌雄双股剑】，${target.name}弃置一张手牌`
+      state = { ...state, units: { ...state.units, [targetId]: { ...target, hand: target.hand.slice(1), animation: 'cast' } }, discard: [...state.discard, paid], message, history: log(state, message) }
+    } else {
+      const draw = drawCards(state.deck, state.discard, 1), message = `${attacker.name}发动【雌雄双股剑】，摸一张牌`
+      state = { ...state, units: { ...state.units, [attackerId]: { ...attacker, hand: [...attacker.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+    }
+    attacker = state.units[attackerId]; target = state.units[targetId]
+  }
   if (!armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
     const judged = judgeBagua(state, targetId)
     state = judged.state; attacker = state.units[attackerId]; target = state.units[targetId]
@@ -278,6 +288,18 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
   }
   const base: GameState = { ...state, units, discard }
+  if (attacker.equipment.weapon?.kind === 'iceSword') {
+    const iceTarget = units[targetId], equipment = { ...iceTarget.equipment }
+    const removed = iceTarget.hand.slice(0, 2)
+    for (const slot of ['weapon', 'armor', 'offensiveMount', 'defensiveMount'] as const) {
+      if (removed.length >= 2) break
+      if (equipment[slot]) { removed.push(equipment[slot]!); delete equipment[slot] }
+    }
+    if (removed.length) {
+      const removedIds = new Set(removed.map(card => card.id)), message = `${attacker.name}发动【寒冰剑】，防止伤害并弃置${target.name}${removed.length}张牌`
+      return { ...base, units: { ...units, [targetId]: { ...iceTarget, hand: iceTarget.hand.filter(card => !removedIds.has(card.id)), equipment, animation: 'hit' } }, discard: [...discard, ...removed], message, history: log(base, message) }
+    }
+  }
   const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
   const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus
   const nature = attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
@@ -800,7 +822,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
