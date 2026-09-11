@@ -113,7 +113,7 @@ function UnitPiece({ team }: { team: Team }) {
       position={worldPosition(unit.position)}
       onClick={e => {
         e.stopPropagation()
-        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash })
+        if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, materialIds: state.spearMode ? state.spearSelection : undefined })
       }}
       onPointerEnter={() => { if (canTarget) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
@@ -314,6 +314,7 @@ function App() {
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
+  const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < 1
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
   const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired
@@ -345,11 +346,12 @@ function App() {
     <footer className="command-deck">
       <div className="movement"><span>{state.turnStage === 'play' ? '出牌阶段' : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{[1, 2, 3].map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
       <div className="hand" aria-label="你的手牌">
-        {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : selectedCard?.id === card.id} />)}
+        {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : state.spearMode ? state.spearSelection.includes(card.id) : selectedCard?.id === card.id} />)}
         {!state.units.player.hand.length && <span className="empty-hand">暂无手牌</span>}
       </div>
       <div className="turn-actions">
         {state.turnStage === 'play' && canWusheng && <button className={`secondary skill-action ${state.selectedAsSlash ? 'active' : ''}`} onClick={() => state.activateWusheng()}><Swords />武圣</button>}
+        {state.turnStage === 'play' && canSpear && <button className={`secondary skill-action ${state.spearMode ? 'active' : ''}`} onClick={() => state.activateSpear()}><Swords />丈八</button>}
         {state.turnStage === 'play' && state.selectedCardId && <button className="secondary" onClick={() => state.selectCard(null)}><X />取消</button>}
         <button className="end-turn" disabled={state.phase !== 'player' || !discardReady} onClick={() => dispatch({ type: 'END_TURN' })}><SkipForward />{state.turnStage === 'discard' ? '确认弃牌' : '结束回合'}</button>
       </div>

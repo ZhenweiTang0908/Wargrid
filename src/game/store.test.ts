@@ -330,6 +330,46 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('麒麟弓')
   })
 
+  it('lets Serpent Spear convert two selected hand cards into slash', () => {
+    const spear = card('spear'), materialA = card('peach', 'heart'), materialB = card('drawTwo', 'club')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [materialA, materialB], equipment: { weapon: spear } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] } },
+    }))
+    useGameStore.getState().activateSpear()
+    useGameStore.getState().selectCard(materialA.id)
+    useGameStore.getState().selectCard(materialB.id)
+    let state = useGameStore.getState()
+    expect(state.spearSelection).toEqual([materialA.id, materialB.id])
+    expect(state.selectedAsSlash).toBe(true)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: materialA.id, target: 'north', asSlash: true, materialIds: state.spearSelection })
+    state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([materialA.id, materialB.id]))
+    expect(state.spearMode).toBe(false)
+  })
+
+  it('lets Halberd attack up to three targets with the final hand slash', () => {
+    const slash = card('slash', 'heart'), halberd = card('halberd')
+    useGameStore.setState(state => ({
+      deck: [card('peach', 'heart')],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 4 }, hand: [slash], equipment: { weapon: halberd } },
+        north: { ...state.units.north, position: { x: 4, y: 2 }, hand: [] },
+        east: { ...state.units.east, position: { x: 6, y: 4 }, hand: [] },
+        west: { ...state.units.west, position: { x: 2, y: 4 }, hand: [] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.west.hp).toBe(3)
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.message).toContain('方天画戟')
+  })
+
   it('uses a red Bagua judgement as dodge before opening a response window', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({
