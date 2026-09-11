@@ -139,11 +139,11 @@ function advanceHarvest(state: GameState, pool: Card[], order: Team[]): GameStat
   return { ...working, discard: [...working.discard, ...available], pendingHarvest: null, message, history: log(working, message) }
 }
 
-function beginHarvest(state: GameState, source: Team): GameState {
+function beginHarvest(state: GameState, source: Team, harvestCard: Card): GameState {
   const sourceIndex = state.turnOrder.indexOf(source)
   const order = [...state.turnOrder.slice(sourceIndex), ...state.turnOrder.slice(0, sourceIndex)].filter(team => state.units[team].hp > 0)
-  const draw = drawCards(state.deck, state.discard, order.length)
-  return advanceHarvest({ ...state, deck: draw.deck, discard: draw.discard }, draw.drawn, order)
+  const draw = drawCards(state.deck, state.discard.filter(card => card.id !== harvestCard.id), order.length)
+  return advanceHarvest({ ...state, deck: draw.deck, discard: [...draw.discard, harvestCard] }, draw.drawn, order)
 }
 
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false): Partial<GameState> {
@@ -838,7 +838,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ ...base, units, message, history: log(base, message) }); return
       }
       if (kind === 'harvest') {
-        set(beginHarvest(base, action.unit)); return
+        set(beginHarvest(base, action.unit, card)); return
       }
       if (isEquipment(kind)) {
         const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]

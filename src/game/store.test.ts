@@ -1737,4 +1737,17 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().pendingHarvest).toBeNull()
     expect(useGameStore.getState().units.player.hand).toHaveLength(1)
   })
+
+  it('never reshuffles the resolving Harvest card into its own pool', () => {
+    const harvest = card('harvest'), onlyDeckCard = card('peach', 'heart'), oldDiscardA = card('dodge'), oldDiscardB = card('slash'), oldDiscardC = card('qinggang')
+    useGameStore.setState(state => ({
+      deck: [onlyDeckCard], discard: [oldDiscardA, oldDiscardB, oldDiscardC],
+      units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hand: id === 'player' ? [harvest] : [] }])) as typeof state.units,
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: harvest.id })
+    const state = useGameStore.getState()
+    expect(state.pendingHarvest?.pool).toHaveLength(4)
+    expect(state.pendingHarvest?.pool.some(card => card.id === harvest.id)).toBe(false)
+    expect(state.discard).toContainEqual(harvest)
+  })
 })
