@@ -239,6 +239,22 @@ describe('standard card scenarios', () => {
     expect(state.pendingResponse).toBeNull()
   })
 
+  it('lets Zhang Liao replace drawing with Tuxi against two targets', () => {
+    useGameStore.getState().selectGeneral('tuxi')
+    const northCard = card('dodge'), eastCard = card('peach'), untouched = card('slash'), deckA = card('duel'), deckB = card('drawTwo')
+    const state = useGameStore.getState()
+    state.deck = [deckA, deckB]
+    state.units.player = { ...state.units.player, hand: [] }
+    state.units.north = { ...state.units.north, hand: [northCard] }
+    state.units.east = { ...state.units.east, hand: [eastCard] }
+    state.units.west = { ...state.units.west, hand: [untouched] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hand).toHaveLength(2)
+    expect(result.units.player.hand).toEqual(expect.arrayContaining([eastCard, untouched]))
+    expect(result.deck).toEqual([deckA, deckB])
+    expect(result.history.some(entry => entry.includes('突袭'))).toBe(true)
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')
