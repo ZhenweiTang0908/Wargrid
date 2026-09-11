@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, type Card, type GameAction, type GameState, type Position, type Team, type Unit } from '../types'
-import { attackRange, canPeach, canSlash, createInitialState, determineWinner, drawCards, findPath, isEquipment, pathCost, pathDistance, reachableCells, samePosition, scoreControlPoint } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, findPath, isEquipment, pathCost, pathDistance, reachableCells, samePosition, scoreControlPoint } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -208,8 +208,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units, deck, discard, message, history: log(state, message) }); return
       }
       if (isEquipment(kind)) {
-        const slot = card.kind === 'shield' ? 'armor' : 'weapon', old = unit.equipment[slot]
-        const equipped = { ...unit, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: 'cast' as const }, message = `${unit.name}装备【${card.kind === 'shield' ? '仁王盾' : card.kind === 'crossbow' ? '诸葛连弩' : '青釭剑'}】`
+        const slot = card.kind === 'shield' ? 'armor' : card.kind === 'redHare' ? 'offensiveMount' : card.kind === 'dilu' ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
+        const equipped = { ...unit, hand: removed.hand, equipment: { ...unit.equipment, [slot]: card }, animation: 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】`
         set({ units: { ...state.units, [action.unit]: equipped }, discard: old ? [...state.discard, old] : state.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
       if (kind === 'slash') {
@@ -229,11 +229,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: state.discard, message, history: log(state, message) }); return
       }
       if (kind === 'dismantle' || kind === 'snatch') {
-        if (kind === 'snatch' && pathDistance(state, unit.position, target.position, unit.id) > 1) return
+        if (kind === 'snatch' && combatDistance(state, unit, target) > 1) return
         const stolen = target.hand[0] ?? target.equipment.weapon ?? target.equipment.armor
         if (!stolen) return
         const targetHand = target.hand.filter(c => c.id !== stolen.id)
-        const targetEquipment = { weapon: target.equipment.weapon?.id === stolen.id ? undefined : target.equipment.weapon, armor: target.equipment.armor?.id === stolen.id ? undefined : target.equipment.armor }
+        const targetEquipment = {
+          weapon: target.equipment.weapon?.id === stolen.id ? undefined : target.equipment.weapon,
+          armor: target.equipment.armor?.id === stolen.id ? undefined : target.equipment.armor,
+          offensiveMount: target.equipment.offensiveMount?.id === stolen.id ? undefined : target.equipment.offensiveMount,
+          defensiveMount: target.equipment.defensiveMount?.id === stolen.id ? undefined : target.equipment.defensiveMount,
+        }
         const actor = base.units[action.unit], gain = kind === 'snatch', message = `${unit.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】${gain ? '获得' : '弃置'}一张牌`
         set({ units: { ...base.units, [targetId]: { ...target, hand: targetHand, equipment: targetEquipment, animation: 'hit' }, [action.unit]: { ...actor, hand: gain ? [...actor.hand, stolen] : actor.hand } }, discard: gain ? base.discard : [...base.discard, stolen], message, history: log(state, message) }); return
       }
@@ -277,7 +282,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'qinggang', 'crossbow', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'qinggang', 'crossbow', 'redHare', 'dilu', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && ai.hp === ai.maxHp) || (kind === 'wine' && !ai.hand.some(c => c.kind === 'slash'))) continue
@@ -298,7 +303,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     for (const kind of ['indulgence', 'dismantle', 'snatch', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
       const card = ai.hand.find(c => c.kind === kind); if (!card) continue
       if (kind === 'slash' && !canSlash(state, ai, target)) continue
-      if (kind === 'snatch' && pathDistance(state, ai.position, target.position, aiId) > 1) continue
+      if (kind === 'snatch' && combatDistance(state, ai, target) > 1) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.phase === 'finished') return
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, createDeck, createInitialState, determineWinner, drawCards, findPath, movementCost, pathDistance, reachableCells, scoreControlPoint, slashLimit } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, findPath, movementCost, pathDistance, reachableCells, scoreControlPoint, slashLimit } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -39,8 +39,8 @@ describe('board rules', () => {
 describe('card and victory rules', () => {
   it('builds a varied standard-inspired deck with suits and ranks', () => {
     const deck = createDeck()
-    expect(deck.length).toBe(84)
-    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'shield', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest']))
+    expect(deck.length).toBe(88)
+    expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'crossbow', 'qinggang', 'shield', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest', 'redHare', 'dilu']))
     expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
   })
 
@@ -52,6 +52,10 @@ describe('card and victory rules', () => {
     const crossbow = { ...state.units.player, equipment: { weapon: { id: 'c', kind: 'crossbow' as const, suit: 'club' as const, rank: 1 } } }
     expect(attackRange(qinggang)).toBe(2)
     expect(slashLimit(crossbow)).toBe(Infinity)
+    const attacker = { ...state.units.player, position: { x: 4, y: 2 }, equipment: { offensiveMount: { id: 'r', kind: 'redHare' as const, suit: 'heart' as const, rank: 5 } } }
+    const defender = { ...state.units.north, position: { x: 4, y: 0 }, equipment: { defensiveMount: { id: 'd', kind: 'dilu' as const, suit: 'club' as const, rank: 5 } } }
+    const mountedState = { ...state, units: { ...state.units, player: attacker, north: defender } }
+    expect(combatDistance(mountedState, attacker, defender)).toBe(2)
   })
 
   it('reshuffles the discard pile when drawing from an empty deck', () => {

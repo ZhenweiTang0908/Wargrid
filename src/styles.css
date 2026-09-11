@@ -35,7 +35,9 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .status.north { border-left-color: #6fcf8a; }
 .status.east { border-left-color: var(--red); }
 .status.west { border-left-color: #a87ddd; }
-.avatar { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--cyan); background: radial-gradient(circle at 40% 30%, #2b8394, #102d35); color: white; font-size: 19px; font-weight: 900; box-shadow: 0 0 18px #1da6c044; }
+.avatar { width: 48px; height: 48px; position: relative; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--cyan); background: radial-gradient(circle at 40% 30%, #2b8394, #102d35); color: white; font-size: 19px; font-weight: 900; box-shadow: 0 0 18px #1da6c044; overflow: visible; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 50%; }
+.avatar span { position: absolute; right: -5px; bottom: -5px; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; background: #09161a; border: 1px solid currentColor; font-size: 10px; }
 .north .avatar { border-color: #6fcf8a; background: radial-gradient(circle at 40% 30%, #3f8c58, #183523); }
 .east .avatar { border-color: var(--red); background: radial-gradient(circle at 40% 30%, #9d4438, #351817); box-shadow: 0 0 18px #e2503f44; }
 .west .avatar { border-color: #a87ddd; background: radial-gradient(circle at 40% 30%, #714a91, #291738); }

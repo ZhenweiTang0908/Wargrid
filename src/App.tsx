@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Position, type Team } from './types'
-import { canSlash, samePosition, terrainAt } from './game/rules'
+import { canSlash, combatDistance, samePosition, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -69,7 +69,7 @@ function UnitPiece({ team }: { team: Team }) {
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     selectedKind === 'duel' || selectedKind === 'dismantle' ||
     selectedKind === 'indulgence' ||
-    (selectedKind === 'snatch' && Math.abs(state.units.player.position.x - unit.position.x) + Math.abs(state.units.player.position.y - unit.position.y) <= 1)
+    (selectedKind === 'snatch' && combatDistance(state, state.units.player, unit) <= 1)
   )
 
   useEffect(() => {
@@ -180,14 +180,15 @@ function Hearts({ hp, max }: { hp: number; max: number }) {
 function PlayerStatus({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
+  const portraits: Record<Team, string> = { player: '/heroes/guan-yun.png', north: '/heroes/zhao-ling.png', east: '/heroes/xiahou-lie.png', west: '/heroes/sima-xuan.png' }
   return (
     <section className={`status ${team}`}>
-      <div className="avatar">{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</div>
+      <div className="avatar"><img src={portraits[team]} alt="" /><span>{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</span></div>
       <div className="status-copy">
         <div className="name-row"><strong>{unit.name}</strong><span>{team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
         <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span></div>
-        <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
+        <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.equipment.offensiveMount ? ` · ${CARD_LABEL[unit.equipment.offensiveMount.kind]}` : ''}{unit.equipment.defensiveMount ? ` · ${CARD_LABEL[unit.equipment.defensiveMount.kind]}` : ''}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
         <div className="skill-line">{unit.skill === 'wusheng' ? '武圣 · 红牌可化杀' : '刚烈 · 受伤摸一牌'}</div>
       </div>
     </section>

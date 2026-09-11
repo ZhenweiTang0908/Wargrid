@@ -25,6 +25,7 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   snatch: 5, drawTwo: 4, crossbow: 2, qinggang: 2, shield: 2,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
   peachGarden: 2, harvest: 2,
+  redHare: 2, dilu: 2,
 }
 
 export function createDeck(): Card[] {
@@ -105,10 +106,16 @@ export function pathDistance(state: Pick<GameState, 'size' | 'obstacles' | 'unit
 
 export function attackRange(unit: Unit) { return unit.equipment.weapon?.kind === 'qinggang' ? 2 : 1 }
 export function slashLimit(unit: Unit) { return unit.equipment.weapon?.kind === 'crossbow' ? Infinity : 1 }
-export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && pathDistance(state, attacker.position, target.position, attacker.id) <= attackRange(attacker)
+export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
+  const base = pathDistance(state, attacker.position, target.position, attacker.id)
+  const attackBonus = attacker.equipment.offensiveMount?.kind === 'redHare' ? 1 : 0
+  const defenseBonus = target.equipment.defensiveMount?.kind === 'dilu' ? 1 : 0
+  return Math.max(1, base - attackBonus + defenseBonus)
+}
+export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= attackRange(attacker)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
-export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'shield'].includes(kind)
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'shield', 'redHare', 'dilu'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []

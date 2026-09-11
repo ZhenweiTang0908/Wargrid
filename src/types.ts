@@ -6,17 +6,17 @@ export type CardKind =
   | 'duel' | 'dismantle' | 'snatch' | 'drawTwo'
   | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
   | 'peachGarden' | 'harvest'
-  | 'crossbow' | 'qinggang' | 'shield'
+  | 'crossbow' | 'qinggang' | 'shield' | 'redHare' | 'dilu'
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'ridge' | 'road' | 'camp'
-export type EquipmentSlot = 'weapon' | 'armor'
+export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
 
 export interface Position { x: number; y: number }
 export interface Card { id: string; kind: CardKind; suit: Suit; rank: number }
 export interface Terrain { position: Position; kind: TerrainKind }
-export interface Equipment { weapon?: Card; armor?: Card }
+export interface Equipment { weapon?: Card; armor?: Card; offensiveMount?: Card; defensiveMount?: Card }
 
 export interface Unit {
   id: Team
@@ -75,6 +75,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   crossbow: '诸葛连弩', qinggang: '青釭剑', shield: '仁王盾',
   arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', lightning: '闪电',
   peachGarden: '桃园结义', harvest: '五谷丰登',
+  redHare: '赤兔', dilu: '的卢',
 }
 
 export const CARD_COPY: Record<CardKind, string> = {
@@ -85,6 +86,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   arrows: '所有敌人需打出【闪】', barbarians: '所有敌人需打出【杀】', nullify: '自动抵消敌方锦囊',
   indulgence: '置于敌方判定区，可能跳过出牌', lightning: '判定失败造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '所有存活角色各摸一张牌',
+  redHare: '进攻坐骑：计算距离 -1', dilu: '防御坐骑：他人至你的距离 +1',
 }
 
 export const SUIT_GLYPH: Record<Suit, string> = { spade: '♠', heart: '♥', club: '♣', diamond: '♦' }
