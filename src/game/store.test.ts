@@ -162,6 +162,22 @@ describe('standard card scenarios', () => {
     expect(damaged.message).toContain('遗计')
   })
 
+  it('triggers Yiji once for each point of damage', () => {
+    useGameStore.getState().selectGeneral('yiji')
+    const slash = card('slash'), legacy = [card('peach'), card('drawTwo'), card('dodge'), card('duel')]
+    useGameStore.setState(state => ({ deck: legacy, discard: [], currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash], drunk: true },
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(2)
+    expect(state.units.player.hand).toEqual(legacy)
+    expect(state.message).toContain('遗计】2 次')
+  })
+
   it('lets Hua Tuo heal with Qingnang once per turn', () => {
     useGameStore.getState().selectGeneral('qingnang')
     const payment = card('slash')

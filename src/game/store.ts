@@ -161,9 +161,9 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     }
   }
   if (hp > 0 && target.skills.includes('yiji')) {
-    const insight = drawCards(deck, discard, 2); deck = insight.deck; discard = insight.discard
+    const insight = drawCards(deck, discard, amount * 2); deck = insight.deck; discard = insight.discard
     units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, ...insight.drawn], animation: 'cast' } }
-    skillText += `；${target.name}发动【遗计】摸两张牌`
+    skillText += `；${target.name}发动【遗计】${amount} 次，摸${amount * 2}张牌`
   }
   if (hp > 0 && target.skill === 'ganglie') {
     const judged = drawCards(deck, discard, 1), judge = judged.drawn[0]
