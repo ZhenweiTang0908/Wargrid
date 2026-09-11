@@ -10,6 +10,40 @@ import { canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistan
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
 
+function WaterSurface({ seed }: { seed: number }) {
+  const mesh = useRef<THREE.Mesh>(null)
+  const material = useRef<THREE.MeshStandardMaterial>(null)
+  useFrame(({ clock }) => {
+    const wave = Math.sin(clock.elapsedTime * 1.35 + seed * .73)
+    if (mesh.current) mesh.current.position.y = wave * .015
+    if (material.current) material.current.opacity = .38 + wave * .07
+  })
+  return <mesh ref={mesh} rotation-x={-Math.PI / 2}>
+    <planeGeometry args={[.82, .82, 3, 3]} />
+    <meshStandardMaterial ref={material} color="#2b7290" transparent opacity={.42} roughness={.15} metalness={.15} />
+  </mesh>
+}
+
+function BattleLighting() {
+  const turn = useGameStore(state => state.turn)
+  const ambient = useRef<THREE.AmbientLight>(null)
+  const sun = useRef<THREE.DirectionalLight>(null)
+  const tones = ['#ffd7a0', '#e1fff8', '#e89a73']
+  const target = useMemo(() => new THREE.Color(tones[(turn - 1) % tones.length]), [turn])
+  useFrame(({ clock }, delta) => {
+    if (ambient.current) ambient.current.intensity = THREE.MathUtils.lerp(ambient.current.intensity, turn % 3 === 0 ? 1.3 : 1.65, delta * .45)
+    if (sun.current) {
+      sun.current.color.lerp(target, Math.min(1, delta * .38))
+      sun.current.position.x = 4 + Math.sin(clock.elapsedTime * .08) * .7
+    }
+  })
+  return <>
+    <ambientLight ref={ambient} intensity={1.65} />
+    <hemisphereLight args={['#bfe3df', '#251b18', 1.25]} />
+    <directionalLight ref={sun} position={[4, 9, 5]} intensity={2.8} color={tones[(turn - 1) % tones.length]} castShadow shadow-mapSize={[1024, 1024]} />
+  </>
+}
+
 function Tile({ position }: { position: Position }) {
   const state = useGameStore()
   const dispatch = useGameStore(s => s.dispatch)
@@ -84,7 +118,7 @@ function Tile({ position }: { position: Position }) {
         {[-.25, .02, .28].map((z, i) => <mesh key={i} position={[i % 2 ? .11 : -.09, .012, z]} rotation-x={-Math.PI / 2}><boxGeometry args={[.22, .012, .06]} /><meshStandardMaterial color="#8a7658" roughness={1} /></mesh>)}
       </group>}
       {terrain === 'water' && <group position-y={.09}>
-        <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.82, .82]} /><meshStandardMaterial color="#2b7290" transparent opacity={.42} roughness={.15} metalness={.15} /></mesh>
+        <WaterSurface seed={position.x + position.y * 9} />
         {[-.2, .08, .27].map((z, i) => <mesh key={i} position={[i % 2 ? .14 : -.13, .018, z]} rotation-x={-Math.PI / 2}><torusGeometry args={[.12, .012, 4, 16, Math.PI]} /><meshBasicMaterial color="#78bdd0" transparent opacity={.5} /></mesh>)}
       </group>}
       {terrain === 'bridge' && <group position-y={.11}>
@@ -451,9 +485,7 @@ function Battlefield() {
     <Canvas shadows dpr={[1, 1.65]} camera={{ position: [9.7, 11.5, 10.7], fov: 40 }} gl={{ antialias: true }}>
       <color attach="background" args={['#0b1b22']} />
       <fog attach="fog" args={['#0b1b22', 12, 21]} />
-      <ambientLight intensity={1.65} />
-      <hemisphereLight args={['#bfe3df', '#251b18', 1.25]} />
-      <directionalLight position={[4, 9, 5]} intensity={2.8} color="#e1fff8" castShadow shadow-mapSize={[1024, 1024]} />
+      <BattleLighting />
       <pointLight position={[-5, 3, -4]} intensity={24} distance={11} color="#348ca5" />
       <pointLight position={[5, 3, 4]} intensity={17} distance={10} color="#b2503e" />
       <Suspense fallback={null}>
