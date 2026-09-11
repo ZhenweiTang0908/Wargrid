@@ -77,6 +77,8 @@ const alliesFor = (state: GameState, team: Team) => {
     (actor.identity === 'rebel' && unit.identity === 'rebel')
   ))
 }
+const rescueCard = (unit: Unit) => unit.hand.find(card => card.kind === 'peach')
+  ?? (unit.skills.includes('jijiu') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
 function triggerLianying(state: GameState, team: Team): GameState {
   const unit = state.units[team]
@@ -128,8 +130,20 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       history: log(state, `${target.name}进入濒死状态`),
     }
   }
-  const rescue = !skipRescue && targetId !== 'player' && hp <= 0 ? hand.find(c => c.kind === 'peach') : undefined
-  if (rescue) { hand = hand.filter(c => c.id !== rescue.id); discard = [...discard, rescue]; hp = 1 }
+  const rescue = !skipRescue && targetId !== 'player' && hp <= 0 ? rescueCard({ ...target, hand }) : undefined
+  if (rescue) {
+    hand = hand.filter(c => c.id !== rescue.id); discard = [...discard, rescue]; hp = 1
+    message += `；${target.name}${rescue.kind === 'peach' ? '使用【桃】自救' : '发动【急救】自救'}`
+  }
+  if (!skipRescue && targetId !== 'player' && hp <= 0) {
+    const helper = alliesFor({ ...state, units: rescuedUnits }, targetId).find(unit => unit.id !== targetId && unit.id !== 'player' && rescueCard(unit))
+    const aid = helper ? rescueCard(helper) : undefined
+    if (helper && aid) {
+      rescuedUnits = { ...rescuedUnits, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== aid.id), animation: 'cast' } }
+      discard = [...discard, aid]; hp = 1
+      message += `；${helper.name}${aid.kind === 'peach' ? '使用【桃】' : '发动【急救】'}援救${target.name}`
+    }
+  }
   let units = { ...rescuedUnits, [targetId]: { ...target, hand, hp: Math.max(0, hp), revealed: hp <= 0 ? true : target.revealed, animation: 'hit' as const } }
   const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach' || (state.units.player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond'))) : undefined
   if (aidPeach) {

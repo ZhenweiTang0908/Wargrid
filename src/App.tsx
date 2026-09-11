@@ -4,7 +4,7 @@ import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, Volume
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
-import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team } from './types'
+import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
 import { canSlash, combatDistance, effectiveAttackRange, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
@@ -118,6 +118,24 @@ function Tile({ position }: { position: Position }) {
   )
 }
 
+function EquippedGear({ unit }: { unit: Unit }) {
+  const weapon = unit.equipment.weapon?.kind
+  const longWeapon = weapon && ['greenDragon', 'spear', 'halberd'].includes(weapon)
+  const bow = weapon === 'qilinBow' || weapon === 'crossbow'
+  return <>
+    {weapon && <group position={[.42, .72, .08]} rotation-z={longWeapon ? -.14 : -.42}>
+      <mesh position-y={longWeapon ? .12 : -.02}><cylinderGeometry args={[.025, .035, longWeapon ? 1.5 : .72, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
+      {bow ? <mesh position={[0, .26, 0]} rotation-y={Math.PI / 2}><torusGeometry args={[.25, .025, 6, 18, Math.PI]} /><meshStandardMaterial color="#d0a25a" metalness={.55} roughness={.35} /></mesh>
+        : <mesh position-y={longWeapon ? .91 : .47} rotation-z={weapon === 'greenDragon' ? .5 : 0}><coneGeometry args={[weapon === 'axe' ? .17 : .09, .38, 4]} /><meshStandardMaterial color={weapon === 'vermilionFan' ? '#d95742' : '#d6d9dc'} metalness={.85} roughness={.22} /></mesh>}
+    </group>}
+    {unit.equipment.armor && <>
+      {[-.34, .34].map(side => <mesh key={side} position={[side, .98, 0]} rotation-z={side < 0 ? -.2 : .2}><sphereGeometry args={[.16, 8, 6]} /><meshStandardMaterial color={unit.equipment.armor?.kind === 'bagua' ? '#b69245' : '#737d87'} metalness={.7} roughness={.34} /></mesh>)}
+      {unit.equipment.armor.kind === 'bagua' && <mesh position={[0, .74, .315]} rotation-z={Math.PI / 8}><cylinderGeometry args={[.16, .16, .045, 8]} /><meshStandardMaterial color="#d0aa4f" metalness={.65} roughness={.34} /></mesh>}
+    </>}
+    {(unit.equipment.offensiveMount || unit.equipment.defensiveMount) && <mesh position={[0, .08, -.38]} rotation-x={Math.PI / 2}><torusGeometry args={[.26, .045, 8, 18, Math.PI * 1.55]} /><meshStandardMaterial color="#d1b36c" metalness={.8} roughness={.28} /></mesh>}
+  </>
+}
+
 function UnitPiece({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const selectedCardId = useGameStore(s => s.selectedCardId)
@@ -187,6 +205,7 @@ function UnitPiece({ team }: { team: Team }) {
         <torusGeometry args={[.58, .055, 8, 24]} />
         <meshStandardMaterial color="#80d8dc" emissive="#167782" emissiveIntensity={1.4} metalness={.75} roughness={.25} />
       </mesh>}
+      <EquippedGear unit={unit} />
       <mesh position-y={.18} castShadow>
         <cylinderGeometry args={[.38, .45, .28, 12]} />
         <meshStandardMaterial color={color} roughness={.34} metalness={.45} />

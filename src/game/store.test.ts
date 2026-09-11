@@ -599,6 +599,25 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
+  it('lets an AI ally spend peach to rescue a dying ally', () => {
+    const slash = card('slash', 'heart'), peach = card('peach', 'diamond', 3)
+    useGameStore.setState(state => ({
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [] },
+        west: { ...state.units.west, identity: 'loyalist', hand: [peach] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(1)
+    expect(state.units.west.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
+    expect(state.history.some(entry => entry.includes('援救'))).toBe(true)
+    expect(state.winner).toBeNull()
+  })
+
   it('resolves arrows with an automatic dodge response', () => {
     const arrows = card('arrows'), dodge = card('dodge', 'diamond', 2)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [arrows] }, north: { ...state.units.north, hand: [dodge] } } }))
