@@ -910,6 +910,37 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toContainEqual(dodge)
   })
 
+  it('discards every card owned by a defeated character', () => {
+    const slash = card('slash', 'heart'), held = card('drawTwo'), weapon = card('qinggang'), delayed = card('indulgence')
+    useGameStore.setState(state => ({
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [slash] },
+        east: { ...state.units.east, identity: 'renegade', position: { x: 8, y: 4 }, hp: 1, hand: [held], equipment: { weapon }, judgement: [delayed] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east).toMatchObject({ hp: 0, hand: [], equipment: {}, judgement: [], revealed: true })
+    expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([slash.id, held.id, weapon.id, delayed.id]))
+  })
+
+  it('does not award cards when a rebel defeats themselves', () => {
+    const held = card('dodge'), discarded = card('peach')
+    useGameStore.setState(state => ({
+      deck: [card('slash'), card('duel'), card('snatch')], discard: [discarded],
+      units: { ...state.units, east: { ...state.units.east, identity: 'rebel', hp: 0, hand: [held] } },
+    }))
+    const selfDefeat = useGameStore.getState()
+    // Model a source-less defeat through the public damage path used by failed rescue.
+    useGameStore.setState({ pendingResponse: { effect: 'dying', source: 'east', target: 'east', required: 'peach', prompt: '濒死' } })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.deck).toHaveLength(selfDefeat.deck.length)
+    expect(state.discard).toEqual(expect.arrayContaining([discarded, held]))
+  })
+
   it('waits for the player to choose a dodge response', () => {
     const slash = card('slash', 'club'), dodge = card('dodge', 'diamond', 6)
     useGameStore.setState(state => ({

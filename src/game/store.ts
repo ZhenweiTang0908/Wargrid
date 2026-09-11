@@ -165,11 +165,22 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     return { units, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
   }
   let deck = state.deck
-  if (hp <= 0 && target.identity === 'rebel') {
+  const hasKiller = hp <= 0 && attackerId !== targetId
+  if (hp <= 0) {
+    const defeated = units[targetId]
+    const deathDiscard = [
+      ...defeated.hand,
+      ...Object.values(defeated.equipment).filter((card): card is Card => !!card),
+      ...defeated.judgement,
+    ]
+    discard = [...discard, ...deathDiscard]
+    units = { ...units, [targetId]: { ...defeated, hand: [], equipment: {}, judgement: [] } }
+  }
+  if (hasKiller && target.identity === 'rebel') {
     const reward = drawCards(deck, discard, 3); deck = reward.deck; discard = reward.discard
     units = { ...units, [attackerId]: { ...units[attackerId], hand: [...units[attackerId].hand, ...reward.drawn] } }
   }
-  if (hp <= 0 && units[attackerId].identity === 'lord' && target.identity === 'loyalist') {
+  if (hasKiller && units[attackerId].identity === 'lord' && target.identity === 'loyalist') {
     const killer = units[attackerId]
     discard = [...discard, ...killer.hand, ...Object.values(killer.equipment).filter((card): card is Card => !!card)]
     units = { ...units, [attackerId]: { ...killer, hand: [], equipment: {} } }
@@ -218,7 +229,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   }
   const skillWinner = determineWinner(units)
   if (skillWinner) { winner = skillWinner }
-  const rewardText = hp <= 0 && target.identity === 'rebel' ? '；击杀反贼摸三张牌' : hp <= 0 && units[attackerId].identity === 'lord' && target.identity === 'loyalist' ? '；主公误杀忠臣，弃置所有牌' : ''
+  const rewardText = hasKiller && target.identity === 'rebel' ? '；击杀反贼摸三张牌' : hasKiller && units[attackerId].identity === 'lord' && target.identity === 'loyalist' ? '；主公误杀忠臣，弃置所有牌' : ''
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${finalMessage}${skillText}`, history: log(state, `${finalMessage}${skillText}${rewardText}`) }
 }
 
