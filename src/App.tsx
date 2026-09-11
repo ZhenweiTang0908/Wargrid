@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team } from './types'
-import { canSlash, combatDistance, samePosition, slashLimit, terrainAt } from './game/rules'
+import { canSlash, combatDistance, effectiveAttackRange, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -22,10 +22,12 @@ function Tile({ position }: { position: Position }) {
   const terrain = terrainAt(state, position)
   const mapObject = state.mapObjects.find(item => samePosition(item.position, position))
   const selectedCard = state.units.player.hand.find(card => card.id === state.selectedCardId)
+  const previewingSlash = !!selectedCard && (selectedCard.kind === 'slash' || state.selectedAsSlash) && state.phase === 'player' && state.turnStage === 'play'
+  const attackPreview = previewingSlash && !samePosition(state.units.player.position, position) && pathDistance(state, state.units.player.position, position, 'player') <= effectiveAttackRange(state, state.units.player)
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
   const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
-  const color = obstacle ? '#453f36' : control ? '#8c652c' : inPath ? '#53bfd1' : reachable ? '#234e5c' : terrainColor
+  const color = obstacle ? '#453f36' : control ? '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
 
   return (
     <group position={worldPosition(position)}>
@@ -48,6 +50,10 @@ function Tile({ position }: { position: Position }) {
           <Sparkles count={12} scale={.75} size={2} speed={.3} color="#f2c66d" />
         </group>
       )}
+      {attackPreview && !obstacle && <mesh position-y={.085} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[.34, .43, 24]} />
+        <meshBasicMaterial color="#ff725f" transparent opacity={.7} side={THREE.DoubleSide} />
+      </mesh>}
       {mapObject && <group position={[.24, .15, -.22]} rotation-y={-.18} onPointerEnter={() => { if (canInteract) document.body.style.cursor = 'pointer' }} onPointerLeave={() => { document.body.style.cursor = 'default' }} onClick={e => { e.stopPropagation(); if (canInteract && selectedCard) dispatch({ type: 'INTERACT', unit: 'player', objectId: mapObject.id, cardId: selectedCard.id }) }}>
         {mapObject.kind === 'supplyCache' && <>
           <mesh position-y={.14}><boxGeometry args={[.4, .25, .32]} /><meshStandardMaterial color={mapObject.claimed ? '#514a3d' : '#8b5528'} roughness={.72} /></mesh>
@@ -128,6 +134,7 @@ function UnitPiece({ team }: { team: Team }) {
   const accent = factionAccent[unit.faction]
   const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canLijianTarget = state.lijianMode && team !== 'player' && unit.hp > 0 && unit.gender === 'male' && !state.lijianTargets.includes(team)
+  const lijianSelected = state.lijianTargets.includes(team)
   const canTarget = canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || selectedKind === 'dismantle' ||
@@ -172,6 +179,10 @@ function UnitPiece({ team }: { team: Team }) {
           <meshBasicMaterial color="#ffcb70" transparent opacity={.9} side={THREE.DoubleSide} />
         </mesh>
       )}
+      {lijianSelected && <mesh position-y={.07} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[.58, .67, 32]} />
+        <meshBasicMaterial color="#e98ac5" transparent opacity={.95} side={THREE.DoubleSide} />
+      </mesh>}
       {unit.chained && <mesh position-y={.34} rotation-x={Math.PI / 2}>
         <torusGeometry args={[.58, .055, 8, 24]} />
         <meshStandardMaterial color="#80d8dc" emissive="#167782" emissiveIntensity={1.4} metalness={.75} roughness={.25} />
@@ -487,7 +498,7 @@ function Tutorial({ close }: { close: () => void }) {
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公。找出反贼与内奸；误杀忠臣会失去所有牌。</p></div>
       <div><b>02</b><strong>战棋</strong><p>水域与泥沼耗 2 移动力；森林提供掩护；山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会。</p></div>
-      <div><b>03</b><strong>牌局</strong><p>击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
+      <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
   </section></div>
