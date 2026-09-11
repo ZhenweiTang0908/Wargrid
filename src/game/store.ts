@@ -1289,7 +1289,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'borrowedSword' && !target.equipment.weapon) continue
       if (kind === 'slash' && !canSlash(state, ai, target)) continue
       if (kind === 'snatch' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && card.kind !== 'slash', asDismantle: kind === 'dismantle' && card.kind !== 'dismantle' }); await wait(420); state = get(); ai = state.units[aiId]
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle' }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse) return
       if (state.phase === 'finished') return
     }

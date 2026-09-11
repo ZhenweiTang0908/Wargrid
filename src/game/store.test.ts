@@ -1684,4 +1684,24 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(payment)
     expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
   })
+
+  it('preserves elemental slash nature when AI attacks', async () => {
+    const fireSlash = card('fireSlash', 'heart')
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai', turnStage: 'play',
+      units: {
+        ...state.units,
+        north: { ...state.units.north, identity: 'rebel', position: { x: 1, y: 0 }, hand: [fireSlash], equipment: { weapon: card('qinggang') }, movement: 0 },
+        player: { ...state.units.player, position: { x: 1, y: 1 }, hand: [] },
+        east: { ...state.units.east, hp: 0 },
+        west: { ...state.units.west, hp: 0 },
+      },
+    }))
+    await useGameStore.getState().runAI()
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', source: 'north', target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
+    expect(state.units.player.animation).toBe('fireHit')
+  })
 })
