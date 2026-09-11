@@ -24,6 +24,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   ganglie: { name: '夏侯惇', title: '独眼的罗刹', skill: 'ganglie', skills: ['ganglie'], faction: 'wei' },
   feedback: { name: '司马懿', title: '狼顾之鬼', skill: 'feedback', skills: ['feedback', 'guicai'], faction: 'wei' },
   jianxiong: { name: '曹操', title: '魏武帝', skill: 'jianxiong', skills: ['jianxiong'], faction: 'wei' },
+  yiji: { name: '郭嘉', title: '早终的先知', skill: 'yiji', skills: ['tiandu', 'yiji'], faction: 'wei' },
   paoxiao: { name: '张飞', title: '万夫不当', skill: 'paoxiao', skills: ['paoxiao'], faction: 'shu' },
   jizhi: { name: '黄月英', title: '归隐的杰女', skill: 'jizhi', skills: ['jizhi', 'qicai'], faction: 'shu' },
   qixi: { name: '甘宁', title: '锦帆游侠', skill: 'qixi', skills: ['qixi'], faction: 'wu' },
@@ -31,6 +32,7 @@ const GENERAL_PROFILE: Partial<Record<GeneralSkill, Pick<Unit, 'name' | 'title' 
   zhiheng: { name: '孙权', title: '年轻的贤君', skill: 'zhiheng', skills: ['zhiheng'], faction: 'wu' },
   wushuang: { name: '吕布', title: '武的化身', skill: 'wushuang', skills: ['wushuang'], faction: 'qun' },
 }
+const GENERAL_BASE_HP: Partial<Record<GeneralSkill, number>> = { wusheng: 4, longdan: 4, ganglie: 4, feedback: 3, jianxiong: 4, yiji: 3, paoxiao: 4, jizhi: 3, qixi: 4, biyue: 3, zhiheng: 4, wushuang: 4 }
 const nextSeat = (state: GameState, team: Team) => {
   const start = state.turnOrder.indexOf(team)
   for (let offset = 1; offset <= state.turnOrder.length; offset++) {
@@ -111,6 +113,11 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.filter(card => card.id !== gained.id), equipment }, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
       skillText += `；${target.name}发动【反馈】获得一张牌`
     }
+  }
+  if (hp > 0 && target.skills.includes('yiji')) {
+    const insight = drawCards(deck, discard, 2); deck = insight.deck; discard = insight.discard
+    units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, ...insight.drawn], animation: 'cast' } }
+    skillText += `；${target.name}发动【遗计】摸两张牌`
   }
   if (hp > 0 && target.skill === 'ganglie') {
     const judged = drawCards(deck, discard, 1), judge = judged.drawn[0]
@@ -199,8 +206,9 @@ function judgeBagua(state: GameState, targetId: Team) {
   const draw = drawCards(state.deck, state.discard, 1), judge = draw.drawn[0]
   if (!judge) return { state, success: false }
   const success = judge.suit === 'heart' || judge.suit === 'diamond'
-  const message = `${state.units[targetId].name}发动【八卦阵】，判定${success ? '为红色，视为打出【闪】' : '为黑色，判定失败'}`
-  return { state: { ...state, deck: draw.deck, discard: [...draw.discard, judge], message, history: log(state, message) }, success }
+  const target = state.units[targetId], tiandu = target.skills.includes('tiandu')
+  const message = `${target.name}发动【八卦阵】，判定${success ? '为红色，视为打出【闪】' : '为黑色，判定失败'}${tiandu ? '；【天妒】获得判定牌' : ''}`
+  return { state: { ...state, units: tiandu ? { ...state.units, [targetId]: { ...target, hand: [...target.hand, judge], animation: 'cast' } } : state.units, deck: draw.deck, discard: tiandu ? draw.discard : [...draw.discard, judge], message, history: log(state, message) }, success }
 }
 
 function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> | null {
@@ -374,6 +382,11 @@ export function beginTurn(state: GameState, team: Team): GameState {
         working = { ...working, units: { ...working.units, [team]: { ...owner, hand: owner.hand.filter(card => card.id !== replacement.id), animation: 'cast' } }, message, history: log(working, message) }
       }
     }
+    if (owner.skills.includes('tiandu')) {
+      const currentOwner = working.units[team]
+      working = { ...working, units: { ...working.units, [team]: { ...currentOwner, hand: [...currentOwner.hand, judge], animation: 'cast' } }, history: log(working, `${owner.name}发动【天妒】，获得判定牌`) }
+      judgementDiscard = judgementDiscard.filter(card => card.id !== judge.id)
+    }
     working = { ...working, deck: judged.deck, discard: [...judged.discard, delayed, ...judgementDiscard] }
     const judgeName = `${judge.suit}${judge.rank}`
     if (delayed.kind === 'indulgence') {
@@ -411,7 +424,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const player = state.units.player
     const chosen = GENERAL_PROFILE[skill]!, replacement = GENERAL_PROFILE[player.skill]!
     if (!sourceId) {
-      set({ generalSelected: true, units: { ...state.units, player: { ...player, ...chosen, hp: 5, maxHp: 5 } }, message: `已选择${chosen.name}，准备开战` })
+      const maxHp = (GENERAL_BASE_HP[skill] ?? 4) + 1
+      set({ generalSelected: true, units: { ...state.units, player: { ...player, ...chosen, hp: maxHp, maxHp } }, message: `已选择${chosen.name}，准备开战` })
       return
     }
     const source = state.units[sourceId]
@@ -419,8 +433,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       generalSelected: true,
       units: {
         ...state.units,
-        player: { ...player, ...chosen, hp: 5, maxHp: 5 },
-        [sourceId]: { ...source, ...replacement, hp: 4, maxHp: 4 },
+        player: { ...player, ...chosen, hp: (GENERAL_BASE_HP[skill] ?? 4) + 1, maxHp: (GENERAL_BASE_HP[skill] ?? 4) + 1 },
+        [sourceId]: { ...source, ...replacement, hp: GENERAL_BASE_HP[player.skill] ?? 4, maxHp: GENERAL_BASE_HP[player.skill] ?? 4 },
       },
       message: `已选择${chosen.name}，准备开战`,
     })

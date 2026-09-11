@@ -141,6 +141,27 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('奸雄')
   })
 
+  it('lets Guo Jia gain a judgement card and draw two cards after damage', () => {
+    useGameStore.getState().selectGeneral('yiji')
+    let state = useGameStore.getState()
+    expect(state.units.player).toMatchObject({ name: '郭嘉', hp: 4, maxHp: 4, skills: ['tiandu', 'yiji'] })
+    const indulgence = card('indulgence'), judge = card('peach', 'heart'), turnA = card('slash'), turnB = card('dodge')
+    state.deck = [judge, turnA, turnB]
+    state.units.player = { ...state.units.player, judgement: [indulgence], hand: [] }
+    const judged = beginTurn(state, 'player')
+    expect(judged.units.player.hand).toEqual([judge, turnA, turnB])
+    expect(judged.discard).toContainEqual(indulgence)
+    expect(judged.discard).not.toContainEqual(judge)
+
+    const attack = card('slash'), legacyA = card('peach'), legacyB = card('drawTwo')
+    useGameStore.setState({ ...judged, deck: [legacyA, legacyB], currentUnit: 'east', phase: 'ai', units: { ...judged.units, east: { ...judged.units.east, position: { x: 4, y: 7 }, hand: [attack] }, player: { ...judged.units.player, position: { x: 4, y: 8 }, hand: [] } } })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: attack.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const damaged = useGameStore.getState()
+    expect(damaged.units.player.hand).toEqual([legacyA, legacyB])
+    expect(damaged.message).toContain('遗计')
+  })
+
   it('lets Gan Ning convert a black card into Dismantle through Qixi', () => {
     useGameStore.getState().selectGeneral('qixi')
     const material = card('dodge', 'spade'), victimCard = card('peach', 'heart')

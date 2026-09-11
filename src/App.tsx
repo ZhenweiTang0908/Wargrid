@@ -90,8 +90,8 @@ function UnitPiece({ team }: { team: Team }) {
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
   const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
-  const pieceColors: Record<GeneralSkill, string> = { wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', zhiheng: '#3c9291', wushuang: '#9d3028' }
-  const darkColors: Record<GeneralSkill, string> = { wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', zhiheng: '#193f42', wushuang: '#351311' }
+  const pieceColors: Record<GeneralSkill, string> = { wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', zhiheng: '#3c9291', wushuang: '#9d3028' }
+  const darkColors: Record<GeneralSkill, string> = { wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', yiji: '#25324c', tiandu: '#25324c', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', zhiheng: '#193f42', wushuang: '#351311' }
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
   const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const canTarget = team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && (
@@ -190,6 +190,12 @@ function UnitPiece({ team }: { team: Team }) {
         {[-.34, .34].map(x => <mesh key={x} position={[x, .91, 0]} rotation-z={x < 0 ? -.32 : .32}><boxGeometry args={[.25, .45, .3]} /><meshStandardMaterial color="#7c2b28" metalness={.65} roughness={.38} /></mesh>)}
         <group position={[.46, .82, 0]} rotation-z={-.26}><mesh position-y={.27}><cylinderGeometry args={[.035, .035, 1.45, 7]} /><meshStandardMaterial color="#4d301d" /></mesh><mesh position={[0, 1.02, 0]}><boxGeometry args={[.15, .68, .065]} /><meshStandardMaterial color="#d0c9ae" metalness={.95} /></mesh><mesh position={[0, .62, 0]}><boxGeometry args={[.26, .1, .08]} /><meshStandardMaterial color="#c39b43" metalness={.8} /></mesh></group>
       </>}
+      {unit.skill === 'yiji' && <>
+        <mesh position={[0, 1.48, 0]}><boxGeometry args={[.52, .12, .36]} /><meshStandardMaterial color="#242b3d" roughness={.65} /></mesh>
+        <mesh position={[0, 1.61, 0]}><cylinderGeometry args={[.12, .15, .25, 6]} /><meshStandardMaterial color="#8595b6" metalness={.45} /></mesh>
+        <group position={[-.43, .84, .08]} rotation={[0, 0, .36]}>{[0, 1, 2, 3, 4, 5].map(i => <mesh key={i} position={[(i - 2.5) * .05, .42, 0]} rotation-z={(i - 2.5) * -.09}><capsuleGeometry args={[.03, .52, 3, 6]} /><meshStandardMaterial color="#d6d1ba" /></mesh>)}</group>
+        <group position={[.36, .88, .15]} rotation-z={-.2}>{[-.12, 0, .12].map((y, i) => <mesh key={i} position={[0, y, 0]}><boxGeometry args={[.38, .055, .08]} /><meshStandardMaterial color="#8b6437" roughness={.9} /></mesh>)}</group>
+      </>}
       {unit.skill === 'paoxiao' && <>
         <mesh position={[0, 1.43, 0]}><torusGeometry args={[.24, .11, 6, 9, Math.PI]} /><meshStandardMaterial color="#1c1512" roughness={1} /></mesh>
         <mesh position={[0, 1.02, .24]}><coneGeometry args={[.24, .62, 8]} /><meshStandardMaterial color="#17100e" roughness={1} /></mesh>
@@ -275,8 +281,8 @@ function Hearts({ hp, max }: { hp: number; max: number }) {
 function PlayerStatus({ team }: { team: Team }) {
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
-  const portraits: Record<GeneralSkill, string> = { wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
-  const skillCopy = { wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄 · 受伤后获得伤害牌', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '闭月 · 回合结束摸一张牌', zhiheng: '制衡 · 每回合换任意手牌', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
+  const portraits: Record<GeneralSkill, string> = { wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
+  const skillCopy = { wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄 · 受伤后获得伤害牌', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '闭月 · 回合结束摸一张牌', zhiheng: '制衡 · 每回合换任意手牌', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
   const factionLabel: Record<Faction, string> = { wei: '魏', shu: '蜀', wu: '吴', qun: '群' }
   const lordSkill = unit.identity === 'lord' ? unit.faction === 'shu' ? ' · 激将' : unit.faction === 'wei' ? ' · 护驾' : '' : ''
   return (
@@ -329,6 +335,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'ganglie', name: '夏侯惇', title: '独眼的罗刹', faction: '魏', portrait: '/heroes/xiahou-lie.png', skillName: '刚烈', copy: '受伤后判定，反击伤害来源。' },
   { skill: 'feedback', name: '司马懿', title: '狼顾之鬼', faction: '魏', portrait: '/heroes/sima-xuan.png', skillName: '反馈 · 鬼才', copy: '受伤后获得来源牌；不利判定时自动用手牌改判。' },
   { skill: 'jianxiong', name: '曹操', title: '魏武帝', faction: '魏', portrait: '/heroes/cao-cao.png', skillName: '奸雄 · 护驾', copy: '受到伤害后获得造成伤害的牌；魏势力忠臣可替你出闪。' },
+  { skill: 'yiji', name: '郭嘉', title: '早终的先知', faction: '魏', portrait: '/heroes/guo-jia.png', skillName: '天妒 · 遗计', copy: '获得自己的判定牌；每受到一次伤害摸两张牌。' },
   { skill: 'paoxiao', name: '张飞', title: '万夫不当', faction: '蜀', portrait: '/heroes/zhang-fei.png', skillName: '咆哮', copy: '出牌阶段使用【杀】没有次数限制。' },
   { skill: 'jizhi', name: '黄月英', title: '归隐的杰女', faction: '蜀', portrait: '/heroes/huang-yueying.png', skillName: '集智 · 奇才', copy: '普通锦囊摸一张；锦囊牌无距离限制。' },
   { skill: 'qixi', name: '甘宁', title: '锦帆游侠', faction: '吴', portrait: '/heroes/gan-ning.png', skillName: '奇袭', copy: '黑色牌可以当【过河拆桥】使用。' },
