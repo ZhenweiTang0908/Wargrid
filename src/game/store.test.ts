@@ -186,6 +186,42 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('奸雄')
   })
 
+  it('lets Cao Cao gain the original Slash instead of a later Bagua judgement', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const slash = card('slash', 'heart'), bagua = card('bagua'), blackJudge = card('duel', 'spade')
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { armor: bagua } },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toContainEqual(slash)
+    expect(state.units.player.hand).not.toContainEqual(blackJudge)
+    expect(state.discard).toContainEqual(blackJudge)
+    expect(state.discard).not.toContainEqual(slash)
+  })
+
+  it('lets Cao Cao gain the Duel card after declining both response windows', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const duel = card('duel', 'spade')
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai', discard: [],
+      units: { ...state.units, east: { ...state.units.east, hand: [duel] }, player: { ...state.units.player, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse?.effect).toBe('duel')
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toContainEqual(duel)
+    expect(state.discard).not.toContainEqual(duel)
+  })
+
   it('lets Guo Jia gain a judgement card and draw two cards after damage', () => {
     useGameStore.getState().selectGeneral('yiji')
     let state = useGameStore.getState()

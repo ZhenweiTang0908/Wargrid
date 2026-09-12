@@ -148,7 +148,7 @@ function beginHarvest(state: GameState, source: Team, harvestCard: Card): GameSt
   return advanceHarvest({ ...state, deck: draw.deck, discard: [...draw.discard, harvestCard] }, draw.drawn, order)
 }
 
-function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false): Partial<GameState> {
+function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card): Partial<GameState> {
   const target = state.units[targetId]
   if (amount > 1 && target.equipment.armor?.kind === 'silverLion' && state.units[attackerId].equipment.weapon?.kind !== 'qinggang') {
     amount = 1; message += '；【白银狮子】将伤害减至 1'
@@ -223,9 +223,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   const finalMessage = hp <= 0 ? `${state.units[attackerId].name}击败了${target.name}，其身份是${target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'}！` : message
   let skillText = ''
   if (hp > 0 && target.skills.includes('jianxiong')) {
-    const gained = discard[discard.length - 1]
-    if (gained) {
-      discard = discard.slice(0, -1)
+    const sourceIndex = sourceCard ? discard.findIndex(card => card.id === sourceCard.id) : -1
+    if (sourceIndex >= 0) {
+      const gained = discard[sourceIndex]
+      discard = discard.filter(card => card.id !== gained.id)
       units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
       skillText = `；${target.name}发动【奸雄】获得造成伤害的【${CARD_LABEL[gained.kind]}】`
     }
@@ -267,7 +268,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${finalMessage}${skillText}`, history: log(state, `${finalMessage}${skillText}${rewardText}`) }
 }
 
-function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder'): Partial<GameState> {
+function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder', sourceCard?: Card): Partial<GameState> {
   const target = state.units[targetId]
   const linked = target.chained ? [targetId, ...state.turnOrder.filter(id => id !== targetId && state.units[id].hp > 0 && state.units[id].chained)] : [targetId]
   let working: GameState = {
@@ -287,7 +288,7 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
       const message = `${working.units[id].name}所处水域熄灭了火焰${transmitted}`
       working = { ...working, message, history: log(working, message) }
     } else {
-      working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`) }
+      working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`, false, sourceCard) }
       working = { ...working, units: { ...working.units, [id]: { ...working.units[id], animation: nature === 'fire' ? 'fireHit' : 'thunderHit' } } }
     }
     if (working.pendingResponse || working.winner) break
@@ -295,7 +296,7 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
   return working
 }
 
-function resolveFireAttack(state: GameState, actorId: Team, targetId: Team): Partial<GameState> {
+function resolveFireAttack(state: GameState, actorId: Team, targetId: Team, sourceCard?: Card): Partial<GameState> {
   const actor = state.units[actorId], target = state.units[targetId]
   const revealed = target.hand[0]
   if (!revealed) {
@@ -308,7 +309,7 @@ function resolveFireAttack(state: GameState, actorId: Team, targetId: Team): Par
     return { message, history: log(state, message) }
   }
   const paidState: GameState = { ...state, units: { ...state.units, [actorId]: { ...actor, hand: actor.hand.filter(card => card.id !== paid.id), animation: 'cast' } }, discard: [...state.discard, paid] }
-  return elementalDamage(paidState, actorId, targetId, 1, 'fire')
+  return elementalDamage(paidState, actorId, targetId, 1, 'fire', sourceCard)
 }
 
 function resolveIronChain(state: GameState, actorId: Team, targetId: Team): Partial<GameState> {
@@ -414,7 +415,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       if (attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
         const paid = attacker.hand.slice(0, 2)
         const forcedState: GameState = { ...state, units: { ...state.units, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) } }, discard: [...state.discard, ...paid] }
-        return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
+        return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`, false, slashCard)
       }
       const defendedState: GameState = { ...state, units: { ...state.units, [attackerId]: updatedAttacker } }
       return greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
@@ -435,7 +436,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     if (!shieldBlocks && attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
       const paid = attacker.hand.slice(0, 2)
       const forcedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) }, [targetId]: updatedTarget }, discard: [...responseDiscard, ...paid] }
-      return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`)
+      return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`, false, slashCard)
     }
     const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : `${target.name}${dodgeCards.length > 1 ? '连续打出两张【闪】响应【无双】' : responseText(target, dodge!, 'dodge')}`
     const defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
@@ -471,22 +472,22 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus + (attacker.luoyiActive ? 1 : 0)
   const nature = slashCard?.kind === 'thunderSlash' ? 'thunder' : slashCard?.kind === 'fireSlash' || attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
   const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : nature === 'thunder' ? '雷电' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}${weaponText}`
-  return nature ? elementalDamage(base, attackerId, targetId, amount, nature) : damage(base, attackerId, targetId, amount, effectText)
+  return nature ? elementalDamage(base, attackerId, targetId, amount, nature, slashCard) : damage(base, attackerId, targetId, amount, effectText, false, slashCard)
 }
 
-function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial<GameState> {
+function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCard?: Card): Partial<GameState> {
   let working = state, current = currentId, other = otherId
   for (let round = 0; round < 20; round++) {
     const requiredCount = working.units[other].skill === 'wushuang' ? 2 : 1
     if (current === 'player') {
       const prompt = `${working.units[other].name}在【决斗】中出杀，请${requiredCount === 2 ? '连续' : ''}打出${requiredCount}张【杀】响应`
-      return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', requiredCount, prompt }, message: prompt, history: log(working, prompt) }
+      return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', requiredCount, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
     }
     const responder = working.units[current]
     const slashes = responder.hand.filter(card => isSlashKind(card.kind) || (responder.skill === 'longdan' && card.kind === 'dodge')).slice(0, requiredCount)
     if (slashes.length < requiredCount) {
       const duelDamage = working.units[other].luoyiActive ? 2 : 1
-      return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`)
+      return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`, false, sourceCard)
     }
     const slashIds = new Set(slashes.map(card => card.id))
     const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
@@ -520,7 +521,7 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
   return triggerLianying(result, targetId)
 }
 
-function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians'): Partial<GameState> {
+function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians', sourceCard?: Card): Partial<GameState> {
   let working = state
   const responseKind = kind === 'arrows' ? 'dodge' : 'slash'
   const orderedTargets = [...working.turnOrder.filter(id => id !== 'player'), 'player' as Team]
@@ -529,7 +530,7 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
     const target = working.units[targetId]
     if (targetId === 'player' && actorId !== 'player') {
       const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
-      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, prompt }, message: prompt, history: log(working, prompt) }
+      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
     }
     const nullify = target.hand.find(c => c.kind === 'nullify')
     if (nullify) {
@@ -546,7 +547,7 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
         ? { ...working, units: { ...working.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' } }, discard: [...working.discard, guard.dodge], message, history: log(working, message) }
         : { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== response!.id), animation: 'cast' } }, discard: [...working.discard, response!], message, history: log(working, message) }
       working = triggerLianying(working, targetId)
-    } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`) }
+    } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`, false, sourceCard) }
     if (working.winner) break
   }
   return working
@@ -897,8 +898,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         set({ ...base, ...resolveSlash(base, action.unit, targetId, undefined, false, card) }); return
       }
-      if (kind === 'duel') { set(continueDuel(base, targetId, action.unit)); return }
-      if (kind === 'fireAttack') { set(resolveFireAttack(base, action.unit, targetId)); return }
+      if (kind === 'duel') { set(continueDuel(base, targetId, action.unit, card)); return }
+      if (kind === 'fireAttack') { set(resolveFireAttack(base, action.unit, targetId, card)); return }
       if (kind === 'ironChain') {
         const targets = [...new Set(action.targets?.length ? action.targets : [targetId])].filter(id => state.units[id]?.hp > 0).slice(0, 2)
         if (!targets.length) return
@@ -909,7 +910,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (kind === 'borrowedSword') { set(resolveBorrowedSword(base, action.unit, targetId)); return }
       if (kind === 'arrows' || kind === 'barbarians') {
-        set(resolveGroupTrick(base, action.unit, kind)); return
+        set(resolveGroupTrick(base, action.unit, kind, card)); return
       }
       if (kind === 'indulgence') {
         const delayed = virtualIndulgence ? { ...card, kind: 'indulgence' as const } : card
@@ -998,9 +999,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
           const required = pending.trick === 'arrows' ? 'dodge' : 'slash'
           const prompt = `${working.units[pending.source].name}使用【${CARD_LABEL[pending.trick]}】，请打出【${CARD_LABEL[required]}】响应`
-          return { ...working, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, prompt }, message: prompt, history: log(working, prompt) }
+          return { ...working, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, originCardId: pending.originCardId, prompt }, message: prompt, history: log(working, prompt) }
         }
-        if (pending.trick === 'duel') return { ...working, ...continueDuel(working, 'player', pending.source) }
+        if (pending.trick === 'duel') return { ...working, ...continueDuel(working, 'player', pending.source, working.discard.find(card => card.id === pending.originCardId)) }
         if (pending.trick === 'indulgence') {
           const delayed = working.discard.find(candidate => candidate.id === pending.originCardId)
           if (delayed) {
@@ -1010,7 +1011,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         if (pending.trick === 'dismantle' || pending.trick === 'snatch') return { ...working, ...takeTargetCard(working, pending.source, 'player', pending.trick === 'snatch') }
         if (pending.trick === 'borrowedSword') return { ...working, ...resolveBorrowedSword(working, pending.source, 'player') }
-        if (pending.trick === 'fireAttack') return { ...working, ...resolveFireAttack(working, pending.source, 'player') }
+        if (pending.trick === 'fireAttack') return { ...working, ...resolveFireAttack(working, pending.source, 'player', working.discard.find(card => card.id === pending.originCardId)) }
         if (pending.trick === 'ironChain') return { ...working, ...resolveIronChain(working, pending.source, 'player') }
         return working
       }
@@ -1043,10 +1044,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set(base); return
         }
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message: responseMessage, history: log(base, responseMessage) }
-        base = { ...base, ...continueDuel(base, pending.source, 'player') }
+        base = { ...base, ...continueDuel(base, pending.source, 'player', base.discard.find(candidate => candidate.id === pending.originCardId)) }
       } else {
         const duelDamage = base.units[pending.source].luoyiActive ? 2 : 1
-        base = { ...base, ...damage(base, pending.source, 'player', duelDamage, `${base.units.player.name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`) }
+        base = { ...base, ...damage(base, pending.source, 'player', duelDamage, `${base.units.player.name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`, false, base.discard.find(candidate => candidate.id === pending.originCardId)) }
       }
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
@@ -1078,7 +1079,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (guard) {
         const message = `${guard.unit.name}发动【护驾】保护主公`
         base = { ...base, units: { ...base.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(candidate => candidate.id !== guard.dodge.id), animation: 'cast' } }, discard: [...base.discard, guard.dodge], message, history: log(base, message) }
-      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能响应【${CARD_LABEL[pending.effect]}】，受到 1 点伤害`) }
+      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能响应【${CARD_LABEL[pending.effect]}】，受到 1 点伤害`, false, base.discard.find(candidate => candidate.id === pending.originCardId)) }
     }
     set(base)
     if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
