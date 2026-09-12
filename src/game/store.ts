@@ -1942,7 +1942,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const destinations = aggressive ? [{ x: target.position.x + 1, y: target.position.y }, { x: target.position.x - 1, y: target.position.y }, { x: target.position.x, y: target.position.y + 1 }, { x: target.position.x, y: target.position.y - 1 }] : [state.controlPoint]
       let best: Position[] = []
       for (const destination of destinations) { const path = findPath(state, ai.position, destination, aiId); if (path.length && (!best.length || pathCost(state, path) < pathCost(state, best))) best = path }
-      if (best.length) { let cost = 0, destination = ai.position; for (const p of best) { const step = pathCost(state, [p]); if (cost + step > ai.movement) break; cost += step; destination = p } get().dispatch({ type: 'MOVE', unit: aiId, to: destination }); await wait(500) }
+      if (best.length) {
+        let cost = 0, destination = ai.position, steps = 0
+        for (const p of best) { const step = pathCost(state, [p]); if (cost + step > ai.movement) break; cost += step; destination = p; steps++ }
+        if (steps) {
+          get().dispatch({ type: 'MOVE', unit: aiId, to: destination })
+          await wait(Math.max(500, steps * 220 + 60))
+        }
+      }
     }
     state = get(); ai = state.units[aiId]; target = targetsFor(state, aiId)[0]
     if (!target) return
