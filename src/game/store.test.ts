@@ -1295,6 +1295,50 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(redTrick)
   })
 
+  it('lets player Guan Yu use a red equipped card as Slash through Wusheng', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [], equipment: { offensiveMount: mount } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] },
+    } }))
+    useGameStore.getState().activateWusheng()
+    useGameStore.getState().selectCard(mount.id)
+    expect(useGameStore.getState().selectedCardId).toBe(mount.id)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: mount.id, target: 'north', asSlash: true })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.equipment.offensiveMount).toBeUndefined()
+    expect(state.discard).toContainEqual(mount)
+  })
+
+  it('lets AI Guan Yu attack with a red equipped card through Wusheng', async () => {
+    const mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: { ...state.units,
+      north: { ...state.units.north, skill: 'wusheng', skills: ['wusheng'], position: state.controlPoint, hand: [], equipment: { offensiveMount: mount } },
+      east: { ...state.units.east, position: { x: 5, y: 4 }, hand: [], equipment: {} },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.offensiveMount).toBeUndefined()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.discard).toContainEqual(mount)
+  })
+
+  it('checks Slash range after Guan Yu spends an equipped weapon through Wusheng', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const weapon = card('doubleSword', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [], equipment: { weapon } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: weapon.id, target: 'north', asSlash: true })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.player.equipment.weapon).toEqual(weapon)
+    expect(state.discard).not.toContainEqual(weapon)
+  })
+
   it('uses a red card as slash through Wusheng in a duel response', () => {
     const duel = card('duel', 'spade'), redCard = card('peach', 'heart'), enemySlash = card('slash', 'club')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {

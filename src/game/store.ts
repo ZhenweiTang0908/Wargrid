@@ -954,8 +954,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
         ? unit.hand.filter(card => action.materialIds!.includes(card.id)) : []
       if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
-      const equippedGuose = action.asGuose && unit.skills.includes('guose') ? equippedCards(unit).find(item => item.id === action.cardId && item.suit === 'diamond') : undefined
-      const removed = equippedGuose ? { card: equippedGuose, hand: unit.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
+      const equippedVirtual = equippedCards(unit).find(item => item.id === action.cardId && ((action.asGuose && unit.skills.includes('guose') && item.suit === 'diamond') || (action.asSlash && unit.skills.includes('wusheng') && isRed(item))))
+      const removed = equippedVirtual ? { card: equippedVirtual, hand: unit.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
       if (action.recast) {
         if (card.kind !== 'ironChain' || assistant) return
@@ -985,14 +985,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? { ...state.units, [action.unit]: { ...unit, animation: 'cast' as const }, [assistant.id]: { ...assistant, hand: removed.hand, animation: 'cast' as const } }
         : { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' as const } }
       let playedDeck = state.deck, playedDiscard = [...state.discard, ...playedCards]
-      if (equippedGuose) {
-        const equipment = Object.fromEntries(Object.entries(unit.equipment).filter(([, item]) => item?.id !== equippedGuose.id)) as Unit['equipment']
-        const loss = resolveEquipmentLoss(unit, [equippedGuose], playedDeck, playedDiscard)
+      if (equippedVirtual) {
+        const equipment = Object.fromEntries(Object.entries(unit.equipment).filter(([, item]) => item?.id !== equippedVirtual.id)) as Unit['equipment']
+        const loss = resolveEquipmentLoss(unit, [equippedVirtual], playedDeck, playedDiscard)
         unitsAfterPlay = { ...unitsAfterPlay, [action.unit]: { ...unitsAfterPlay[action.unit], hp: loss.hp, hand: [...remainingHand, ...loss.drawn], equipment, animation: loss.healed ? 'heal' : 'cast' } }
         playedDeck = loss.deck; playedDiscard = loss.discard
       }
       let base: GameState = { ...state, units: unitsAfterPlay, deck: playedDeck, discard: playedDiscard, selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
-      if (!equippedGuose) base = triggerLianying(base, assistant?.id ?? action.unit)
+      if (!equippedVirtual) base = triggerLianying(base, assistant?.id ?? action.unit)
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
         const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
@@ -1044,21 +1044,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units: { ...state.units, [action.unit]: equipped }, deck: recovery.deck, discard: recovery.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
       if (isSlashKind(kind)) {
-        if (!canSlash(state, unit, target)) return
+        const attackUnit = base.units[action.unit]
+        if (!canSlash(base, attackUnit, target)) return
         if (targetId === 'player' && action.unit !== 'player') {
           const offered = offerPlayerLiuli(base, action.unit, card)
           if (offered) { set(offered); return }
           const tieqi = judgeTieqi(base, action.unit); base = tieqi.state
           if (tieqi.locked) { set({ ...base, ...resolveSlash(base, action.unit, targetId, null, true, card) }); return }
-          const shieldBlocks = target.equipment.armor?.kind === 'shield' && (card.suit === 'spade' || card.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
+          const shieldBlocks = target.equipment.armor?.kind === 'shield' && (card.suit === 'spade' || card.suit === 'club') && attackUnit.equipment.weapon?.kind !== 'qinggang'
           if (!shieldBlocks) {
             const requiredCount = unit.skill === 'wushuang' ? 2 : 1
             const prompt = `${unit.name}对你使用【杀】，${requiredCount === 2 ? '【无双】要求连续打出两张【闪】' : '请选择是否打出【闪】'}`
             set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked: false, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
           }
         }
-        if (action.unit === 'player' && unit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
-          const legal = [targetId, ...state.turnOrder.filter(id => id !== action.unit && id !== targetId && state.units[id].hp > 0 && combatDistance(state, unit, state.units[id]) <= effectiveAttackRange(state, unit))].slice(0, 3)
+        if (action.unit === 'player' && attackUnit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
+          const legal = [targetId, ...state.turnOrder.filter(id => id !== action.unit && id !== targetId && state.units[id].hp > 0 && combatDistance(base, attackUnit, state.units[id]) <= effectiveAttackRange(base, attackUnit))].slice(0, 3)
           let working = base
           for (const id of legal) {
             working = { ...working, ...resolveSlash(working, action.unit, id, undefined, false, card) }
@@ -1567,7 +1568,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
-    const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode || state.selectedAsGuose ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
+    const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode || state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
     if (state.zhihengMode) {
       const selected = state.zhihengSelection.includes(id)
       const zhihengSelection = selected ? state.zhihengSelection.filter(cardId => cardId !== id) : [...state.zhihengSelection, id]
@@ -1576,6 +1577,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.selectedAsGuose) {
       if (card.suit !== 'diamond') { set({ message: '【国色】只能选择方块牌' }); return }
       set({ selectedCardId: id, message: `【国色】将【${CARD_LABEL[card.kind]}】当【乐不思蜀】，请选择目标` }); return
+    }
+    if (state.selectedAsSlash && state.units.player.skills.includes('wusheng')) {
+      if (!isRed(card)) { set({ message: '【武圣】只能选择红色牌' }); return }
+      set({ selectedCardId: id, message: `【武圣】将【${CARD_LABEL[card.kind]}】当【杀】，请选择目标` }); return
     }
     if (state.spearMode) {
       const selected = state.spearSelection.includes(id)
@@ -1592,9 +1597,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ selectedCardId: selecting ? id : null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, chainTargets: [], message: card.kind === 'ironChain' && selecting ? '【铁索连环】请选择一至两名角色' : card.kind === 'borrowedSword' && selecting ? '【借刀杀人】先选择持武器的角色' : needsTarget ? `选择敌将使用【${CARD_LABEL[card.kind]}】` : '再次点击确认使用' })
   },
   activateWusheng: () => {
-    const state = get(), card = state.units.player.hand.find(c => c.id === state.selectedCardId)
-    if (state.units.player.skill !== 'wusheng' || !card || isSlashKind(card.kind) || (card.suit !== 'heart' && card.suit !== 'diamond')) return
-    set({ selectedAsSlash: true, selectedAsDismantle: false, message: `【武圣】将${CARD_LABEL[card.kind]}当【杀】使用，请选择敌将` })
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('wusheng') || player.attacksUsed >= slashLimit(player) || ![...player.hand, ...equippedCards(player)].some(card => isRed(card) && !isSlashKind(card.kind))) return
+    const active = !state.selectedAsSlash
+    const selected = player.hand.find(card => card.id === state.selectedCardId)
+    set({ selectedAsSlash: active, selectedCardId: active && selected && isRed(selected) ? selected.id : null, selectedAsDismantle: false, selectedAsGuose: false, message: active ? '【武圣】请选择一张红色手牌或装备，再选择攻击目标' : '已取消武圣' })
   },
   activateSpear: () => {
     const state = get()
@@ -1818,8 +1825,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     let target = targetsFor(state, aiId)[0]
     if (!target) return
-    const aggressive = responseCard(ai, 'slash')
-    if (!aggressive || !canSlash(state, ai, target)) {
+    const aggressive = responseCard(ai, 'slash') ?? (ai.skills.includes('wusheng') ? equippedCards(ai).find(isRed) : undefined)
+    const attackUnit = aggressive && equippedCards(ai).some(card => card.id === aggressive.id)
+      ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, card]) => card?.id !== aggressive.id)) as Unit['equipment'] } : ai
+    if (!aggressive || !canSlash(state, attackUnit, target)) {
       const destinations = aggressive ? [{ x: target.position.x + 1, y: target.position.y }, { x: target.position.x - 1, y: target.position.y }, { x: target.position.x, y: target.position.y + 1 }, { x: target.position.x, y: target.position.y - 1 }] : [state.controlPoint]
       let best: Position[] = []
       for (const destination of destinations) { const path = findPath(state, ai.position, destination, aiId); if (path.length && (!best.length || pathCost(state, path) < pathCost(state, best))) best = path }
@@ -1838,10 +1847,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
     for (const kind of ['ironChain', 'fireAttack', 'indulgence', 'dismantle', 'snatch', 'borrowedSword', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
-      const card = kind === 'slash' ? responseCard(ai, 'slash') : kind === 'dismantle' ? ai.hand.find(c => c.kind === 'dismantle') ?? (ai.skills.includes('qixi') ? ai.hand.find(c => c.suit === 'spade' || c.suit === 'club') : undefined) : ai.hand.find(c => c.kind === kind); if (!card) continue
+      const card = kind === 'slash' ? responseCard(ai, 'slash') ?? (ai.skills.includes('wusheng') ? equippedCards(ai).find(isRed) : undefined) : kind === 'dismantle' ? ai.hand.find(c => c.kind === 'dismantle') ?? (ai.skills.includes('qixi') ? ai.hand.find(c => c.suit === 'spade' || c.suit === 'club') : undefined) : ai.hand.find(c => c.kind === kind); if (!card) continue
       if (kind === 'borrowedSword') target = targetsFor(state, aiId).find(unit => !!unit.equipment.weapon) ?? target
       if (kind === 'borrowedSword' && !target.equipment.weapon) continue
-      if (kind === 'slash' && !canSlash(state, ai, target)) continue
+      if (kind === 'slash' && !canSlash(state, equippedCards(ai).some(item => item.id === card.id) ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== card.id)) as Unit['equipment'] } : ai, target)) continue
       if (kind === 'snatch' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle' }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword) return
