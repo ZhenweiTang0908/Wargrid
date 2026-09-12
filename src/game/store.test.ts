@@ -829,6 +829,34 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toEqual([nullify])
   })
 
+  it('lets the player accept or nullify their own Peach Garden recovery', () => {
+    const garden = card('peachGarden', 'heart'), nullify = card('nullify', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [garden], hp: 2 }, player: { ...state.units.player, hand: [nullify], hp: 3 } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: garden.id })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'peachGarden' })
+    expect(useGameStore.getState().units.east.hp).toBe(3)
+    expect(useGameStore.getState().units.player.hp).toBe(3)
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().units.player.hp).toBe(4)
+
+    useGameStore.setState(state => ({ ...state, pendingResponse: null, currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [garden] }, player: { ...state.units.player, hp: 3, hand: [nullify] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: garden.id })
+    useGameStore.getState().respond(nullify.id)
+    expect(useGameStore.getState().units.player.hp).toBe(3)
+    expect(useGameStore.getState().pendingResponse).toBeNull()
+  })
+
+  it('restores Peach Garden recovery when the source counters nullify', () => {
+    const garden = card('peachGarden', 'heart'), nullify = card('nullify', 'spade'), counter = card('nullify', 'club')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [garden, counter] }, player: { ...state.units.player, hand: [nullify], hp: 3 } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: garden.id })
+    useGameStore.getState().respond(nullify.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.pendingResponse).toBeNull()
+    expect(state.discard).toEqual(expect.arrayContaining([garden, nullify, counter]))
+  })
+
   it('uses peach to rescue a unit entering dying state', () => {
     const slash = card('slash', 'heart'), peach = card('peach', 'heart', 3)
     useGameStore.setState(state => ({

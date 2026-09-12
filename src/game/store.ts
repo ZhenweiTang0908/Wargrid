@@ -854,9 +854,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: draw.discard, message, history: log(base, message) }); return
       }
       if (kind === 'peachGarden') {
-        const units = Object.fromEntries(Object.entries(base.units).map(([id, actor]) => [id, actor.hp > 0 ? { ...actor, hp: Math.min(actor.maxHp, actor.hp + 1), animation: actor.hp < actor.maxHp ? 'heal' as const : actor.animation } : actor])) as GameState['units']
+        const playerCanRespond = action.unit !== 'player' && base.units.player.hp > 0 && base.units.player.hp < base.units.player.maxHp
+        const units = Object.fromEntries(Object.entries(base.units).map(([id, actor]) => [id, actor.hp > 0 && !(playerCanRespond && id === 'player') ? { ...actor, hp: Math.min(actor.maxHp, actor.hp + 1), animation: actor.hp < actor.maxHp ? 'heal' as const : actor.animation } : actor])) as GameState['units']
         const message = `${unit.name}使用【桃园结义】，所有存活角色回复体力`
-        set({ ...base, units, message, history: log(base, message) }); return
+        const prompt = `${unit.name}使用【桃园结义】，是否对自己的回复效果打出【无懈可击】？`
+        set({ ...base, units, pendingResponse: playerCanRespond ? { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick: 'peachGarden', originCardId: card.id, prompt } : null, message: playerCanRespond ? prompt : message, history: log(base, message) }); return
       }
       if (kind === 'harvest') {
         set(beginHarvest(base, action.unit, card)); return
@@ -1001,6 +1003,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (pending.effect === 'nullify') {
       const applyUnderlying = (working: GameState): GameState => {
+        if (pending.trick === 'peachGarden') {
+          const player = working.units.player
+          const message = `${player.name}受到【桃园结义】效果，回复 1 点体力`
+          return { ...working, units: { ...working.units, player: { ...player, hp: Math.min(player.maxHp, player.hp + 1), animation: 'heal' } }, message, history: log(working, message) }
+        }
         if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
           const required = pending.trick === 'arrows' ? 'dodge' : 'slash'
           const prompt = `${working.units[pending.source].name}使用【${CARD_LABEL[pending.trick]}】，请打出【${CARD_LABEL[required]}】响应`
