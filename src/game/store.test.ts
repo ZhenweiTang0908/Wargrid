@@ -1255,6 +1255,17 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(converted)
   })
 
+  it('lets AI Zhao Yun use an elemental slash as dodge through Longdan', () => {
+    const attack = card('slash', 'heart'), converted = card('thunderSlash', 'club')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [attack] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [converted] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(converted)
+    expect(state.message).toContain('龙胆')
+  })
+
   it('resolves Xiahou Dun Ganglie judgement and retaliation', () => {
     const attack = card('slash', 'heart'), judgement = card('dismantle', 'spade', 8)
     useGameStore.setState(state => ({
