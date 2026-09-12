@@ -86,6 +86,13 @@ export interface PendingPlunder {
   reason?: 'feedback'
 }
 
+export interface PendingJudgement {
+  team: Team
+  delayed: Card
+  original: Card
+  skipPlay: boolean
+}
+
 export interface GameState {
   mapId: MapId
   deckMode: DeckMode
@@ -127,6 +134,7 @@ export interface GameState {
   pendingHarvest: PendingHarvest | null
   pendingFanjian: PendingFanjian | null
   pendingPlunder: PendingPlunder | null
+  pendingJudgement: PendingJudgement | null
   winner: Team | null
   message: string
   history: string[]

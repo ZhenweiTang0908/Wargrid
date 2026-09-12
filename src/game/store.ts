@@ -13,6 +13,7 @@ interface GameStore extends GameState {
   chooseHarvest: (cardId: string) => void
   chooseFanjianSuit: (suit: Card['suit']) => void
   choosePlunderCard: (cardId: string) => void
+  chooseJudgementCard: (cardId: string | null) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -618,13 +619,13 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: [...unit.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
 }
 
-export function beginTurn(state: GameState, team: Team): GameState {
-  let working = state, unit = state.units[team], skipPlay = false
-  if (team === 'player' && state.mapObjects.some(object => object.claimed)) {
+export function beginTurn(state: GameState, team: Team, resume = false, previousSkipPlay = false): GameState {
+  let working = state, unit = state.units[team], skipPlay = previousSkipPlay
+  if (!resume && team === 'player' && state.mapObjects.some(object => object.claimed)) {
     const message = '新一轮开始，战场设施已重新补给'
     working = { ...working, mapObjects: working.mapObjects.map(object => ({ ...object, claimed: false })), message, history: log(working, message) }
   }
-  if (unit.skills.includes('luoshen')) {
+  if (!resume && unit.skills.includes('luoshen')) {
     const gained: Card[] = []
     while (working.deck.length || working.discard.length) {
       const judged = drawCards(working.deck, working.discard, 1), judge = judged.drawn[0]
@@ -642,7 +643,7 @@ export function beginTurn(state: GameState, team: Team): GameState {
       working = { ...working, message, history: log(working, message) }
     }
   }
-  if (unit.skills.includes('guanxing') && working.deck.length) {
+  if (!resume && unit.skills.includes('guanxing') && working.deck.length) {
     const count = Math.min(5, Object.values(working.units).filter(actor => actor.hp > 0).length, working.deck.length)
     const viewed = working.deck.slice(0, count), rest = working.deck.slice(count)
     const hasIndulgence = unit.judgement.some(card => card.kind === 'indulgence'), hasLightning = unit.judgement.some(card => card.kind === 'lightning')
@@ -651,9 +652,13 @@ export function beginTurn(state: GameState, team: Team): GameState {
     const message = `${unit.name}发动【观星】，调整牌堆顶 ${count} 张牌`
     working = { ...working, deck: [...viewed, ...rest], message, history: log(working, message) }
   }
-  for (const delayed of unit.judgement) {
+  for (const [index, delayed] of unit.judgement.entries()) {
     const judged = drawCards(working.deck, working.discard, 1)
     const originalJudge = judged.drawn[0]; if (!originalJudge) break
+    if (delayed.kind === 'indulgence' && working.units.player.hp > 0 && working.units.player.skills.includes('guicai') && working.units.player.hand.length) {
+      const prompt = `${working.units[team].name}的【乐不思蜀】判定为${originalJudge.suit}${originalJudge.rank}，是否发动【鬼才】改判？`
+      return { ...working, deck: judged.deck, discard: judged.discard, units: { ...working.units, [team]: { ...working.units[team], judgement: unit.judgement.slice(index + 1) } }, pendingJudgement: { team, delayed, original: originalJudge, skipPlay }, message: prompt, history: log(working, prompt) }
+    }
     let judge = originalJudge, judgementDiscard = [originalJudge]
     const owner = working.units[team]
     const isUnfavorable = (card: Card) => delayed.kind === 'indulgence' ? card.suit !== 'heart' : delayed.kind === 'lightning' ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 : false
@@ -772,7 +777,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -1245,6 +1250,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(resolved)
     if (resolved.phase === 'ai' && !resolved.winner && !resolved.pendingResponse) setTimeout(() => void get().runAI(), 120)
   },
+  chooseJudgementCard: cardId => {
+    const state = get(), pending = state.pendingJudgement
+    if (!pending) return
+    const player = state.units.player
+    const replacement = cardId ? player.hand.find(card => card.id === cardId) : undefined
+    if (cardId && !replacement) return
+    const judge = replacement ?? pending.original
+    const owner = state.units[pending.team]
+    const tiandu = owner.skills.includes('tiandu')
+    const failed = judge.suit !== 'heart'
+    const discarded = [pending.delayed, pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
+    const playerAfter = replacement ? { ...player, hand: player.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } : player
+    const ownerAfter = pending.team === 'player' ? playerAfter : owner
+    const units = { ...state.units, player: playerAfter,
+      [pending.team]: { ...ownerAfter, hand: tiandu ? [...ownerAfter.hand, judge] : ownerAfter.hand },
+    }
+    const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : ''}${owner.name}的【乐不思蜀】${failed ? '判定失败，跳过出牌阶段' : '判定通过'}`
+    const settled = { ...state, units, discard: [...state.discard, ...discarded], pendingJudgement: null, message, history: log(state, message) }
+    const next = beginTurn(settled, pending.team, true, pending.skipPlay || failed)
+    set(next)
+    if (next.phase === 'ai' && !next.pendingJudgement && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1393,7 +1420,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return

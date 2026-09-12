@@ -740,6 +740,27 @@ function ResponseWindow() {
   </section></div>
 }
 
+function JudgementWindow() {
+  const pending = useGameStore(s => s.pendingJudgement)
+  const player = useGameStore(s => s.units.player)
+  const owner = useGameStore(s => pending ? s.units[pending.team] : null)
+  const chooseJudgementCard = useGameStore(s => s.chooseJudgementCard)
+  if (!pending || !owner) return null
+  const original = pending.original
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">鬼才 · 判定响应</span>
+    <h1>{owner.name}的【乐不思蜀】</h1>
+    <p>当前判定：{SUIT_GLYPH[original.suit]} {original.rank}。{original.suit === 'heart' ? '判定通过' : '将跳过出牌阶段'}。选择一张手牌替换，或保留当前结果。</p>
+    <div className="response-cards">
+      {player.hand.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => chooseJudgementCard(card.id)}>
+        <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.suit === 'heart' ? '改判后通过' : '改判后跳过出牌'}</small>
+      </button>)}
+    </div>
+    <button className="decline-response" onClick={() => chooseJudgementCard(null)}>保留原判定</button>
+  </section></div>
+}
+
 function HarvestWindow() {
   const pending = useGameStore(s => s.pendingHarvest)
   const chooseHarvest = useGameStore(s => s.chooseHarvest)
@@ -891,6 +912,7 @@ function App() {
     {!state.generalSelected && <GeneralSelect />}
     {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
+    {state.generalSelected && !tutorial && state.pendingJudgement && <JudgementWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
