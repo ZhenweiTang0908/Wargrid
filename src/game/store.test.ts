@@ -400,6 +400,22 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).not.toContainEqual(hidden)
   })
 
+  it('does not spend Snatch or Dismantle against a target with no cards', () => {
+    const snatch = card('snatch'), dismantle = card('dismantle')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [snatch, dismantle] },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: {} },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: snatch.id, target: 'north' })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: dismantle.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([snatch, dismantle])
+    expect(state.pendingPlunder).toBeNull()
+    expect(state.discard).not.toContainEqual(snatch)
+    expect(state.discard).not.toContainEqual(dismantle)
+  })
+
   it('lets Diao Chan draw at the end of her turn through Biyue', () => {
     useGameStore.getState().selectGeneral('biyue')
     const moonCard = card('peach', 'heart'), nextA = card('slash'), nextB = card('dodge')

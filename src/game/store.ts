@@ -801,6 +801,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const virtualSlash = !!validJijiang || (action.asSlash && (isSlashKind(card.kind) || spearMaterials.length === 2 || (unit.skill === 'wusheng' && (card.suit === 'heart' || card.suit === 'diamond')) || (unit.skill === 'longdan' && card.kind === 'dodge')))
       const kind = virtualSlash ? 'slash' : virtualDismantle ? 'dismantle' : virtualIndulgence ? 'indulgence' : card.kind
       const targetId = action.target ?? primaryTarget(state, action.unit), target = state.units[targetId]
+      if ((kind === 'dismantle' || kind === 'snatch') && (targetId === action.unit || target.hp <= 0 || (!target.hand.length && !Object.values(target.equipment).some(Boolean)))) return
       if (target.skills.includes('qianxun') && (kind === 'snatch' || kind === 'indulgence')) return
       if (kind === 'duel' && target.skills.includes('kongcheng') && target.hand.length === 0) return
       if (kind === 'indulgence' && target.judgement.some(delayed => delayed.kind === 'indulgence')) return

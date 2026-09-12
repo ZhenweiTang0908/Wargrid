@@ -219,10 +219,10 @@ function UnitPiece({ team }: { team: Team }) {
   const chainSelected = state.chainTargets.includes(team)
   const canTarget = canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
-    (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || selectedKind === 'dismantle' ||
+    (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean))) ||
     (selectedKind === 'borrowedSword' && !!unit.equipment.weapon) ||
     selectedKind === 'indulgence' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
-    (selectedKind === 'snatch' && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
+    (selectedKind === 'snatch' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean)) && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
   ))
 
   useEffect(() => {
