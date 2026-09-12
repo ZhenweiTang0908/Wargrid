@@ -1288,8 +1288,8 @@ describe('standard card scenarios', () => {
     const duel = card('duel', 'spade'), first = card('nullify', 'club'), second = card('nullify', 'diamond'), allyCounter = card('nullify', 'heart')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
       ...state.units,
-      east: { ...state.units.east, hand: [duel] },
-      west: { ...state.units.west, identity: 'rebel', hand: [allyCounter] },
+      east: { ...state.units.east, hand: [duel], revealed: true },
+      west: { ...state.units.west, identity: 'rebel', hand: [allyCounter], revealed: true },
       player: { ...state.units.player, hand: [first, second] },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
@@ -1301,6 +1301,22 @@ describe('standard card scenarios', () => {
     expect(state.pendingResponse).toBeNull()
     expect(state.units.player.hp).toBe(5)
     expect(state.discard).toEqual(expect.arrayContaining([duel, first, allyCounter, second]))
+  })
+
+  it('does not reveal a hidden ally by countering for them', () => {
+    const duel = card('duel'), nullify = card('nullify'), hiddenCounter = card('nullify')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [duel], revealed: false },
+      west: { ...state.units.west, identity: 'rebel', hand: [hiddenCounter], revealed: false },
+      player: { ...state.units.player, hand: [nullify] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(nullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.west.hand).toContainEqual(hiddenCounter)
+    expect(state.units.player.hp).toBe(5)
   })
 
   it('continues from nullify into the underlying duel when declined', () => {

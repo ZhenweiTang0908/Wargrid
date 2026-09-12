@@ -1316,7 +1316,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (card) {
         const player = base.units.player, message = `${player.name}打出【无懈可击】，抵消【${CARD_LABEL[pending.trick!]}】`
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
-        const source = alliesFor(base, pending.source).find(candidate => candidate.id !== 'player' && candidate.hand.some(item => item.kind === 'nullify'))
+        const source = alliesFor(base, pending.source).find(candidate => candidate.id !== 'player' && (candidate.id === pending.source || (base.units[pending.source].revealed && candidate.revealed)) && candidate.hand.some(item => item.kind === 'nullify'))
         const counter = source?.hand.find(candidate => candidate.kind === 'nullify')
         if (source && counter) {
           const counterMessage = `${source.name}打出【无懈可击】，反制${player.name}的【无懈可击】`
