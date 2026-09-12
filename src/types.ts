@@ -104,6 +104,7 @@ export interface GameState {
   generalSelected: boolean
   selectedUnit: Team | null
   selectedCardId: string | null
+  borrowedSwordWielder: Team | null
   selectedAsSlash: boolean
   selectedAsDismantle: boolean
   selectedAsFanjian: boolean

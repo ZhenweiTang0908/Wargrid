@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
-import { canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
+import { canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -222,10 +222,13 @@ function UnitPiece({ team }: { team: Team }) {
   const lijianSelected = state.lijianTargets.includes(team)
   const canChainTarget = selectedKind === 'ironChain' && unit.hp > 0
   const chainSelected = state.chainTargets.includes(team)
+  const borrowedWielder = state.borrowedSwordWielder
+  const canBorrowedWielder = selectedKind === 'borrowedSword' && team !== 'player' && !borrowedWielder && !!unit.equipment.weapon && Object.values(state.units).some(victim => victim.id !== 'player' && canBorrowedSwordTarget(state, unit, victim))
+  const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && team !== 'player' && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
   const canTarget = canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean))) ||
-    (selectedKind === 'borrowedSword' && !!unit.equipment.weapon) ||
+    canBorrowedWielder || canBorrowedVictim ||
     selectedKind === 'indulgence' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
     (selectedKind === 'snatch' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean)) && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
   ))
@@ -257,6 +260,8 @@ function UnitPiece({ team }: { team: Team }) {
         e.stopPropagation()
         if (canChainTarget) state.selectChainTarget(team)
         else if (canLijianTarget) state.selectLijianTarget(team)
+        else if (canBorrowedWielder) state.selectBorrowedSwordWielder(team)
+        else if (canBorrowedVictim && selectedCardId && borrowedWielder) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: borrowedWielder, targets: [borrowedWielder, team] })
         else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
       onPointerEnter={() => { if (canTarget || canChainTarget) document.body.style.cursor = 'crosshair' }}
@@ -268,6 +273,10 @@ function UnitPiece({ team }: { team: Team }) {
           <meshBasicMaterial color="#ffcb70" transparent opacity={.9} side={THREE.DoubleSide} />
         </mesh>
       )}
+      {borrowedWielder === team && <mesh position-y={.07} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[.58, .67, 32]} />
+        <meshBasicMaterial color="#f0b766" transparent opacity={.95} side={THREE.DoubleSide} />
+      </mesh>}
       {lijianSelected && <mesh position-y={.07} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[.58, .67, 32]} />
         <meshBasicMaterial color="#e98ac5" transparent opacity={.95} side={THREE.DoubleSide} />

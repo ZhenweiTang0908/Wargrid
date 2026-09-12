@@ -238,6 +238,7 @@ export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
 }
 export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : terrainAt(state, attacker.position) === 'watchtower' ? 2 : 0)
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && !(target.skills.includes('kongcheng') && target.hand.length === 0) && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
+export const canBorrowedSwordTarget = (state: GameState, wielder: Unit, victim: Unit) => !!wielder.equipment.weapon && wielder.hp > 0 && victim.hp > 0 && wielder.id !== victim.id && !(victim.skills.includes('kongcheng') && victim.hand.length === 0) && combatDistance(state, wielder, victim) <= effectiveAttackRange(state, wielder)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
 export const isSlashKind = (kind: CardKind) => kind === 'slash' || kind === 'fireSlash' || kind === 'thunderSlash'
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
@@ -300,7 +301,7 @@ export function createInitialState(deck?: Card[], randomizeIdentities = false, r
       west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: hiddenIdentities[2], faction: 'wei', gender: 'male', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: initialDeck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
     },
     deck: initialDeck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
-    scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', generalSelected: false, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [],
+    scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', generalSelected: false, selectedUnit: 'player', selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [],
     chainTargets: [], reachable: [], pathPreview: [], pendingResponse: null, pendingHarvest: null, pendingFanjian: null, pendingPlunder: null, winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
   }
   state.reachable = reachableCells(state, state.units.player)

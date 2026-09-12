@@ -1567,7 +1567,7 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, position: { x: 4, y: 1 }, hand: [forcedSlash], equipment: { weapon } },
       east: { ...state.units.east, position: { x: 4, y: 2 }, hand: [] },
     } }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north' })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'east'] })
     const state = useGameStore.getState()
     expect(state.units.east.hp).toBe(3)
     expect(state.units.north.hand).toHaveLength(0)
@@ -1577,12 +1577,34 @@ describe('standard card scenarios', () => {
 
   it('takes the weapon when Borrowed Sword target cannot slash', () => {
     const trick = card('borrowedSword'), weapon = card('greenDragon')
-    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [trick] }, north: { ...state.units.north, hand: [], equipment: { weapon } } } }))
-    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north' })
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [trick] }, north: { ...state.units.north, hand: [], equipment: { weapon } }, east: { ...state.units.east, position: { x: 4, y: 1 } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'east'] })
     const state = useGameStore.getState()
     expect(state.units.north.equipment.weapon).toBeUndefined()
     expect(state.units.player.hand).toContainEqual(weapon)
     expect(state.message).toContain('获得其')
+  })
+
+  it('uses the player-designated Borrowed Sword victim and rejects invalid choices', () => {
+    const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [trick] },
+      north: { ...state.units.north, position: { x: 4, y: 1 }, hand: [forcedSlash], equipment: { weapon } },
+      east: { ...state.units.east, position: { x: 4, y: 2 }, hand: [] },
+      west: { ...state.units.west, position: { x: 5, y: 1 }, hand: [], skill: 'kurou', skills: ['kurou'] },
+    } }))
+    useGameStore.getState().selectCard(trick.id)
+    useGameStore.getState().selectBorrowedSwordWielder('north')
+    expect(useGameStore.getState().borrowedSwordWielder).toBe('north')
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'north'] })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(trick)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'west'] })
+    const state = useGameStore.getState()
+    expect(state.borrowedSwordWielder).toBeNull()
+    expect(state.units.west.hp).toBe(3)
+    expect(state.units.east.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
   })
 
   it('lets an armed player choose the forced Slash without consuming their own attack quota', () => {
@@ -1620,6 +1642,18 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toContainEqual(forcedSlash)
     expect(state.units.east.hand).toContainEqual(weapon)
     expect(state.units.west.hp).toBe(4)
+  })
+
+  it('does not spend Borrowed Sword when the armed target has no legal victim', () => {
+    const trick = card('borrowedSword'), weapon = card('qinggang')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [trick] },
+      player: { ...state.units.player, equipment: { weapon } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id, target: 'player' })
+    expect(useGameStore.getState().units.east.hand).toContainEqual(trick)
+    expect(useGameStore.getState().pendingResponse).toBeNull()
   })
 
   it('lets Liu Bei gift cards and heals once when Rende reaches two cards', () => {
