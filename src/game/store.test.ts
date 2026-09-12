@@ -2326,6 +2326,39 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(redJudge)
   })
 
+  it('does not let Bagua judge with the Arrows card still resolving', () => {
+    const arrows = card('arrows'), bagua = card('bagua')
+    useGameStore.setState(state => ({ deck: [], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [arrows] },
+      north: { ...state.units.north, hand: [], equipment: { armor: bagua } },
+      east: { ...state.units.east, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.deck).toEqual([])
+    expect(state.discard).toEqual([arrows])
+  })
+
+  it('does not let Ganglie judge with the Arrows card still resolving', () => {
+    const arrows = card('arrows')
+    useGameStore.setState(state => ({ deck: [], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [arrows] },
+      north: { ...state.units.north, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+      east: { ...state.units.east, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.player.hp).toBe(5)
+    expect(state.deck).toEqual([])
+    expect(state.discard).toEqual([arrows])
+  })
+
   it('opens the dodge response after a failed Bagua judgement', () => {
     const slash = card('slash', 'heart'), bagua = card('bagua', 'club'), judgement = card('duel', 'spade', 9), dodge = card('dodge', 'diamond')
     useGameStore.setState(state => ({

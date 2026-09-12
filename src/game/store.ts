@@ -136,6 +136,8 @@ function triggerLianying(state: GameState, team: Team, resolvingCards: Card[] = 
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: [...draw.discard, ...resolvingCards], message, history: log(state, message) }
 }
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
+const drawWhileResolving = (deck: Card[], discard: Card[], count: number, sourceCard?: Card) =>
+  drawCards(deck, discard, count, Math.random, sourceCard ? [sourceCard.id] : [])
 const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => required === 'slash' ? isSlashKind(card.kind) : card.kind === required)
   ?? (unit.skill === 'longdan' ? unit.hand.find(card => required === 'slash' ? card.kind === 'dodge' : isSlashKind(card.kind)) : undefined)
   ?? (required === 'slash' && unit.skills.includes('wusheng') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
@@ -283,7 +285,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     units = { ...units, [targetId]: { ...defeated, hand: [], equipment: {}, judgement: [] } }
   }
   if (hasKiller && target.identity === 'rebel') {
-    const reward = drawCards(deck, discard, 3); deck = reward.deck; discard = reward.discard
+    const reward = drawWhileResolving(deck, discard, 3, sourceCard); deck = reward.deck; discard = reward.discard
     units = { ...units, [attackerId]: { ...units[attackerId], hand: [...units[attackerId].hand, ...reward.drawn] } }
   }
   if (hasKiller && units[attackerId].identity === 'lord' && target.identity === 'loyalist') {
@@ -317,12 +319,12 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     }
   }
   if (hp > 0 && target.skills.includes('yiji')) {
-    const insight = drawCards(deck, discard, amount * 2); deck = insight.deck; discard = insight.discard
+    const insight = drawWhileResolving(deck, discard, amount * 2, sourceCard); deck = insight.deck; discard = insight.discard
     units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, ...insight.drawn], animation: 'cast' } }
     skillText += `；${target.name}发动【遗计】${amount} 次，摸${amount * 2}张牌`
   }
   if (hp > 0 && target.skill === 'ganglie') {
-    const judged = drawCards(deck, discard, 1), judge = judged.drawn[0]
+    const judged = drawWhileResolving(deck, discard, 1, sourceCard), judge = judged.drawn[0]
     deck = judged.deck; discard = judge ? [...judged.discard, judge] : judged.discard
     if (judge && judge.suit !== 'heart') {
       const attacker = units[attackerId]
@@ -435,7 +437,7 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
       const restored = (result: GameState): GameState => ({ ...result, units: { ...result.units, [wielderId]: { ...result.units[wielderId], attacksUsed: wielder.attacksUsed } } })
       const offered = offerPlayerLiuli(forced, wielderId, slash, wielder.attacksUsed)
       if (offered) return offered
-      const tieqi = judgeTieqi(forced, wielderId)
+      const tieqi = judgeTieqi(forced, wielderId, slash)
       let working = tieqi.state
       const shieldBlocks = working.units.player.equipment.armor?.kind === 'shield' && (slash.suit === 'spade' || slash.suit === 'club') && working.units[wielderId].equipment.weapon?.kind !== 'qinggang'
       if (tieqi.locked || shieldBlocks) return restored({ ...working, ...resolveSlash(working, wielderId, 'player', null, true, slash) })
@@ -449,8 +451,8 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
   return takeTargetCard(state, actorId, wielderId, true, weapon.id, 'borrowedSword')
 }
 
-function judgeBagua(state: GameState, targetId: Team) {
-  const draw = drawCards(state.deck, state.discard, 1), judge = draw.drawn[0]
+function judgeBagua(state: GameState, targetId: Team, sourceCard?: Card) {
+  const draw = drawWhileResolving(state.deck, state.discard, 1, sourceCard), judge = draw.drawn[0]
   if (!judge) return { state, success: false }
   const success = judge.suit === 'heart' || judge.suit === 'diamond'
   const target = state.units[targetId], tiandu = target.skills.includes('tiandu')
@@ -458,10 +460,10 @@ function judgeBagua(state: GameState, targetId: Team) {
   return { state: { ...state, units: tiandu ? { ...state.units, [targetId]: { ...target, hand: [...target.hand, judge], animation: 'cast' } } : state.units, deck: draw.deck, discard: tiandu ? draw.discard : [...draw.discard, judge], message, history: log(state, message) }, success }
 }
 
-function judgeTieqi(state: GameState, attackerId: Team) {
+function judgeTieqi(state: GameState, attackerId: Team, sourceCard?: Card) {
   const attacker = state.units[attackerId]
   if (!attacker.skills.includes('tieqi')) return { state, locked: false }
-  const draw = drawCards(state.deck, state.discard, 1), judge = draw.drawn[0]
+  const draw = drawWhileResolving(state.deck, state.discard, 1, sourceCard), judge = draw.drawn[0]
   if (!judge) return { state, locked: false }
   const locked = judge.suit === 'heart' || judge.suit === 'diamond'
   const message = `${attacker.name}发动【铁骑】，判定为${judge.suit}${judge.rank}${locked ? '，目标不能使用【闪】' : '，判定未生效'}`
@@ -550,7 +552,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   }
   let attacker = state.units[attackerId], target = state.units[targetId]
   if (manualResponse === undefined) {
-    const tieqi = judgeTieqi(state, attackerId)
+    const tieqi = judgeTieqi(state, attackerId, slashCard)
     state = tieqi.state
     if (tieqi.locked) { manualResponse = null; armorChecked = true }
     attacker = state.units[attackerId]; target = state.units[targetId]
@@ -568,7 +570,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   }
   let baguaDodge = false
   if (manualResponse === undefined && !armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
-    const judged = judgeBagua(state, targetId)
+    const judged = judgeBagua(state, targetId, slashCard)
     state = judged.state; attacker = state.units[attackerId]; target = state.units[targetId]
     if (judged.success) {
       if (attacker.skill === 'wushuang') baguaDodge = true
@@ -689,7 +691,7 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
     }
     if (kind === 'arrows' && target.equipment.armor?.kind === 'bagua') {
-      const judged = judgeBagua(working, targetId)
+      const judged = judgeBagua(working, targetId, sourceCard)
       working = judged.state
       if (judged.success) continue
       target = working.units[targetId]
@@ -1120,7 +1122,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (targetId === 'player' && action.unit !== 'player') {
           const offered = offerPlayerLiuli(base, action.unit, card)
           if (offered) { set(offered); return }
-          const tieqi = judgeTieqi(base, action.unit); base = tieqi.state
+          const tieqi = judgeTieqi(base, action.unit, card); base = tieqi.state
           if (tieqi.locked) { set({ ...base, ...resolveSlash(base, action.unit, targetId, null, true, card) }); return }
           const shieldBlocks = target.equipment.armor?.kind === 'shield' && (card.suit === 'spade' || card.suit === 'club') && attackUnit.equipment.weapon?.kind !== 'qinggang'
           if (!shieldBlocks) {
@@ -1480,7 +1482,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateBagua: () => {
     const state = get(), pending = state.pendingResponse
     if (!pending || (pending.effect !== 'slash' && pending.effect !== 'arrows') || pending.target !== 'player' || pending.armorChecked || state.units.player.equipment.armor?.kind !== 'bagua' || (pending.effect === 'slash' && state.units[pending.source].equipment.weapon?.kind === 'qinggang')) return
-    const judged = judgeBagua(state, 'player')
+    const judged = judgeBagua(state, 'player', state.discard.find(card => card.id === pending.originCardId))
     let next: GameState = judged.state
     if (!judged.success) {
       const prompt = '【八卦阵】判定失败，请选择是否打出【闪】'
@@ -1617,7 +1619,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (pending.forcedSlashAttacksUsed !== undefined) resolved = { ...resolved, units: { ...resolved.units, [pending.source]: { ...resolved.units[pending.source], attacksUsed: pending.forcedSlashAttacksUsed } } }
       set(resolved)
     } else {
-      const judged = judgeTieqi(base, pending.source); base = judged.state
+      const judged = judgeTieqi(base, pending.source, slash); base = judged.state
       const shieldBlocks = player.equipment.armor?.kind === 'shield' && (slash.suit === 'spade' || slash.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
       if (judged.locked || shieldBlocks) {
         let resolved: GameState = { ...base, ...resolveSlash(base, pending.source, 'player', null, true, slash) }

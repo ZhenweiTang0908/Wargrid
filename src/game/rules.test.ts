@@ -281,6 +281,15 @@ describe('card and victory rules', () => {
     expect(result.discard).toHaveLength(0)
   })
 
+  it('keeps a resolving card out of a discard reshuffle until its effect ends', () => {
+    const resolving: Card = { id: 'aoe', kind: 'arrows', suit: 'spade', rank: 1 }
+    const available: Card = { id: 'judge', kind: 'peach', suit: 'heart', rank: 2 }
+    const draw = drawCards([], [resolving, available], 2, () => 0.5, [resolving.id])
+    expect(draw.drawn).toEqual([available])
+    expect(draw.deck).toEqual([])
+    expect(draw.discard).toEqual([resolving])
+  })
+
   it('allows peach only below maximum health', () => {
     const state = createInitialState(fixedDeck())
     expect(canPeach(state.units.player)).toBe(false)

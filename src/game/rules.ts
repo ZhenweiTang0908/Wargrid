@@ -484,10 +484,14 @@ export const isSlashKind = (kind: CardKind) => kind === 'slash' || kind === 'fir
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
 export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)
 
-export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random) {
+export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random, resolvingCardIds: readonly string[] = []) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []
+  const resolving = new Set(resolvingCardIds)
   while (drawn.length < count) {
-    if (!nextDeck.length) { nextDeck = shuffle(nextDiscard, random); nextDiscard = [] }
+    if (!nextDeck.length) {
+      nextDeck = shuffle(nextDiscard.filter(card => !resolving.has(card.id)), random)
+      nextDiscard = nextDiscard.filter(card => resolving.has(card.id))
+    }
     const card = nextDeck.shift(); if (!card) break; drawn.push(card)
   }
   return { drawn, deck: nextDeck, discard: nextDiscard }
