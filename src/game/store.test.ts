@@ -294,6 +294,7 @@ describe('standard card scenarios', () => {
       },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
     useGameStore.getState().respond(null)
     const state = useGameStore.getState()
     expect(state.units.player.hand).toContainEqual(slash)
@@ -1559,13 +1560,16 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(lion)
   })
 
-  it('uses a red Bagua judgement as dodge before opening a response window', () => {
+  it('lets the player activate Bagua and use a red judgement as dodge', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({
       deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
       units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { armor: bagua } } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', armorChecked: false })
+    expect(useGameStore.getState().deck).toContainEqual(judgement)
+    useGameStore.getState().activateBagua()
     const state = useGameStore.getState()
     expect(state.pendingResponse).toBeNull()
     expect(state.units.player.hp).toBe(5)
@@ -1581,12 +1585,45 @@ describe('standard card scenarios', () => {
       units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
     expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', armorChecked: true })
     useGameStore.getState().respond(dodge.id)
     const state = useGameStore.getState()
     expect(state.units.player.hp).toBe(5)
     expect(state.deck).toHaveLength(0)
     expect(state.discard).toContainEqual(judgement)
+  })
+
+  it('allows playing a Dodge without activating Bagua or consuming the judgement deck', () => {
+    const slash = card('slash', 'heart'), bagua = card('bagua'), judgement = card('peach', 'heart'), dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.deck).toEqual([judgement])
+    expect(state.discard).not.toContainEqual(judgement)
+  })
+
+  it('counts a successful Bagua judgement as only one Dodge against Wushuang', () => {
+    const slash = card('slash', 'heart'), bagua = card('bagua'), judgement = card('peach', 'heart'), dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
+      units: { ...state.units, east: { ...state.units.east, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', requiredCount: 1, armorChecked: true })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([judgement, dodge]))
   })
 
   it('retains fire damage after a failed Bagua judgement', () => {
@@ -1600,6 +1637,7 @@ describe('standard card scenarios', () => {
       },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: fireSlash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
     expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', originCardId: fireSlash.id, armorChecked: true })
     useGameStore.getState().respond(null)
     const state = useGameStore.getState()

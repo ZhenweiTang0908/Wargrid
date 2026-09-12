@@ -747,7 +747,9 @@ function GeneralSelect() {
 function ResponseWindow() {
   const pending = useGameStore(s => s.pendingResponse)
   const player = useGameStore(s => s.units.player)
+  const attackerWeapon = useGameStore(s => s.pendingResponse ? s.units[s.pendingResponse.source].equipment.weapon?.kind : undefined)
   const respond = useGameStore(s => s.respond)
+  const activateBagua = useGameStore(s => s.activateBagua)
   if (!pending) return null
   const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
   const responses = player.hand.filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
@@ -762,6 +764,7 @@ function ResponseWindow() {
       </button>)}
       {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : `手牌中没有【${requiredLabel}】`}</span>}
     </div>
+    {pending.effect === 'slash' && player.equipment.armor?.kind === 'bagua' && attackerWeapon !== 'qinggang' && !pending.armorChecked && <button className="decline-response" onClick={activateBagua}>发动【八卦阵】判定：红色视为打出【闪】</button>}
     {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => respond(null)}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
   </section></div>
 }

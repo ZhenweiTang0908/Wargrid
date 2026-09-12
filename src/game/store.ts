@@ -14,6 +14,7 @@ interface GameStore extends GameState {
   chooseFanjianSuit: (suit: Card['suit']) => void
   choosePlunderCard: (cardId: string) => void
   chooseJudgementCard: (cardId: string | null) => void
+  activateBagua: () => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -376,15 +377,9 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
       let working = tieqi.state
       const shieldBlocks = working.units.player.equipment.armor?.kind === 'shield' && (slash.suit === 'spade' || slash.suit === 'club') && wielder.equipment.weapon?.kind !== 'qinggang'
       if (tieqi.locked || shieldBlocks) return restored({ ...working, ...resolveSlash(working, wielderId, 'player', null, true, slash) })
-      let armorChecked = false
-      if (working.units.player.equipment.armor?.kind === 'bagua' && wielder.equipment.weapon?.kind !== 'qinggang') {
-        const judged = judgeBagua(working, 'player')
-        working = judged.state; armorChecked = true
-        if (judged.success) return working
-      }
       const requiredCount = wielder.skill === 'wushuang' ? 2 : 1
       const prompt = `${wielder.name}受【借刀杀人】驱使对你使用【杀】，${requiredCount === 2 ? '请连续打出两张【闪】' : '请选择是否打出【闪】'}`
-      return { ...working, pendingResponse: { effect: 'slash', source: wielderId, target: 'player', required: 'dodge', requiredCount, armorChecked, originCardId: slash.id, forcedSlashAttacksUsed: wielder.attacksUsed, prompt }, message: prompt, history: log(working, prompt) }
+      return { ...working, pendingResponse: { effect: 'slash', source: wielderId, target: 'player', required: 'dodge', requiredCount, armorChecked: false, originCardId: slash.id, forcedSlashAttacksUsed: wielder.attacksUsed, prompt }, message: prompt, history: log(working, prompt) }
     }
     const resolved = { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
     return { ...resolved, units: { ...resolved.units, [wielderId]: { ...resolved.units[wielderId], attacksUsed: wielder.attacksUsed } } }
@@ -458,7 +453,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
     attacker = state.units[attackerId]; target = state.units[targetId]
   }
-  if (!armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
+  if (manualResponse === undefined && !armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
     const judged = judgeBagua(state, targetId)
     state = judged.state; attacker = state.units[attackerId]; target = state.units[targetId]
     if (judged.success) {
@@ -960,16 +955,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (tieqi.locked) { set({ ...base, ...resolveSlash(base, action.unit, targetId, null, true, card) }); return }
           const shieldBlocks = target.equipment.armor?.kind === 'shield' && (card.suit === 'spade' || card.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
           if (!shieldBlocks) {
-            let armorChecked = false
-            if (target.equipment.armor?.kind === 'bagua' && unit.equipment.weapon?.kind !== 'qinggang') {
-              const judged = judgeBagua(base, targetId); base = judged.state; armorChecked = true
-              if (judged.success) {
-                set({ ...base, units: { ...base.units, [action.unit]: { ...base.units[action.unit], attacksUsed: base.units[action.unit].attacksUsed + 1, drunk: false, animation: 'attack' } } }); return
-              }
-            }
             const requiredCount = unit.skill === 'wushuang' ? 2 : 1
             const prompt = `${unit.name}对你使用【杀】，${requiredCount === 2 ? '【无双】要求连续打出两张【闪】' : '请选择是否打出【闪】'}`
-            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
+            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked: false, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
           }
         }
         if (action.unit === 'player' && unit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
@@ -1289,6 +1277,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
       : beginTurn(settled, pending.team, true, skipPlay)
     set(next)
     if (next.phase === 'ai' && !next.pendingJudgement && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
+  },
+  activateBagua: () => {
+    const state = get(), pending = state.pendingResponse
+    if (pending?.effect !== 'slash' || pending.target !== 'player' || pending.armorChecked || state.units.player.equipment.armor?.kind !== 'bagua' || state.units[pending.source].equipment.weapon?.kind === 'qinggang') return
+    const judged = judgeBagua(state, 'player')
+    let next: GameState = judged.state
+    if (!judged.success) {
+      const prompt = '【八卦阵】判定失败，请选择是否打出【闪】'
+      set({ ...next, pendingResponse: { ...pending, armorChecked: true, prompt }, message: prompt, history: log(next, prompt) })
+      return
+    }
+    if ((pending.requiredCount ?? 1) > 1) {
+      const prompt = '【八卦阵】视为打出第一张【闪】；【无双】还需一张【闪】'
+      set({ ...next, pendingResponse: { ...pending, armorChecked: true, requiredCount: (pending.requiredCount ?? 1) - 1, prompt }, message: prompt, history: log(next, prompt) })
+      return
+    }
+    const attacker = next.units[pending.source]
+    const counted = pending.forcedSlashAttacksUsed ?? attacker.attacksUsed + 1
+    next = { ...next, pendingResponse: null, units: { ...next.units, [pending.source]: { ...attacker, attacksUsed: counted, drunk: false, animation: 'attack' } } }
+    if (attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
+      const paid = attacker.hand.slice(0, 2)
+      const forced: GameState = { ...next, units: { ...next.units, [pending.source]: { ...next.units[pending.source], hand: attacker.hand.slice(2) } }, discard: [...next.discard, ...paid] }
+      next = { ...forced, ...damage(forced, pending.source, 'player', attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${next.units.player.name}`, false, forced.discard.find(card => card.id === pending.originCardId)) }
+    }
+    set(next)
+    if (next.phase === 'ai' && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
   },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
