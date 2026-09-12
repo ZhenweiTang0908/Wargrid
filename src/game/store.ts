@@ -687,15 +687,15 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
       return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
     }
-    const nullify = target.hand.find(c => c.kind === 'nullify')
+    const response = responseKind === 'slash' ? slashResponses(target)[0] : responseCard(target, responseKind)
+    const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
+    const nullify = !response && !guard ? target.hand.find(c => c.kind === 'nullify') : undefined
     if (nullify) {
       const message = `${target.name}以【无懈可击】抵消【${CARD_LABEL[kind]}】`
       working = { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...working.discard, nullify], message, history: log(working, message) }
       working = triggerLianying(working, targetId)
       continue
     }
-    const response = responseKind === 'slash' ? slashResponses(target)[0] : responseCard(target, responseKind)
-    const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
     if (response || guard) {
       const message = guard ? `${guard.unit.name}发动【护驾】保护主公` : `${target.name}${responseText(target, response!, responseKind)}响应【${CARD_LABEL[kind]}】`
       working = guard

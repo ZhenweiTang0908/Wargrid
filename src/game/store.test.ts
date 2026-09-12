@@ -1451,6 +1451,19 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['arrows', 'dodge']))
   })
 
+  it('keeps AI Nullify when a basic card can answer a group trick', () => {
+    for (const [trickKind, answerKind] of [['arrows', 'dodge'], ['barbarians', 'slash']] as const) {
+      const trick = card(trickKind), answer = card(answerKind), nullify = card('nullify')
+      useGameStore.setState(createInitialState(Array.from({ length: 30 }, () => card('slash', 'club'))))
+      useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [trick] }, north: { ...state.units.north, hand: [nullify, answer] } } }))
+      useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north' })
+      const state = useGameStore.getState()
+      expect(state.units.north.hand).toContainEqual(nullify)
+      expect(state.units.north.hand).not.toContainEqual(answer)
+      expect(state.units.north.hp).toBe(4)
+    }
+  })
+
   it('uses a red card as slash through Wusheng', () => {
     const redTrick = card('drawTwo', 'diamond', 9)
     useGameStore.setState(state => ({
