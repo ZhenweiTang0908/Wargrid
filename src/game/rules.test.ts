@@ -11,7 +11,7 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 
 describe('board rules', () => {
   it('keeps every selectable battlefield definition playable', () => {
-    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert'])
+    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple'])
     for (const id of MAP_IDS) {
       const map = MAP_DEFINITIONS[id]
       const state = createInitialState(fixedDeck(), false, Math.random, id)
@@ -19,8 +19,21 @@ describe('board rules', () => {
       expect(map.description.length).toBeGreaterThan(0)
       expect(state.terrain).toBe(map.terrain)
       expect(state.obstacles).toBe(map.obstacles)
+      expect(state.controlPoint).toEqual(map.controlPoint ?? { x: 4, y: 4 })
+      expect(state.mapObjects.every(object => !state.obstacles.some(block => block.x === object.position.x && block.y === object.position.y))).toBe(true)
       for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
     }
+  })
+  it('places the Maple Fort objective west of center while both flanks remain reachable', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'maple')
+    expect(state.controlPoint).toEqual({ x: 3, y: 4 })
+    expect(terrainAt(state, state.controlPoint)).toBe('road')
+    expect(terrainAt(state, { x: 2, y: 4 })).toBe('watchtower')
+    expect(terrainAt(state, { x: 6, y: 3 })).toBe('forest')
+    expect(state.obstacles).toContainEqual({ x: 5, y: 3 })
+    for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
+    const controlling = { ...state, units: { ...state.units, player: { ...state.units.player, position: state.controlPoint } } }
+    expect(scoreControlPoint(controlling, 'player').scores.player).toBe(1)
   })
   it('keeps the desert oasis reachable while salt flats slow the flanks', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'desert')

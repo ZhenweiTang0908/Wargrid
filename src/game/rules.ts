@@ -149,6 +149,26 @@ export const DESERT_TERRAIN: Terrain[] = [
   ...terrainLine('watchtower', [{ x: 0, y: 4 }, { x: 8, y: 4 }]),
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
 ]
+export const MAPLE_OBSTACLES: Position[] = [
+  { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 6, y: 2 },
+  { x: 2, y: 6 }, { x: 3, y: 6 }, { x: 6, y: 6 },
+  { x: 5, y: 3 }, { x: 5, y: 5 }, { x: 1, y: 4 }, { x: 7, y: 4 },
+]
+export const MAPLE_TERRAIN: Terrain[] = [
+  ...terrainLine('forest', [
+    { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 7, y: 1 }, { x: 8, y: 1 },
+    { x: 0, y: 7 }, { x: 1, y: 7 }, { x: 7, y: 7 }, { x: 8, y: 7 },
+    { x: 2, y: 3 }, { x: 2, y: 5 }, { x: 6, y: 3 }, { x: 6, y: 5 },
+  ]),
+  ...terrainLine('road', [
+    ...Array.from({ length: 9 }, (_, y) => ({ x: 4, y })),
+    ...Array.from({ length: 5 }, (_, x) => ({ x: x + 2, y: 4 })),
+  ]),
+  ...terrainLine('ridge', [{ x: 1, y: 3 }, { x: 7, y: 5 }]),
+  ...terrainLine('watchtower', [{ x: 2, y: 4 }, { x: 6, y: 4 }]),
+  ...terrainLine('village', [{ x: 0, y: 6 }, { x: 8, y: 2 }]),
+  ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
+]
 const riverObjects: MapObject[] = [
   { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
   { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
@@ -213,11 +233,20 @@ const desertObjects: MapObject[] = [
   { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
   { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
 ]
+const mapleObjects: MapObject[] = [
+  { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
+  { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
+  { id: 'west-shrine', position: { x: 0, y: 6 }, kind: 'healingShrine', claimed: false },
+  { id: 'east-drum', position: { x: 8, y: 3 }, kind: 'warDrum', claimed: false },
+  { id: 'west-beacon', position: { x: 0, y: 2 }, kind: 'scoutBeacon', claimed: false },
+  { id: 'east-beacon', position: { x: 8, y: 7 }, kind: 'scoutBeacon', claimed: false },
+]
 
-export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert']
+export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple']
 export const MAP_DEFINITIONS: Record<MapId, {
   name: string
   description: string
+  controlPoint?: Position
   obstacles: Position[]
   terrain: Terrain[]
   objects: MapObject[]
@@ -232,6 +261,7 @@ export const MAP_DEFINITIONS: Record<MapId, {
   pass: { name: '栈道峡关', description: '峡壁收窄中央通路，两侧瞭望台可远程支援', obstacles: PASS_OBSTACLES, terrain: PASS_TERRAIN, objects: passObjects, groundColors: ['#493c30', '#534435'], obstacleColor: '#7c6550' },
   dockyard: { name: '赤壁船坞', description: '两道水路分隔战场，多处栈桥连接中央码头', obstacles: DOCKYARD_OBSTACLES, terrain: DOCKYARD_TERRAIN, objects: dockyardObjects, groundColors: ['#193b40', '#21505a'], obstacleColor: '#64584c' },
   desert: { name: '西凉沙驿', description: '中央驿道纵贯沙原，盐沼拖慢侧翼，绿洲提供补给', obstacles: DESERT_OBSTACLES, terrain: DESERT_TERRAIN, objects: desertObjects, groundColors: ['#8d6945', '#9e7850'], obstacleColor: '#ad8960' },
+  maple: { name: '枫林旧寨', description: '据点偏西，东侧须穿寨或绕林，瞭望台掩护两翼', controlPoint: { x: 3, y: 4 }, obstacles: MAPLE_OBSTACLES, terrain: MAPLE_TERRAIN, objects: mapleObjects, groundColors: ['#49362d', '#55402e'], obstacleColor: '#765c49' },
 }
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
@@ -448,7 +478,7 @@ export function createInitialState(deck?: Card[], randomizeIdentities = false, r
   const hiddenIdentities: Identity[] = randomizeIdentities ? shuffle<Identity>(['loyalist', 'rebel', 'renegade'], random) : ['loyalist', 'rebel', 'renegade']
   const map = MAP_DEFINITIONS[mapId]
   const state: GameState = {
-    mapId, deckMode, size: BOARD_SIZE, terrain: map.terrain, obstacles: map.obstacles, controlPoint: CONTROL_POINT,
+    mapId, deckMode, size: BOARD_SIZE, terrain: map.terrain, obstacles: map.obstacles, controlPoint: map.controlPoint ?? CONTROL_POINT,
     mapObjects: map.objects.map(object => ({ ...object, position: { ...object.position } })),
     units: {
       player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: initialDeck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
