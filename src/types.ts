@@ -146,6 +146,7 @@ export interface GameState {
   pendingGuanxing: PendingGuanxing | null
   pendingTuxi: { targets: Team[]; skipPlay: boolean } | null
   pendingLuoyi: { skipPlay: boolean } | null
+  pendingGreenDragon: { target: Team } | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string

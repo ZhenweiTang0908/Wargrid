@@ -1541,6 +1541,9 @@ describe('standard card scenarios', () => {
       units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [firstSlash, secondSlash], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: firstSlash.id, target: 'north' })
+    expect(useGameStore.getState().pendingGreenDragon).toEqual({ target: 'north' })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(secondSlash)
+    useGameStore.getState().chooseGreenDragon(secondSlash.id)
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(3)
     expect(state.units.north.hand).toHaveLength(0)
@@ -1548,6 +1551,22 @@ describe('standard card scenarios', () => {
     expect(state.units.player.attacksUsed).toBe(2)
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([firstSlash.id, secondSlash.id, dodge.id]))
     expect(state.history.some(entry => entry.includes('青龙偃月刀'))).toBe(true)
+  })
+
+  it('lets the player decline Green Dragon Blade and keep the next slash', () => {
+    const firstSlash = card('slash', 'heart'), secondSlash = card('slash', 'club'), weapon = card('greenDragon'), dodge = card('dodge')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [firstSlash, secondSlash], equipment: { weapon } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: firstSlash.id, target: 'north' })
+    useGameStore.getState().chooseGreenDragon(null)
+    const state = useGameStore.getState()
+    expect(state.pendingGreenDragon).toBeNull()
+    expect(state.units.player.hand).toEqual([secondSlash])
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.player.attacksUsed).toBe(1)
   })
 
   it('adds one damage with Guding Blade against an empty hand', () => {

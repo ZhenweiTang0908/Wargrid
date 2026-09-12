@@ -893,6 +893,25 @@ function LuoyiWindow() {
   </section></div>
 }
 
+function GreenDragonWindow() {
+  const pending = useGameStore(s => s.pendingGreenDragon)
+  const player = useGameStore(s => s.units.player)
+  const target = useGameStore(s => pending ? s.units[pending.target] : null)
+  const choose = useGameStore(s => s.chooseGreenDragon)
+  if (!pending || !target) return null
+  const slashes = player.hand.filter(card => isSlashKind(card.kind) || player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond') || player.skills.includes('longdan') && card.kind === 'dodge')
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">武器技能 · 青龙偃月刀</span>
+    <h1>继续追击{target.name}？</h1>
+    <p>刚才的【杀】已被闪避。可以再打出一张【杀】攻击同一目标，也可以保留手牌。</p>
+    <div className="response-cards">{slashes.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => choose(card.id)}>
+      <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+      <strong>{CARD_LABEL[card.kind]}</strong><small>{isSlashKind(card.kind) ? CARD_COPY[card.kind] : player.skills.includes('longdan') && card.kind === 'dodge' ? '龙胆 · 当【杀】使用' : '武圣 · 当【杀】使用'}</small>
+    </button>)}</div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(null)}>不追击 · 保留手牌</button></div>
+  </section></div>
+}
+
 function HarvestWindow() {
   const pending = useGameStore(s => s.pendingHarvest)
   const chooseHarvest = useGameStore(s => s.chooseHarvest)
@@ -1049,6 +1068,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingGuanxing && <GuanxingWindow />}
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
+    {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
