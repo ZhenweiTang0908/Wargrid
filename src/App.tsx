@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type Unit } from './types'
-import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
+import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
@@ -309,10 +309,10 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
   const canTarget = canQingnangTarget || canJieyinTarget || canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, attackSource, unit)) ||
-    (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean))) ||
+    (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && plunderableCards(unit).length > 0) ||
     canBorrowedWielder || canBorrowedVictim ||
     selectedKind === 'indulgence' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
-    (selectedKind === 'snatch' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean)) && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
+    (selectedKind === 'snatch' && plunderableCards(unit).length > 0 && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
   ))
 
   useEffect(() => {
@@ -1180,12 +1180,16 @@ function PlunderWindow() {
   return <div className="overlay response-overlay"><section className="response-panel plunder-panel panel">
     <span className="eyebrow">{pending.reason === 'feedback' ? '反馈' : pending.gain ? '顺手牵羊' : '过河拆桥'}</span>
     <h1>选择{pending.gain ? '获得' : '弃置'}{target.name}的一张牌</h1>
-    <p>手牌以牌背显示；装备区为公开信息，可直接选择指定装备。</p>
+    <p>手牌以牌背显示；装备区与判定区为公开信息，可直接选择。</p>
     <div className="plunder-cards">
       {target.hand.map((card, index) => <button key={card.id} className="hidden-card" onClick={() => choosePlunderCard(card.id)}><strong>战</strong><span>手牌 {index + 1}</span></button>)}
       {equipment.map(([slot, card]) => <button key={card.id} className={`card ${card.kind}`} onClick={() => choosePlunderCard(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
         <strong>{CARD_LABEL[card.kind]}</strong><small>{slotLabel[slot]}</small>
+      </button>)}
+      {!pending.reason && target.judgement.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => choosePlunderCard(card.id)}>
+        <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>判定区</small>
       </button>)}
     </div>
   </section></div>

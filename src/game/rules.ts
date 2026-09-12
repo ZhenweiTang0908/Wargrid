@@ -480,6 +480,11 @@ export const effectiveAttackRange = (state: GameState, attacker: Unit) => attack
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && !(target.skills.includes('kongcheng') && target.hand.length === 0) && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canBorrowedSwordTarget = (state: GameState, wielder: Unit, victim: Unit) => !!wielder.equipment.weapon && wielder.hp > 0 && victim.hp > 0 && wielder.id !== victim.id && !(victim.skills.includes('kongcheng') && victim.hand.length === 0) && combatDistance(state, wielder, victim) <= effectiveAttackRange(state, wielder)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp
+export const plunderableCards = (unit: Unit, includeJudgement = true): Card[] => [
+  ...unit.hand,
+  ...Object.values(unit.equipment).filter((card): card is Card => !!card),
+  ...(includeJudgement ? unit.judgement : []),
+]
 export const isSlashKind = (kind: CardKind) => kind === 'slash' || kind === 'fireSlash' || kind === 'thunderSlash'
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
 export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)

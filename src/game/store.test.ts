@@ -336,6 +336,38 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toHaveLength(0)
   })
 
+  it('lets Dismantle remove a delayed trick from the judgement area', () => {
+    const dismantle = card('dismantle'), indulgence = card('indulgence', 'heart')
+    useGameStore.setState(state => ({ deck: [card('slash')], discard: [], units: { ...state.units,
+      player: { ...state.units.player, hand: [dismantle] },
+      north: { ...state.units.north, hand: [], equipment: {}, judgement: [indulgence], skills: ['lianying'] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: dismantle.id, target: 'north' })
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ target: 'north', gain: false })
+    useGameStore.getState().choosePlunderCard(indulgence.id)
+    const state = useGameStore.getState()
+    expect(state.units.north.judgement).toEqual([])
+    expect(state.units.north.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([dismantle, indulgence]))
+    expect(state.deck).toHaveLength(1)
+  })
+
+  it('lets Snatch take Lightning from the judgement area into hand', () => {
+    const snatch = card('snatch'), lightning = card('lightning', 'spade')
+    useGameStore.setState(state => ({ discard: [], units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [snatch] },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: {}, judgement: [lightning] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: snatch.id, target: 'north' })
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ target: 'north', gain: true })
+    useGameStore.getState().choosePlunderCard(lightning.id)
+    const state = useGameStore.getState()
+    expect(state.units.north.judgement).toEqual([])
+    expect(state.units.player.hand).toContainEqual(lightning)
+    expect(state.discard).toContainEqual(snatch)
+    expect(state.discard).not.toContainEqual(lightning)
+  })
+
   it('lets Sima Yi replace an unfavorable judgement through Guicai', () => {
     const state = createInitialState([])
     const indulgence = card('indulgence'), badJudge = card('slash', 'spade'), replacement = card('peach', 'heart'), drawA = card('slash'), drawB = card('dodge')
