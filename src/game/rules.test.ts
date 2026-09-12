@@ -11,7 +11,7 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 
 describe('board rules', () => {
   it('keeps every selectable battlefield definition playable', () => {
-    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland'])
+    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo'])
     for (const id of MAP_IDS) {
       const map = MAP_DEFINITIONS[id]
       const state = createInitialState(fixedDeck(), false, Math.random, id)
@@ -21,6 +21,15 @@ describe('board rules', () => {
       expect(state.obstacles).toBe(map.obstacles)
       for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
     }
+  })
+  it('builds a bamboo battlefield with covered flanks and a clear central road', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'bamboo')
+    expect(terrainAt(state, { x: 3, y: 3 })).toBe('forest')
+    expect(terrainAt(state, { x: 4, y: 3 })).toBe('road')
+    expect(terrainAt(state, { x: 6, y: 3 })).toBe('watchtower')
+    expect(state.obstacles).toContainEqual({ x: 3, y: 2 })
+    expect(state.mapObjects.every(object => !state.obstacles.some(wall => wall.x === object.position.x && wall.y === object.position.y))).toBe(true)
+    for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
   })
   it('builds a wetland map with costly central water and side bridges', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'wetland')

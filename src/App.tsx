@@ -131,7 +131,14 @@ function Tile({ position }: { position: Position }) {
         </>}
         {!mapObject.claimed && <><Sparkles count={8} scale={.65} size={2} speed={.35} color={canInteract ? '#fff0a8' : '#dbbc72'} /><mesh position-y={.04} rotation-x={-Math.PI / 2}><ringGeometry args={[.3, .38, 24]} /><meshBasicMaterial color={canInteract ? '#ffe080' : '#9d7440'} transparent opacity={canInteract ? .9 : .45} side={THREE.DoubleSide} /></mesh></>}
       </group>}
-      {terrain === 'forest' && !obstacle && <group position={[-.16, .13, .08]}><mesh position-y={.23}><cylinderGeometry args={[.05, .08, .4, 6]} /><meshStandardMaterial color="#5f4530" /></mesh><mesh position-y={.54}><coneGeometry args={[.25, .56, 7]} /><meshStandardMaterial color="#28553a" /></mesh></group>}
+      {terrain === 'forest' && !obstacle && (state.mapId === 'bamboo' ? <group position-y={.12}>
+        {[[-.24, -.17, .72], [.13, .21, .86], [.28, -.22, .59]].map(([x, z, height], index) => <group key={index} position={[x, 0, z]} rotation-z={(index - 1) * .06}>
+          <mesh position-y={height / 2}><cylinderGeometry args={[.028, .035, height, 6]} /><meshStandardMaterial color={index === 1 ? '#7eaa67' : '#668d55'} roughness={.82} /></mesh>
+          {[.28, .5, .71].filter(y => y < height).map(y => <mesh key={y} position-y={y}><torusGeometry args={[.032, .007, 4, 6]} /><meshStandardMaterial color="#354b32" roughness={.9} /></mesh>)}
+          <mesh position={[.11, height * .78, 0]} rotation-z={-.48}><coneGeometry args={[.09, .34, 5]} /><meshStandardMaterial color="#3c714b" roughness={.9} flatShading /></mesh>
+          <mesh position={[-.1, height * .93, .03]} rotation-z={.56}><coneGeometry args={[.08, .28, 5]} /><meshStandardMaterial color="#52805a" roughness={.9} flatShading /></mesh>
+        </group>)}
+      </group> : <group position={[-.16, .13, .08]}><mesh position-y={.23}><cylinderGeometry args={[.05, .08, .4, 6]} /><meshStandardMaterial color="#5f4530" /></mesh><mesh position-y={.54}><coneGeometry args={[.25, .56, 7]} /><meshStandardMaterial color="#28553a" /></mesh></group>)}
       {terrain === 'road' && !control && <group position-y={.09}>
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.46, .92]} /><meshStandardMaterial color="#65543d" roughness={1} /></mesh>
         {[-.25, .02, .28].map((z, i) => <mesh key={i} position={[i % 2 ? .11 : -.09, .012, z]} rotation-x={-Math.PI / 2}><boxGeometry args={[.22, .012, .06]} /><meshStandardMaterial color="#8a7658" roughness={1} /></mesh>)}
@@ -187,6 +194,11 @@ function Tile({ position }: { position: Position }) {
         <mesh position-y={.22} rotation-z={.08} castShadow><cylinderGeometry args={[.31, .43, .72, 5]} /><meshStandardMaterial color="#746d59" roughness={1} flatShading /></mesh>
         <mesh position={[.13, .62, -.1]} rotation-z={-.36} castShadow><boxGeometry args={[.43, .31, .4]} /><meshStandardMaterial color="#928674" roughness={1} flatShading /></mesh>
         <mesh position={[-.23, .38, .2]} rotation-z={.54}><boxGeometry args={[.15, .68, .15]} /><meshStandardMaterial color="#514f42" roughness={1} /></mesh>
+      </group>}
+      {obstacle && state.mapId === 'bamboo' && <group position-y={.82} rotation-y={(position.x * 3 + position.y) * .18}>
+        <mesh position={[-.14, .1, 0]} rotation-z={-.18} castShadow><dodecahedronGeometry args={[.4, 0]} /><meshStandardMaterial color="#737e66" roughness={1} flatShading /></mesh>
+        <mesh position={[.24, .29, -.1]} rotation-z={.2} castShadow><dodecahedronGeometry args={[.31, 0]} /><meshStandardMaterial color="#4c5d4b" roughness={1} flatShading /></mesh>
+        <mesh position={[-.3, .26, .2]} rotation-z={-.2}><coneGeometry args={[.14, .48, 5]} /><meshStandardMaterial color="#406344" roughness={.9} /></mesh>
       </group>}
       {obstacle && state.mapId === 'river' && <group position-y={.82}>
         <mesh position-y={.18} rotation-y={Math.PI / 4}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#6a6254" roughness={.92} /></mesh>
@@ -564,6 +576,20 @@ function Battlefield() {
 
 function WorldScenery() {
   const mapId = useGameStore(s => s.mapId)
+  if (mapId === 'bamboo') return <group position-y={-.15}>
+    {[-1, 1].flatMap(side => [-4.6, -3, -1.5, 0, 1.5, 3, 4.6].map((z, index) => <group key={`${side}-${index}`} position={[side * (5.1 + index % 2 * .27), 0, z]} rotation-z={side * (index % 3 - 1) * .04}>
+      <mesh position-y={1.12}><cylinderGeometry args={[.075, .09, 2.24, 7]} /><meshStandardMaterial color={index % 2 ? '#789c61' : '#668d56'} roughness={.84} /></mesh>
+      {[.48, 1.02, 1.58, 2.04].map(y => <mesh key={y} position-y={y}><torusGeometry args={[.084, .014, 5, 7]} /><meshStandardMaterial color="#344c30" roughness={.9} /></mesh>)}
+      <mesh position={[side * -.19, 1.65, 0]} rotation-z={side * -.55}><coneGeometry args={[.17, .72, 5]} /><meshStandardMaterial color="#316448" roughness={.94} flatShading /></mesh>
+      <mesh position={[side * .18, 2.02, .06]} rotation-z={side * .5}><coneGeometry args={[.14, .63, 5]} /><meshStandardMaterial color="#4b8055" roughness={.94} flatShading /></mesh>
+    </group>))}
+    {[-5.25, 5.25].map((z, index) => <group key={z} position={[0, 0, z]}>
+      <mesh position-y={.24}><boxGeometry args={[1.4, .46, .7]} /><meshStandardMaterial color="#625f49" roughness={1} /></mesh>
+      <mesh position={[0, .65, 0]} rotation-y={Math.PI / 4}><coneGeometry args={[.66, .53, 4]} /><meshStandardMaterial color="#3b4d38" roughness={1} /></mesh>
+      <mesh position={[0, 1.07, 0]}><cylinderGeometry args={[.025, .03, .48, 6]} /><meshStandardMaterial color="#876d3e" /></mesh>
+      <mesh position={[.2, 1.24, 0]}><planeGeometry args={[.38, .25]} /><meshStandardMaterial color={index ? '#a5493a' : '#387d75'} side={THREE.DoubleSide} /></mesh>
+    </group>)}
+  </group>
   if (mapId === 'wetland') return <group position-y={-.15}>
     {[-1, 1].map(side => <group key={side} position={[side * 5.4, 0, 0]}>
       <mesh position-y={.1} rotation-x={-Math.PI / 2}><circleGeometry args={[1.3, 20]} /><meshStandardMaterial color="#20444b" roughness={.42} /></mesh>
@@ -657,7 +683,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>选将前可选择双河、围城、山谷或泽国战场，以及标准或扩展牌池。每回合获得 4 点移动力；涉水与泥沼耗 2 点，桥梁只耗 1 点；围城地图需争夺城墙入口，山谷地图由山壁分割侧翼，泽国地图的环形水道提供中央涉水和侧翼过桥两条路线。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>选将前可选择双河、围城、山谷、泽国或竹林战场，以及标准或扩展牌池。每回合获得 3 点移动力，从官道开始回合则获得 4 点；涉水与泥沼耗 2 点，桥梁只耗 1 点；围城需争夺城墙入口，山谷由山壁分割侧翼，泽国可中央涉水或侧翼过桥，竹林可借树林掩护绕行。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
       <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
@@ -675,7 +701,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'wusheng', name: '关羽', title: '美髯公', faction: '蜀', portrait: '/heroes/guan-yun.png', skillName: '武圣', copy: '红色牌可以当【杀】使用。' },
   { skill: 'longdan', name: '赵云', title: '少年将军', faction: '蜀', portrait: '/heroes/zhao-ling.png', skillName: '龙胆', copy: '【杀】与【闪】可以相互转化。' },
   { skill: 'ganglie', name: '夏侯惇', title: '独眼的罗刹', faction: '魏', portrait: '/heroes/xiahou-lie.png', skillName: '刚烈', copy: '受伤后判定，反击伤害来源。' },
-  { skill: 'feedback', name: '司马懿', title: '狼顾之鬼', faction: '魏', portrait: '/heroes/sima-xuan.png', skillName: '反馈 · 鬼才', copy: '受伤后获得来源牌；不利判定时自动用手牌改判。' },
+  { skill: 'feedback', name: '司马懿', title: '狼顾之鬼', faction: '魏', portrait: '/heroes/sima-xuan.png', skillName: '反馈 · 鬼才', copy: '受伤后获得来源牌；判定时可选择一张手牌改判。' },
   { skill: 'jianxiong', name: '曹操', title: '魏武帝', faction: '魏', portrait: '/heroes/cao-cao.png', skillName: '奸雄 · 护驾', copy: '受到伤害后获得造成伤害的牌；魏势力忠臣可替你出闪。' },
   { skill: 'yiji', name: '郭嘉', title: '早终的先知', faction: '魏', portrait: '/heroes/guo-jia.png', skillName: '天妒 · 遗计', copy: '获得自己的判定牌；每受到一次伤害摸两张牌。' },
   { skill: 'qingnang', name: '华佗', title: '神医', faction: '群', portrait: '/heroes/hua-tuo.png', skillName: '青囊 · 急救', copy: '每回合弃一张牌治疗友方；濒死响应时红牌可当【桃】。' },
