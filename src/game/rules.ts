@@ -97,6 +97,22 @@ export const BAMBOO_TERRAIN: Terrain[] = [
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
   ...terrainLine('village', [{ x: 1, y: 0 }, { x: 7, y: 8 }]),
 ]
+export const PASS_OBSTACLES: Position[] = [
+  ...[1, 2, 3, 5, 6, 7].flatMap(y => [{ x: 2, y }, { x: 6, y }]),
+  { x: 3, y: 2 }, { x: 5, y: 2 }, { x: 3, y: 6 }, { x: 5, y: 6 },
+]
+export const PASS_TERRAIN: Terrain[] = [
+  ...terrainLine('road', [
+    ...Array.from({ length: 9 }, (_, y) => ({ x: 4, y })),
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 4 })),
+  ]),
+  ...terrainLine('ridge', [{ x: 4, y: 3 }, { x: 4, y: 5 }, { x: 3, y: 4 }, { x: 5, y: 4 }]),
+  ...terrainLine('watchtower', [{ x: 1, y: 4 }, { x: 7, y: 4 }]),
+  ...terrainLine('forest', [{ x: 0, y: 2 }, { x: 1, y: 2 }, { x: 7, y: 6 }, { x: 8, y: 6 }, { x: 0, y: 6 }, { x: 8, y: 2 }]),
+  ...terrainLine('marsh', [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 5 }]),
+  ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
+  ...terrainLine('village', [{ x: 0, y: 7 }, { x: 8, y: 1 }]),
+]
 const riverObjects: MapObject[] = [
   { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
   { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
@@ -137,8 +153,16 @@ const bambooObjects: MapObject[] = [
   { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
   { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
 ]
+const passObjects: MapObject[] = [
+  { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
+  { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
+  { id: 'east-shrine', position: { x: 7, y: 5 }, kind: 'healingShrine', claimed: false },
+  { id: 'west-drum', position: { x: 1, y: 3 }, kind: 'warDrum', claimed: false },
+  { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
+  { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
+]
 
-export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo']
+export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass']
 export const MAP_DEFINITIONS: Record<MapId, {
   name: string
   description: string
@@ -153,6 +177,7 @@ export const MAP_DEFINITIONS: Record<MapId, {
   highland: { name: '山谷伏击', description: '林地掩护，山壁分路，泥沼拖慢中央推进', obstacles: HIGHLAND_OBSTACLES, terrain: HIGHLAND_TERRAIN, objects: highlandObjects, groundColors: ['#2d3b2c', '#354432'], obstacleColor: '#46503d' },
   wetland: { name: '泽国遗城', description: '中央涉水或侧翼过桥，废墟与水道改变路线', obstacles: WETLAND_OBSTACLES, terrain: WETLAND_TERRAIN, objects: wetlandObjects, groundColors: ['#273a35', '#30443a'], obstacleColor: '#453f36' },
   bamboo: { name: '竹林古道', description: '竹林掩护两翼，碎石断道迫使短兵相接', obstacles: BAMBOO_OBSTACLES, terrain: BAMBOO_TERRAIN, objects: bambooObjects, groundColors: ['#263d30', '#2d4935'], obstacleColor: '#4c5541' },
+  pass: { name: '栈道峡关', description: '峡壁收窄中央通路，两侧瞭望台可远程支援', obstacles: PASS_OBSTACLES, terrain: PASS_TERRAIN, objects: passObjects, groundColors: ['#493c30', '#534435'], obstacleColor: '#7c6550' },
 }
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y

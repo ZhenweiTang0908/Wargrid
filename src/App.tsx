@@ -200,6 +200,12 @@ function Tile({ position }: { position: Position }) {
         <mesh position={[.24, .29, -.1]} rotation-z={.2} castShadow><dodecahedronGeometry args={[.31, 0]} /><meshStandardMaterial color="#4c5d4b" roughness={1} flatShading /></mesh>
         <mesh position={[-.3, .26, .2]} rotation-z={-.2}><coneGeometry args={[.14, .48, 5]} /><meshStandardMaterial color="#406344" roughness={.9} /></mesh>
       </group>}
+      {obstacle && state.mapId === 'pass' && <group position-y={.82} rotation-y={(position.x * 3 + position.y * 7) * .12}>
+        <mesh position-y={.36} castShadow><cylinderGeometry args={[.27, .41, 1.02, 5]} /><meshStandardMaterial color="#927960" roughness={1} flatShading /></mesh>
+        <mesh position={[.07, .99, -.04]} rotation-z={.14} castShadow><coneGeometry args={[.28, .67, 5]} /><meshStandardMaterial color="#b29976" roughness={1} flatShading /></mesh>
+        <mesh position={[-.24, .22, .21]} rotation-z={-.18}><dodecahedronGeometry args={[.23, 0]} /><meshStandardMaterial color="#695a4d" roughness={1} flatShading /></mesh>
+        {[.13, .43, .71].map(y => <mesh key={y} position={[0, y, .29]} rotation-z={.09}><boxGeometry args={[.44, .025, .025]} /><meshStandardMaterial color="#695a4b" roughness={1} /></mesh>)}
+      </group>}
       {obstacle && state.mapId === 'river' && <group position-y={.82}>
         <mesh position-y={.18} rotation-y={Math.PI / 4}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#6a6254" roughness={.92} /></mesh>
         <mesh position={[.12, .42, -.08]} rotation={[.15, .1, -.2]}><dodecahedronGeometry args={[.22, 0]} /><meshStandardMaterial color="#817765" roughness={1} /></mesh>
@@ -595,6 +601,19 @@ function Battlefield() {
 
 function WorldScenery() {
   const mapId = useGameStore(s => s.mapId)
+  if (mapId === 'pass') return <group position-y={-.15}>
+    {[-1, 1].flatMap(side => [-4.7, -2.5, 0, 2.5, 4.7].map((z, index) => <group key={`${side}-${index}`} position={[side * (5.3 + index % 2 * .2), 0, z]} rotation-y={index * .31}>
+      <mesh position-y={.72} castShadow><cylinderGeometry args={[.47, .72, 1.6, 5]} /><meshStandardMaterial color={index % 2 ? '#80664f' : '#6e5c4e'} roughness={1} flatShading /></mesh>
+      <mesh position={[.08, 1.75, -.08]} rotation-z={index % 2 ? -.12 : .16} castShadow><coneGeometry args={[.42, 1.16, 5]} /><meshStandardMaterial color="#a28767" roughness={1} flatShading /></mesh>
+      <mesh position={[-.28, .28, .32]}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#564c43" roughness={1} flatShading /></mesh>
+    </group>))}
+    {[-1, 1].map(side => <group key={side} position={[side * 5.65, 0, 0]}>
+      <mesh position-y={.36}><cylinderGeometry args={[.25, .35, .72, 6]} /><meshStandardMaterial color="#665342" roughness={1} /></mesh>
+      <mesh position-y={.82}><coneGeometry args={[.17, .5, 5]} /><meshStandardMaterial color="#9e784e" roughness={1} /></mesh>
+      <mesh position={[0, 1.12, 0]}><sphereGeometry args={[.1, 8, 6]} /><meshStandardMaterial color="#ffbb68" emissive="#c45d22" emissiveIntensity={1.4} /></mesh>
+      <pointLight position-y={1.12} color="#ff9a56" intensity={2.4} distance={3} />
+    </group>)}
+  </group>
   if (mapId === 'bamboo') return <group position-y={-.15}>
     {[-1, 1].flatMap(side => [-4.6, -3, -1.5, 0, 1.5, 3, 4.6].map((z, index) => <group key={`${side}-${index}`} position={[side * (5.1 + index % 2 * .27), 0, z]} rotation-z={side * (index % 3 - 1) * .04}>
       <mesh position-y={1.12}><cylinderGeometry args={[.075, .09, 2.24, 7]} /><meshStandardMaterial color={index % 2 ? '#789c61' : '#668d56'} roughness={.84} /></mesh>
