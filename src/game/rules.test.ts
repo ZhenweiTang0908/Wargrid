@@ -52,6 +52,8 @@ describe('card and victory rules', () => {
     expect(deck.length).toBe(116)
     expect(new Set(deck.map(card => card.kind))).toEqual(new Set(['slash', 'fireSlash', 'thunderSlash', 'dodge', 'peach', 'wine', 'duel', 'dismantle', 'snatch', 'drawTwo', 'borrowedSword', 'crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'arrows', 'barbarians', 'nullify', 'indulgence', 'lightning', 'peachGarden', 'harvest', 'fireAttack', 'ironChain', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang']))
     expect(deck.every(card => card.rank >= 1 && card.rank <= 13)).toBe(true)
+    expect(deck.filter(card => ['dodge', 'peach', 'fireSlash'].includes(card.kind)).every(card => card.suit === 'heart' || card.suit === 'diamond')).toBe(true)
+    expect(deck.filter(card => card.kind === 'thunderSlash').every(card => card.suit === 'spade' || card.suit === 'club')).toBe(true)
   })
 
   it('randomizes the three hidden identities while keeping the lord public', () => {

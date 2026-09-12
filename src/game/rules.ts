@@ -80,10 +80,17 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
 
 export function createDeck(): Card[] {
   const suits: Suit[] = ['spade', 'heart', 'club', 'diamond']
+  const cardSuits: Partial<Record<CardKind, Suit[]>> = {
+    dodge: ['heart', 'diamond'],
+    peach: ['heart', 'diamond'],
+    fireSlash: ['heart', 'diamond'],
+    thunderSlash: ['spade', 'club'],
+  }
   let index = 0
   const cards: Card[] = []
   for (const [kind, count] of Object.entries(CARD_COUNTS) as [CardKind, number][]) {
-    for (let n = 0; n < count; n++) cards.push({ id: `card-${++index}`, kind, suit: suits[index % 4], rank: (index % 13) + 1 })
+    const availableSuits = cardSuits[kind] ?? suits
+    for (let n = 0; n < count; n++) cards.push({ id: `card-${++index}`, kind, suit: availableSuits[n % availableSuits.length], rank: (index % 13) + 1 })
   }
   return shuffle(cards)
 }
