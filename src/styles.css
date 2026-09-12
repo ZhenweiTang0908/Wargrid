@@ -126,6 +126,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .response-cards { min-height: 104px; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .response-cards .card { width: 82px; height: 102px; }
 .response-cards .card:hover { transform: translateY(-7px); box-shadow: 0 10px 25px #000b, 0 0 0 2px var(--gold); }
+.choice-panel { width: min(700px, 94vw); max-height: calc(100dvh - 20px); overflow-y: auto; }
+.choice-panel .response-cards { flex-wrap: wrap; max-height: 210px; overflow-y: auto; padding: 8px 3px; }
 .harvest-panel { width: min(720px, 94vw); }
 .guanxing-panel { width: min(700px, 96vw); max-height: calc(100dvh - 20px); overflow-y: auto; }
 .guanxing-panel > p { margin-bottom: 8px; }

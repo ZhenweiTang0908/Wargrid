@@ -919,7 +919,7 @@ function GreenDragonWindow() {
   const choose = useGameStore(s => s.chooseGreenDragon)
   if (!pending || !target) return null
   const slashes = player.hand.filter(card => isSlashKind(card.kind) || player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond') || player.skills.includes('longdan') && card.kind === 'dodge')
-  return <div className="overlay response-overlay"><section className="response-panel panel">
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
     <span className="eyebrow">武器技能 · 青龙偃月刀</span>
     <h1>继续追击{target.name}？</h1>
     <p>刚才的【杀】已被闪避。可以再打出一张【杀】攻击同一目标，也可以保留手牌。</p>
@@ -943,7 +943,7 @@ function LiuliWindow() {
   const cards = [...player.hand, ...Object.values(player.equipment).filter((card): card is Card => !!card)]
   const playerAfterDiscard = paymentId ? { ...player, equipment: Object.fromEntries(Object.entries(player.equipment).filter(([, card]) => card?.id !== paymentId)) as Unit['equipment'] } : player
   const targets = state.turnOrder.map(id => units[id]).filter(unit => unit.id !== 'player' && unit.id !== pending.source && unit.hp > 0 && combatDistance(state, playerAfterDiscard, unit) <= effectiveAttackRange(state, playerAfterDiscard))
-  return <div className="overlay response-overlay"><section className="response-panel panel">
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
     <span className="eyebrow">受到【杀】时 · 流离</span>
     <h1>弃一张牌，转移攻击？</h1>
     <p>选择一张手牌或装备，再选择你攻击范围内的另一名武将。也可以不发动，继续正常防御。</p>
@@ -953,6 +953,27 @@ function LiuliWindow() {
     </button>)}</div>
     <div className="tuxi-options">{targets.map(unit => <button key={unit.id} className={targetId === unit.id ? 'active' : ''} onClick={() => setTargetId(unit.id)}><strong>{unit.name}</strong><span>距离 {combatDistance(state, player, unit)}</span><small>{targetId === unit.id ? '已选择' : '转移目标'}</small></button>)}</div>
     <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(null)}>不发动 · 正常防御</button><button className="primary" disabled={!paymentId || !targetId} onClick={() => choose(paymentId, targetId ?? undefined)}>发动流离</button></div>
+  </section></div>
+}
+
+function AxeWindow() {
+  const pending = useGameStore(s => s.pendingAxe)
+  const player = useGameStore(s => s.units.player)
+  const target = useGameStore(s => pending ? s.units[pending.target] : null)
+  const choose = useGameStore(s => s.chooseAxe)
+  const [selected, setSelected] = useState<string[]>([])
+  if (!pending || !target) return null
+  const cards = [...player.hand, ...Object.values(player.equipment).filter((card): card is Card => !!card)]
+  const toggle = (id: string) => setSelected(current => current.includes(id) ? current.filter(item => item !== id) : current.length < 2 ? [...current, id] : current)
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">武器技能 · 贯石斧</span>
+    <h1>弃两张牌，强制命中{target.name}？</h1>
+    <p>目标已经避开这张【杀】。选择两张手牌或装备弃置后仍可造成 {pending.amount} 点伤害，也可以保留牌放弃追击。</p>
+    <div className="response-cards">{cards.map(card => <button key={card.id} className={`card ${card.kind} ${selected.includes(card.id) ? 'selected' : ''}`} onClick={() => toggle(card.id)}>
+      <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+      <strong>{CARD_LABEL[card.kind]}</strong><small>{player.hand.some(item => item.id === card.id) ? '手牌' : '装备'} · {selected.includes(card.id) ? '已选择' : '点击弃置'}</small>
+    </button>)}</div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(null)}>不发动 · 保留牌</button><button className="primary" disabled={selected.length !== 2} onClick={() => choose(selected)}>发动贯石斧 {selected.length}/2</button></div>
   </section></div>
 }
 
@@ -1114,6 +1135,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
     {state.generalSelected && !tutorial && state.pendingLiuli && <LiuliWindow />}
+    {state.generalSelected && !tutorial && state.pendingAxe && <AxeWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}

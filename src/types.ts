@@ -148,6 +148,7 @@ export interface GameState {
   pendingLuoyi: { skipPlay: boolean } | null
   pendingGreenDragon: { target: Team } | null
   pendingLiuli: { source: Team; originCardId: string; forcedSlashAttacksUsed?: number } | null
+  pendingAxe: { target: Team; originCardId: string; amount: number } | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string

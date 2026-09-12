@@ -1502,11 +1502,75 @@ describe('standard card scenarios', () => {
       units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, costA, costB], equipment: { weapon: axe } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingAxe).toMatchObject({ target: 'north', originCardId: slash.id, amount: 1 })
+    expect(useGameStore.getState().units.player.hand).toEqual([costA, costB])
+    useGameStore.getState().chooseAxe([costA.id, costB.id])
     const state = useGameStore.getState()
+    expect(state.pendingAxe).toBeNull()
     expect(state.units.north.hp).toBe(3)
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([slash.id, dodge.id, costA.id, costB.id]))
     expect(state.message).toContain('贯石斧')
+  })
+
+  it('lets the player decline Stone Axe after the target dodges', () => {
+    const slash = card('slash', 'heart'), axe = card('axe'), costA = card('peach'), costB = card('drawTwo'), dodge = card('dodge')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, costA, costB], equipment: { weapon: axe } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseAxe(null)
+    const state = useGameStore.getState()
+    expect(state.pendingAxe).toBeNull()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.player.hand).toEqual([costA, costB])
+    expect(state.units.player.attacksUsed).toBe(1)
+  })
+
+  it('lets Stone Axe use equipment as one of its two costs', () => {
+    const slash = card('slash', 'heart'), axe = card('axe'), mount = card('redHare'), cost = card('peach'), dodge = card('dodge')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, cost], equipment: { weapon: axe, offensiveMount: mount } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseAxe([cost.id, mount.id])
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hand).toEqual([])
+    expect(state.units.player.equipment.offensiveMount).toBeUndefined()
+    expect(state.units.player.equipment.weapon).toEqual(axe)
+    expect(state.discard).toEqual(expect.arrayContaining([cost, mount]))
+  })
+
+  it('offers Stone Axe after a successful Bagua judgement', () => {
+    const slash = card('slash', 'heart'), axe = card('axe'), bagua = card('bagua'), judge = card('peach', 'heart'), costA = card('duel'), costB = card('snatch')
+    useGameStore.setState(state => ({ deck: [judge], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, costA, costB], equipment: { weapon: axe } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { armor: bagua } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingAxe).toMatchObject({ target: 'north', amount: 1 })
+    expect(useGameStore.getState().discard).toContainEqual(judge)
+    useGameStore.getState().chooseAxe([costA.id, costB.id])
+    expect(useGameStore.getState().units.north.hp).toBe(3)
+  })
+
+  it('preserves Luoyi damage when Stone Axe forces a hit', () => {
+    const slash = card('slash', 'heart'), axe = card('axe'), costA = card('duel'), costB = card('snatch'), dodge = card('dodge')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, costA, costB], equipment: { weapon: axe }, luoyiActive: true },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingAxe?.amount).toBe(2)
+    useGameStore.getState().chooseAxe([costA.id, costB.id])
+    expect(useGameStore.getState().units.north.hp).toBe(2)
   })
 
   it('lets Qilin Bow discard a mount after slash damage', () => {
