@@ -641,6 +641,21 @@ describe('standard card scenarios', () => {
     expect(state.discard).toEqual(expect.arrayContaining([first, second]))
   })
 
+  it('lets Sun Shangxiang use Jieyin at full health to heal a wounded male', () => {
+    useGameStore.getState().selectGeneral('jieyin')
+    const first = card('slash'), second = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hp: state.units.player.maxHp, hand: [first, second] },
+      north: { ...state.units.north, hp: 2, gender: 'male' },
+    } }))
+    useGameStore.getState().activateJieyin()
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(state.units.player.maxHp)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+  })
+
   it('lets Sun Shangxiang draw two cards when replacing equipment through Xiaoji', () => {
     useGameStore.getState().selectGeneral('jieyin')
     const oldWeapon = card('qinggang'), newWeapon = card('spear'), insightA = card('peach'), insightB = card('dodge')
@@ -3138,6 +3153,21 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(4)
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.history.some(entry => entry.includes('结姻'))).toBe(true)
+  })
+
+  it('lets AI Sun Shangxiang use Jieyin at full health for a wounded ally', async () => {
+    const first = card('nullify'), second = card('nullify', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 3 },
+      north: { ...state.units.north, skill: 'jieyin', skills: ['jieyin', 'xiaoji'], position: state.controlPoint, hp: 3, maxHp: 3, hand: [first, second] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.skillUsed).toBe(true)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
   })
 
   it('lets AI Huang Gai use Kurou while above its safety threshold', async () => {

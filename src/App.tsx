@@ -1184,7 +1184,7 @@ function App() {
   const canZhiheng = state.units.player.skill === 'zhiheng' && !state.units.player.skillUsed
   const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))
   const canFanjian = state.units.player.skills.includes('fanjian') && !state.units.player.skillUsed && !!selectedCard
-  const canJieyin = state.units.player.skills.includes('jieyin') && !state.units.player.skillUsed && state.units.player.hp < state.units.player.maxHp && state.units.player.hand.length >= 2 && Object.values(state.units).some(unit => unit.id !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male')
+  const canJieyin = state.units.player.skills.includes('jieyin') && !state.units.player.skillUsed && state.units.player.hand.length >= 2 && Object.values(state.units).some(unit => unit.id !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male')
   const canRende = state.units.player.skills.includes('rende') && !!selectedCard
   const canKurou = state.units.player.skills.includes('kurou') && state.units.player.hp > 0
   const canGuose = state.units.player.skills.includes('guose') && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => card.suit === 'diamond')

@@ -1700,11 +1700,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   activateJieyin: () => {
     const state = get(), player = state.units.player
-    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('jieyin') || player.skillUsed || player.hp >= player.maxHp || player.hand.length < 2) return
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('jieyin') || player.skillUsed || player.hand.length < 2) return
     const target = Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male').sort((a, b) => (a.identity === 'loyalist' ? -1 : 1) - (b.identity === 'loyalist' ? -1 : 1))[0]
     if (!target) { set({ message: '没有可发动【结姻】的受伤男性角色' }); return }
-    const paid = player.hand.slice(0, 2), message = `${player.name}发动【结姻】，与${target.name}各回复 1 点体力`
-    set({ units: { ...state.units, player: { ...player, hp: player.hp + 1, hand: player.hand.slice(2), skillUsed: true, animation: 'heal' }, [target.id]: { ...target, hp: target.hp + 1, animation: 'heal' } }, discard: [...state.discard, ...paid], message, history: log(state, message) })
+    const paid = player.hand.slice(0, 2), message = `${player.name}发动【结姻】，${target.name}回复 1 点体力${player.hp < player.maxHp ? `，${player.name}也回复 1 点体力` : ''}`
+    set({ units: { ...state.units, player: { ...player, hp: Math.min(player.maxHp, player.hp + 1), hand: player.hand.slice(2), skillUsed: true, animation: 'heal' }, [target.id]: { ...target, hp: target.hp + 1, animation: 'heal' } }, discard: [...state.discard, ...paid], message, history: log(state, message) })
   },
   activateRende: () => {
     const state = get(), player = state.units.player
@@ -1844,12 +1844,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         await wait(280); state = get(); ai = state.units[aiId]
       }
     }
-    if (ai.skills.includes('jieyin') && !ai.skillUsed && ai.hp < ai.maxHp && ai.hand.length >= 2) {
+    if (ai.skills.includes('jieyin') && !ai.skillUsed && ai.hand.length >= 2) {
       const companion = alliesFor(state, aiId).filter(unit => unit.id !== aiId && unit.gender === 'male' && unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
       if (companion) {
         const paid = [...ai.hand].sort(card => card.kind === 'peach' ? 1 : card.kind === 'dodge' ? 0 : -1).slice(0, 2), paidIds = new Set(paid.map(card => card.id))
-        const message = `${ai.name}发动【结姻】，弃置两张牌，与${companion.name}各回复 1 点体力`
-        set({ units: { ...state.units, [aiId]: { ...ai, hp: ai.hp + 1, hand: ai.hand.filter(card => !paidIds.has(card.id)), skillUsed: true, animation: 'heal' }, [companion.id]: { ...companion, hp: companion.hp + 1, animation: 'heal' } }, discard: [...state.discard, ...paid], message, history: log(state, message) })
+        const message = `${ai.name}发动【结姻】，弃置两张牌令${companion.name}回复 1 点体力${ai.hp < ai.maxHp ? `，${ai.name}也回复 1 点体力` : ''}`
+        set({ units: { ...state.units, [aiId]: { ...ai, hp: Math.min(ai.maxHp, ai.hp + 1), hand: ai.hand.filter(card => !paidIds.has(card.id)), skillUsed: true, animation: 'heal' }, [companion.id]: { ...companion, hp: companion.hp + 1, animation: 'heal' } }, discard: [...state.discard, ...paid], message, history: log(state, message) })
         await wait(280); state = get(); ai = state.units[aiId]
       }
     }
