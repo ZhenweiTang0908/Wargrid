@@ -89,7 +89,7 @@ function Tile({ position }: { position: Position }) {
   const terrainColor = state.mapId === 'desert'
     ? terrain === 'water' ? '#317b87' : terrain === 'marsh' ? '#96876a' : terrain === 'ridge' ? '#9a7454' : terrain === 'road' ? '#bd9964' : terrain === 'camp' ? '#8f694e' : terrain === 'village' ? '#a9845a' : terrain === 'watchtower' ? '#9c7956' : map.groundColors[(position.x + position.y) % 2]
     : state.mapId === 'winter'
-      ? terrain === 'forest' ? '#739598' : terrain === 'marsh' ? '#d9e4dc' : terrain === 'road' ? '#829ba5' : terrain === 'ridge' ? '#8ca3aa' : terrain === 'watchtower' ? '#697f8d' : terrain === 'village' ? '#859aa0' : terrain === 'camp' ? '#748b99' : map.groundColors[(position.x + position.y) % 2]
+      ? terrain === 'forest' ? '#739598' : terrain === 'snow' ? '#d9e4dc' : terrain === 'road' ? '#829ba5' : terrain === 'ridge' ? '#8ca3aa' : terrain === 'watchtower' ? '#697f8d' : terrain === 'village' ? '#859aa0' : terrain === 'camp' ? '#748b99' : map.groundColors[(position.x + position.y) % 2]
     : state.mapId === 'maple'
       ? terrain === 'forest' ? '#70412d' : terrain === 'road' ? '#695442' : terrain === 'ridge' ? '#624639' : terrain === 'watchtower' ? '#816247' : terrain === 'village' ? '#775a3f' : terrain === 'camp' ? '#664231' : map.groundColors[(position.x + position.y) % 2]
     : terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : map.groundColors[(position.x + position.y) % 2]
@@ -137,7 +137,12 @@ function Tile({ position }: { position: Position }) {
         </>}
         {!mapObject.claimed && <><Sparkles count={8} scale={.65} size={2} speed={.35} color={canInteract ? '#fff0a8' : '#dbbc72'} /><mesh position-y={.04} rotation-x={-Math.PI / 2}><ringGeometry args={[.3, .38, 24]} /><meshBasicMaterial color={canInteract ? '#ffe080' : '#9d7440'} transparent opacity={canInteract ? .9 : .45} side={THREE.DoubleSide} /></mesh></>}
       </group>}
-      {terrain === 'forest' && !obstacle && (state.mapId === 'bamboo' ? <group position-y={.12}>
+      {terrain === 'forest' && !obstacle && (state.mapId === 'winter' ? <group position={[-.12, .12, .08]}>
+        <mesh position-y={.25}><cylinderGeometry args={[.045, .065, .5, 6]} /><meshStandardMaterial color="#526366" roughness={1} /></mesh>
+        <mesh position-y={.48}><coneGeometry args={[.26, .52, 6]} /><meshStandardMaterial color="#3e676b" roughness={1} flatShading /></mesh>
+        <mesh position-y={.73}><coneGeometry args={[.18, .38, 6]} /><meshStandardMaterial color="#638489" roughness={1} flatShading /></mesh>
+        <mesh position-y={.9}><coneGeometry args={[.09, .15, 6]} /><meshStandardMaterial color="#e7eeed" roughness={.9} /></mesh>
+      </group> : state.mapId === 'bamboo' ? <group position-y={.12}>
         {[[-.24, -.17, .72], [.13, .21, .86], [.28, -.22, .59]].map(([x, z, height], index) => <group key={index} position={[x, 0, z]} rotation-z={(index - 1) * .06}>
           <mesh position-y={height / 2}><cylinderGeometry args={[.028, .035, height, 6]} /><meshStandardMaterial color={index === 1 ? '#7eaa67' : '#668d55'} roughness={.82} /></mesh>
           {[.28, .5, .71].filter(y => y < height).map(y => <mesh key={y} position-y={y}><torusGeometry args={[.032, .007, 4, 6]} /><meshStandardMaterial color="#354b32" roughness={.9} /></mesh>)}
@@ -161,9 +166,14 @@ function Tile({ position }: { position: Position }) {
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.82, .82]} /><meshStandardMaterial color="#56633b" transparent opacity={.55} roughness={.8} /></mesh>
         {[[-.24, -.16], [.18, .12], [-.05, .3]].map(([x, z], i) => <group key={i} position={[x, .04, z]}><mesh position-y={.12}><cylinderGeometry args={[.012, .02, .24, 5]} /><meshStandardMaterial color="#829457" /></mesh><mesh position={[.045, .2, 0]} rotation-z={-.45}><coneGeometry args={[.04, .16, 5]} /><meshStandardMaterial color="#a1ad69" /></mesh></group>)}
       </group>}
+      {terrain === 'snow' && <group position-y={.09}>
+        <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.84, .84]} /><meshStandardMaterial color="#e0e9e5" roughness={.96} /></mesh>
+        <mesh position={[-.2, .09, .13]} scale={[1, .42, .75]}><sphereGeometry args={[.26, 8, 6]} /><meshStandardMaterial color="#f3f5ed" roughness={1} flatShading /></mesh>
+        <mesh position={[.23, .065, -.2]} scale={[.8, .35, 1]}><sphereGeometry args={[.2, 8, 6]} /><meshStandardMaterial color="#cad9d8" roughness={1} flatShading /></mesh>
+      </group>}
       {terrain === 'ridge' && !obstacle && <group position-y={.13}>
-        <mesh position={[-.18, .17, .1]} rotation={[.2, .1, -.18]}><dodecahedronGeometry args={[.23, 0]} /><meshStandardMaterial color="#665e50" roughness={.95} /></mesh>
-        <mesh position={[.16, .11, -.12]} rotation={[-.1, .2, .3]}><dodecahedronGeometry args={[.16, 0]} /><meshStandardMaterial color="#4d4a42" roughness={1} /></mesh>
+        <mesh position={[-.18, .17, .1]} rotation={[.2, .1, -.18]}><dodecahedronGeometry args={[.23, 0]} /><meshStandardMaterial color={state.mapId === 'winter' ? '#80969c' : '#665e50'} roughness={.95} /></mesh>
+        <mesh position={[.16, .11, -.12]} rotation={[-.1, .2, .3]}><dodecahedronGeometry args={[.16, 0]} /><meshStandardMaterial color={state.mapId === 'winter' ? '#d1dfdf' : '#4d4a42'} roughness={1} /></mesh>
       </group>}
       {terrain === 'camp' && <group position={[.12, .12, .08]}>
         <mesh position={[-.2, .2, 0]} rotation-y={Math.PI / 4}><coneGeometry args={[.28, .38, 4]} /><meshStandardMaterial color={position.y < 4 ? '#713029' : '#1d5967'} roughness={.9} /></mesh>
@@ -835,7 +845,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>选将前可选择八张战场和标准或扩展牌池。每回合获得 3 点移动力，从官道开始回合则获得 4 点；涉水与泥沼耗 2 点，桥梁只耗 1 点。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>选将前可选择 {MAP_IDS.length} 张战场和标准或扩展牌池。每回合获得 3 点移动力，从官道开始回合则获得 4 点；涉水、泥沼与深雪耗 2 点，桥梁只耗 1 点。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
       <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>

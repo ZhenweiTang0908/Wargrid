@@ -109,6 +109,7 @@ describe('board rules', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'winter')
     expect(state.controlPoint).toEqual({ x: 5, y: 4 })
     expect(state.obstacles).toContainEqual({ x: 3, y: 3 })
+    expect(terrainAt(state, { x: 4, y: 2 })).toBe('snow')
     expect(movementCost(state, { x: 4, y: 2 })).toBe(2)
     expect(terrainAt(state, { x: 5, y: 3 })).toBe('road')
     for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)

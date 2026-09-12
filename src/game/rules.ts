@@ -175,7 +175,7 @@ export const WINTER_OBSTACLES: Position[] = [
   { x: 6, y: 2 }, { x: 6, y: 3 }, { x: 6, y: 6 }, { x: 6, y: 5 },
 ]
 export const WINTER_TERRAIN: Terrain[] = [
-  ...terrainLine('marsh', [{ x: 4, y: 2 }, { x: 5, y: 2 }, { x: 4, y: 6 }, { x: 5, y: 6 }, { x: 1, y: 4 }, { x: 7, y: 4 }]),
+  ...terrainLine('snow', [{ x: 4, y: 2 }, { x: 5, y: 2 }, { x: 4, y: 6 }, { x: 5, y: 6 }, { x: 1, y: 4 }, { x: 7, y: 4 }]),
   ...terrainLine('forest', [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 7, y: 1 }, { x: 8, y: 1 }, { x: 0, y: 7 }, { x: 1, y: 7 }, { x: 7, y: 7 }, { x: 8, y: 7 }]),
   ...terrainLine('ridge', [{ x: 2, y: 3 }, { x: 2, y: 5 }, { x: 7, y: 3 }, { x: 7, y: 5 }]),
   ...terrainLine('road', [...Array.from({ length: 9 }, (_, y) => ({ x: 5, y })), ...Array.from({ length: 5 }, (_, x) => ({ x: x + 3, y: 4 }))]),
@@ -295,7 +295,7 @@ export function terrainAt(state: Pick<GameState, 'terrain'>, p: Position): Terra
   }
   return 'plain'
 }
-export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => ['water', 'marsh'].includes(terrainAt(state, p)) ? 2 : 1
+export const movementCost = (state: Pick<GameState, 'terrain'>, p: Position) => ['water', 'marsh', 'snow'].includes(terrainAt(state, p)) ? 2 : 1
 export const turnMovement = (state: Pick<GameState, 'terrain'>, unit: Unit) => terrainAt(state, unit.position) === 'road' ? 4 : 3
 
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {

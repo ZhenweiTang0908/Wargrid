@@ -1213,6 +1213,16 @@ describe('standard card scenarios', () => {
     expect(result.history.some(entry => entry.includes('湿地导雷'))).toBe(true)
   })
 
+  it('keeps Lightning at three damage on deep snow', () => {
+    const lightning = card('lightning'), hit = card('slash', 'spade', 5)
+    const state = createInitialState([], false, Math.random, 'winter', 'expanded')
+    state.deck = [hit, card('slash'), card('dodge')]
+    state.units.player = { ...state.units.player, position: { x: 4, y: 2 }, judgement: [lightning] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hp).toBe(2)
+    expect(result.history.some(entry => entry.includes('湿地导雷'))).toBe(false)
+  })
+
   it('automatically nullifies a hostile tactic', () => {
     const duel = card('duel'), nullify = card('nullify', 'club', 12)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel] }, north: { ...state.units.north, hand: [nullify] } } }))
