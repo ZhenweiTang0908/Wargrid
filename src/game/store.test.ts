@@ -2406,12 +2406,89 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [] },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingLiuli).toMatchObject({ source: 'east', originCardId: slash.id })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(payment)
+    useGameStore.getState().chooseLiuli(payment.id, 'north')
     const state = useGameStore.getState()
+    expect(state.pendingLiuli).toBeNull()
     expect(state.units.player.hp).toBe(4)
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.units.north.hp).toBe(3)
     expect(state.units.east.attacksUsed).toBe(1)
     expect(state.history.some(entry => entry.includes('流离'))).toBe(true)
+  })
+
+  it('lets Da Qiao decline Liuli and answer the original slash with Dodge', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const slash = card('slash', 'heart'), dodge = card('dodge')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge] },
+      east: { ...state.units.east, position: { x: 3, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().chooseLiuli(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', source: 'east', target: 'player' })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hp).toBe(4)
+    expect(state.discard).toContainEqual(dodge)
+  })
+
+  it('lets Da Qiao discard equipment for Liuli without spending a hand card', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const slash = card('slash', 'heart'), shield = card('shield'), held = card('peach')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [held], equipment: { armor: shield } },
+      east: { ...state.units.east, position: { x: 3, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().chooseLiuli(shield.id, 'north')
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.armor).toBeUndefined()
+    expect(state.units.player.hand).toEqual([held])
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(shield)
+  })
+
+  it('does not offer Liuli when discarding the only weapon would put every target out of range', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const slash = card('slash', 'heart'), weapon = card('greenDragon')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { weapon } },
+      east: { ...state.units.east, position: { x: 3, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, position: { x: 4, y: 6 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.pendingLiuli).toBeNull()
+    expect(state.pendingResponse).toMatchObject({ effect: 'slash', target: 'player' })
+    expect(state.units.player.equipment.weapon).toEqual(weapon)
+  })
+
+  it('offers Liuli against a Slash forced by Borrowed Sword', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const trick = card('borrowedSword'), slash = card('slash', 'heart'), weapon = card('greenDragon'), payment = card('peach')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [payment] },
+      north: { ...state.units.north, identity: 'rebel', position: { x: 4, y: 7 }, hand: [slash], equipment: { weapon } },
+      east: { ...state.units.east, position: { x: 3, y: 8 }, hand: [trick] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id, target: 'north' })
+    expect(useGameStore.getState().pendingLiuli).toMatchObject({ source: 'north', originCardId: slash.id, forcedSlashAttacksUsed: 0 })
+    useGameStore.getState().chooseLiuli(payment.id, 'east')
+    const state = useGameStore.getState()
+    expect(state.pendingLiuli).toBeNull()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.attacksUsed).toBe(0)
   })
 
   it('protects Lu Xun from Snatch and Indulgence through Qianxun', () => {

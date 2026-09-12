@@ -912,6 +912,31 @@ function GreenDragonWindow() {
   </section></div>
 }
 
+function LiuliWindow() {
+  const pending = useGameStore(s => s.pendingLiuli)
+  const units = useGameStore(s => s.units)
+  const state = useGameStore()
+  const choose = useGameStore(s => s.chooseLiuli)
+  const [paymentId, setPaymentId] = useState<string | null>(null)
+  const [targetId, setTargetId] = useState<Team | null>(null)
+  if (!pending) return null
+  const player = units.player
+  const cards = [...player.hand, ...Object.values(player.equipment).filter((card): card is Card => !!card)]
+  const playerAfterDiscard = paymentId ? { ...player, equipment: Object.fromEntries(Object.entries(player.equipment).filter(([, card]) => card?.id !== paymentId)) as Unit['equipment'] } : player
+  const targets = state.turnOrder.map(id => units[id]).filter(unit => unit.id !== 'player' && unit.id !== pending.source && unit.hp > 0 && combatDistance(state, playerAfterDiscard, unit) <= effectiveAttackRange(state, playerAfterDiscard))
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">受到【杀】时 · 流离</span>
+    <h1>弃一张牌，转移攻击？</h1>
+    <p>选择一张手牌或装备，再选择你攻击范围内的另一名武将。也可以不发动，继续正常防御。</p>
+    <div className="response-cards">{cards.map(card => <button key={card.id} className={`card ${card.kind} ${paymentId === card.id ? 'selected' : ''}`} onClick={() => { setPaymentId(card.id); setTargetId(null) }}>
+      <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+      <strong>{CARD_LABEL[card.kind]}</strong><small>{player.hand.some(item => item.id === card.id) ? '手牌 · 弃置' : '装备 · 弃置'}</small>
+    </button>)}</div>
+    <div className="tuxi-options">{targets.map(unit => <button key={unit.id} className={targetId === unit.id ? 'active' : ''} onClick={() => setTargetId(unit.id)}><strong>{unit.name}</strong><span>距离 {combatDistance(state, player, unit)}</span><small>{targetId === unit.id ? '已选择' : '转移目标'}</small></button>)}</div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(null)}>不发动 · 正常防御</button><button className="primary" disabled={!paymentId || !targetId} onClick={() => choose(paymentId, targetId ?? undefined)}>发动流离</button></div>
+  </section></div>
+}
+
 function HarvestWindow() {
   const pending = useGameStore(s => s.pendingHarvest)
   const chooseHarvest = useGameStore(s => s.chooseHarvest)
@@ -1069,6 +1094,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
+    {state.generalSelected && !tutorial && state.pendingLiuli && <LiuliWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
