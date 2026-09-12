@@ -943,6 +943,60 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
+  it('lets a loyalist rescue the dying player lord without a Peach in hand', () => {
+    const slash = card('slash'), peach = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 1, hand: [] },
+      north: { ...state.units.north, hand: [peach] },
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.animation).toBe('heal')
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
+    expect(state.winner).toBeNull()
+  })
+
+  it('asks loyalist AI for help after the player declines self-rescue', () => {
+    const slash = card('slash'), playerPeach = card('peach', 'diamond'), allyPeach = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 1, hand: [playerPeach] },
+      north: { ...state.units.north, hand: [allyPeach] },
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toContainEqual(playerPeach)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.winner).toBeNull()
+  })
+
+  it('requires enough allied Peaches to save a lord below zero health', () => {
+    const slash = card('slash'), first = card('peach', 'heart'), second = card('peach', 'diamond')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 1, hand: [] },
+      north: { ...state.units.north, hand: [first, second] },
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash], drunk: true },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+    expect(state.winner).toBeNull()
+  })
+
   it('lets an AI character use wine for self-rescue', () => {
     const slash = card('slash'), wine = card('wine')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [wine] } } }))
