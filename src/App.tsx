@@ -830,8 +830,8 @@ function GeneralSelect() {
     <h1>选择本局武将</h1>
     <div className="general-preview">
       <div className="general-preview-stage" aria-label={`${option.name}的 3D 武将预览`}>
-        <Canvas dpr={[1, 1.4]} camera={{ position: [0, 1.36, 4.15], fov: 35 }} gl={{ antialias: true }}>
-          <color attach="background" args={['#15252b']} />
+        <img className="general-preview-art" src={option.portrait} alt="" aria-hidden="true" decoding="async" />
+        <Canvas dpr={[1, 1.4]} camera={{ position: [0, 1.36, 4.15], fov: 35 }} gl={{ antialias: true, alpha: true }}>
           <ambientLight intensity={2.2} />
           <directionalLight position={[2, 4, 3]} intensity={3.3} color="#fff0cf" />
           <pointLight position={[-2, 1, -2]} intensity={8} distance={7} color="#5fb2ba" />

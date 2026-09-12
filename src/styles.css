@@ -104,7 +104,9 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .general-select { width: min(880px, 96vw); max-height: calc(100dvh - 24px); padding: 22px; overflow-y: auto; }
 .general-select h1 { margin-bottom: 16px; }
 .general-preview { display: grid; grid-template-columns: 180px minmax(0, 1fr); min-height: 176px; margin-bottom: 12px; border: 1px solid #53676a; background: linear-gradient(115deg, #12282b, #192229 62%, #342b20); }
-.general-preview-stage { height: 176px; overflow: hidden; }
+.general-preview-stage { position: relative; height: 176px; overflow: hidden; background: #15252b; }
+.general-preview-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; opacity: .38; filter: saturate(.7); }
+.general-preview-stage > div { position: relative; z-index: 1; }
 .general-preview-info { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 0; padding: 12px 18px; }
 .general-preview-info > span { color: #b7d5d5; font-size: 11px; letter-spacing: .09em; }
 .general-preview-info strong { margin-top: 3px; color: #f4e7c9; font: 700 28px serif; }
