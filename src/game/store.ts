@@ -274,6 +274,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     if (judge && judge.suit !== 'heart') {
       const attacker = units[attackerId]
       if (attacker.hand.length >= 2) {
+        if (attackerId === 'player') {
+          const prompt = `${target.name}发动【刚烈】，请选择弃置两张手牌，或受到 1 点伤害`
+          return { units, deck, discard, pendingResponse: { effect: 'ganglie', source: targetId, target: attackerId, required: 'any', requiredCount: 2, prompt }, message: prompt, history: log(state, `${finalMessage}${skillText}；${prompt}`) }
+        }
         const paid = attacker.hand.slice(0, 2)
         units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2), animation: 'hit' } }
         discard = [...discard, ...paid]
@@ -1039,9 +1043,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
+    if (pending.effect === 'ganglie') {
+      if (!card && pending.requiredCount === 1) return
+      if (card) {
+        const remaining = (pending.requiredCount ?? 2) - 1
+        const message = remaining ? `${player.name}为【刚烈】弃置一张牌，还需弃置 ${remaining} 张` : `${player.name}为【刚烈】弃置两张牌`
+        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: remaining ? { ...pending, requiredCount: remaining, prompt: message } : null, message, history: log(base, message) }
+        base = triggerLianying(base, 'player')
+      } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units[pending.source].name}发动【刚烈】，${player.name}选择受到 1 点伤害`) }
+      set(base)
+      if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
+      return
+    }
     if (pending.effect === 'dying') {
       if (card) {
         const player = base.units.player, target = base.units[pending.target]

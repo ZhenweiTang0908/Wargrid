@@ -56,10 +56,10 @@ export interface Unit {
 }
 
 export interface PendingResponse {
-  effect: 'slash' | 'arrows' | 'barbarians' | 'duel' | 'borrowedSword' | 'nullify' | 'dying'
+  effect: 'slash' | 'arrows' | 'barbarians' | 'duel' | 'borrowedSword' | 'nullify' | 'dying' | 'ganglie'
   source: Team
   target: Team
-  required: 'dodge' | 'slash' | 'peach' | 'nullify'
+  required: 'dodge' | 'slash' | 'peach' | 'nullify' | 'any'
   prompt: string
   trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'indulgence' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   originCardId?: string

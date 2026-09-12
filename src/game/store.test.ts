@@ -1124,6 +1124,46 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(judgement)
   })
 
+  it('lets the player choose which two hand cards Ganglie discards', () => {
+    const attack = card('slash', 'heart'), first = card('dodge', 'diamond'), second = card('slash', 'club'), keep = card('peach', 'heart'), judgement = card('dismantle', 'spade', 8)
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: { ...state.units,
+        player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [attack, first, second, keep] },
+        east: { ...state.units.east, position: { x: 8, y: 4 }, hand: [] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'east' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'ganglie', requiredCount: 2 })
+    useGameStore.getState().respond(second.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'ganglie', requiredCount: 1 })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'ganglie', requiredCount: 1 })
+    useGameStore.getState().respond(first.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toEqual([keep])
+    expect(state.discard).toEqual(expect.arrayContaining([attack, judgement, first, second]))
+  })
+
+  it('lets the player choose Ganglie damage instead of discarding', () => {
+    const attack = card('slash', 'heart'), first = card('dodge', 'diamond'), second = card('peach', 'heart'), judgement = card('dismantle', 'spade', 8)
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: { ...state.units,
+        player: { ...state.units.player, position: { x: 8, y: 3 }, hand: [attack, first, second] },
+        east: { ...state.units.east, position: { x: 8, y: 4 }, hand: [] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'east' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.hand).toEqual([first, second])
+  })
+
   it('opens a dying Peach response when Ganglie would kill the player', () => {
     const attack = card('slash', 'heart'), peach = card('peach', 'diamond'), judgement = card('dismantle', 'spade', 8)
     useGameStore.setState(state => ({

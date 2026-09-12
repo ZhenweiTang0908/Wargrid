@@ -725,19 +725,20 @@ function ResponseWindow() {
   const player = useGameStore(s => s.units.player)
   const respond = useGameStore(s => s.respond)
   if (!pending) return null
-  const responses = player.hand.filter(card => card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
+  const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
+  const responses = player.hand.filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
-    <p>{pending.effect === 'borrowedSword' ? '选择一张【杀】打出；放弃则将武器交给锦囊使用者。' : `选择一张【${CARD_LABEL[pending.required]}】打出${(pending.requiredCount ?? 1) > 1 ? `（还需 ${pending.requiredCount} 张）` : ''}，或放弃响应并承受效果。`}</p>
+    <p>{pending.effect === 'ganglie' ? `选择手牌弃置（还需 ${pending.requiredCount} 张），或选择承受伤害。` : pending.effect === 'borrowedSword' ? '选择一张【杀】打出；放弃则将武器交给锦囊使用者。' : `选择一张【${requiredLabel}】打出${(pending.requiredCount ?? 1) > 1 ? `（还需 ${pending.requiredCount} 张）` : ''}，或放弃响应并承受效果。`}</p>
     <div className="response-cards">
       {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
-        <strong>{CARD_LABEL[card.kind]}</strong><small>{card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? '急救 → 桃' : player.skills.includes('wusheng') && pending.required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? '武圣 → 杀' : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${CARD_LABEL[pending.required]}`}</small>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{pending.effect === 'ganglie' ? '弃置此牌' : card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? '急救 → 桃' : player.skills.includes('wusheng') && pending.required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? '武圣 → 杀' : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${requiredLabel}`}</small>
       </button>)}
-      {!responses.length && <span className="no-response">手牌中没有【{CARD_LABEL[pending.required]}】</span>}
+      {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : `手牌中没有【${requiredLabel}】`}</span>}
     </div>
-    <button className="decline-response" onClick={() => respond(null)}>{pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>
+    {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => respond(null)}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
   </section></div>
 }
 
