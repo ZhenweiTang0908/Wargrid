@@ -412,18 +412,44 @@ describe('standard card scenarios', () => {
 
   it('lets Zhuge Liang rearrange top cards through Guanxing', () => {
     useGameStore.getState().selectGeneral('guanxing')
-    const low = card('duel', 'spade'), peach = card('peach', 'heart'), dodge = card('dodge', 'club'), slash = card('slash', 'diamond')
+    const low = card('duel', 'spade'), peach = card('peach', 'heart'), dodge = card('dodge', 'club'), slash = card('slash', 'diamond'), untouched = card('wine', 'heart')
     const state = useGameStore.getState()
-    state.deck = [low, peach, dodge, slash]
-    state.units.player = { ...state.units.player, hand: [] }
-    const result = beginTurn(state, 'player')
+    const waiting = beginTurn({ ...state, pendingGuanxing: null, deck: [low, peach, dodge, slash, untouched], units: { ...state.units, player: { ...state.units.player, hand: [] } } }, 'player')
+    expect(waiting.pendingGuanxing?.pool).toEqual([low, peach, dodge, slash])
+    expect(waiting.deck).toEqual([untouched])
+    useGameStore.setState(waiting)
+    useGameStore.getState().assignGuanxing(peach.id, 'top')
+    useGameStore.getState().finishGuanxing()
+    expect(useGameStore.getState().pendingGuanxing?.pool).toHaveLength(3)
+    useGameStore.getState().assignGuanxing(dodge.id, 'top')
+    useGameStore.getState().assignGuanxing(slash.id, 'top')
+    useGameStore.getState().assignGuanxing(low.id, 'bottom')
+    useGameStore.getState().finishGuanxing()
+    const result = useGameStore.getState()
     expect(result.units.player.hand).toEqual([peach, dodge])
     expect(result.deck[0]).toEqual(slash)
+    expect(result.deck.slice(-2)).toEqual([untouched, low])
+    expect(result.pendingGuanxing).toBeNull()
     expect(result.history.some(entry => entry.includes('观星'))).toBe(true)
+  })
+
+  it('can restore the original Guanxing order after moving cards', () => {
+    useGameStore.getState().selectGeneral('guanxing')
+    const cards = [card('duel'), card('dodge'), card('peach'), card('slash')]
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, pendingGuanxing: null, deck: cards, units: { ...state.units, player: { ...state.units.player, hand: [] } } }, 'player'))
+    useGameStore.getState().assignGuanxing(cards[2].id, 'bottom')
+    useGameStore.getState().assignGuanxing(cards[0].id, 'top')
+    useGameStore.getState().finishGuanxing(true)
+    const result = useGameStore.getState()
+    expect(result.units.player.hand).toEqual(cards.slice(0, 2))
+    expect(result.deck).toEqual(cards.slice(2))
+    expect(result.pendingGuanxing).toBeNull()
   })
 
   it('prevents slash and duel from targeting an empty-handed Zhuge Liang', () => {
     useGameStore.getState().selectGeneral('guanxing')
+    useGameStore.getState().finishGuanxing(true)
     const slash = card('slash'), duel = card('duel')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash, duel] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })

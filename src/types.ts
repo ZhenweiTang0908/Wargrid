@@ -93,6 +93,13 @@ export interface PendingJudgement {
   skipPlay: boolean
 }
 
+export interface PendingGuanxing {
+  original: Card[]
+  pool: Card[]
+  top: Card[]
+  bottom: Card[]
+}
+
 export interface GameState {
   mapId: MapId
   deckMode: DeckMode
@@ -136,6 +143,7 @@ export interface GameState {
   pendingPlunder: PendingPlunder | null
   pendingJudgement: PendingJudgement | null
   pendingLuoshen: { gained: number } | null
+  pendingGuanxing: PendingGuanxing | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string

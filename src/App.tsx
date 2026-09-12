@@ -706,7 +706,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'yiji', name: '郭嘉', title: '早终的先知', faction: '魏', portrait: '/heroes/guo-jia.png', skillName: '天妒 · 遗计', copy: '获得自己的判定牌；每受到一次伤害摸两张牌。' },
   { skill: 'qingnang', name: '华佗', title: '神医', faction: '群', portrait: '/heroes/hua-tuo.png', skillName: '青囊 · 急救', copy: '每回合弃一张牌治疗友方；濒死响应时红牌可当【桃】。' },
   { skill: 'yingzi', name: '周瑜', title: '大都督', faction: '吴', portrait: '/heroes/zhou-yu.png', skillName: '英姿 · 反间', copy: '摸牌阶段摸三张；每回合赠出一张牌让目标猜花色。' },
-  { skill: 'guanxing', name: '诸葛亮', title: '迟暮的丞相', faction: '蜀', portrait: '/heroes/zhuge-liang.png', skillName: '观星 · 空城', copy: '回合开始调整牌堆顶；没有手牌时不能成为杀或决斗目标。' },
+  { skill: 'guanxing', name: '诸葛亮', title: '迟暮的丞相', faction: '蜀', portrait: '/heroes/zhuge-liang.png', skillName: '观星 · 空城', copy: '准备阶段观看牌堆顶并安排至牌堆顶或底；没有手牌时不能成为杀或决斗目标。' },
   { skill: 'tuxi', name: '张辽', title: '前将军', faction: '魏', portrait: '/heroes/zhang-liao.png', skillName: '突袭', copy: '摸牌阶段改为从至多两名有手牌的敌方角色各获得一张牌。' },
   { skill: 'luoyi', name: '许褚', title: '虎痴', faction: '魏', portrait: '/heroes/xu-chu.png', skillName: '裸衣', copy: '摸牌阶段少摸一张，本回合杀与决斗造成的伤害增加 1。' },
   { skill: 'jieyin', name: '孙尚香', title: '弓腰姬', faction: '吴', portrait: '/heroes/sun-shangxiang.png', skillName: '结姻 · 枭姬', copy: '弃两牌与受伤男性各回复体力；失去装备后摸两张牌。' },
@@ -806,6 +806,39 @@ function LuoshenWindow() {
       <button onClick={() => chooseLuoshen(true)}><strong>判</strong><span>{pending.gained ? '继续判定' : '发动洛神'}</span></button>
       <button onClick={() => chooseLuoshen(false)}><strong>止</strong><span>{pending.gained ? '收手' : '跳过洛神'}</span></button>
     </div>
+  </section></div>
+}
+
+function GuanxingWindow() {
+  const pending = useGameStore(s => s.pendingGuanxing)
+  const assign = useGameStore(s => s.assignGuanxing)
+  const finish = useGameStore(s => s.finishGuanxing)
+  if (!pending) return null
+  const placed = pending.top.length + pending.bottom.length
+  const cardFace = (card: Card, subtitle: string) => <>
+    <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+    <strong>{CARD_LABEL[card.kind]}</strong><small>{subtitle}</small>
+  </>
+  return <div className="overlay response-overlay"><section className="response-panel guanxing-panel panel">
+    <span className="eyebrow">准备阶段 · 观星</span>
+    <h1>安排牌堆顶与牌堆底</h1>
+    <p>依次选择牌放到顶部或底部。顶部从左到右最先被判定、摸取；底部从左到右依次沉入牌堆。已放置 {placed}/{pending.original.length} 张。</p>
+    <div className="guanxing-section"><b>待安排</b><div className="guanxing-row">
+      {pending.pool.map(card => <div className="guanxing-choice" key={card.id}>
+        <div className={`card ${card.kind}`}>{cardFace(card, CARD_COPY[card.kind])}</div>
+        <div><button onClick={() => assign(card.id, 'top')}>置顶</button><button onClick={() => assign(card.id, 'bottom')}>置底</button></div>
+      </div>)}
+      {!pending.pool.length && <span className="no-response">所有牌已安排</span>}
+    </div></div>
+    <div className="guanxing-section"><b>牌堆顶 · 左边最先摸到</b><div className="guanxing-row">
+      {pending.top.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => assign(card.id, 'pool')}>{cardFace(card, '点击撤回')}</button>)}
+      {!pending.top.length && <span className="no-response">暂无</span>}
+    </div></div>
+    <div className="guanxing-section"><b>牌堆底</b><div className="guanxing-row">
+      {pending.bottom.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => assign(card.id, 'pool')}>{cardFace(card, '点击撤回')}</button>)}
+      {!pending.bottom.length && <span className="no-response">暂无</span>}
+    </div></div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => finish(true)}>保留原顺序</button><button className="primary" disabled={!!pending.pool.length} onClick={() => finish(false)}>确认安排</button></div>
   </section></div>
 }
 
@@ -962,6 +995,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
     {state.generalSelected && !tutorial && state.pendingJudgement && <JudgementWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoshen && <LuoshenWindow />}
+    {state.generalSelected && !tutorial && state.pendingGuanxing && <GuanxingWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}

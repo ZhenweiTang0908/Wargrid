@@ -127,6 +127,16 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .response-cards .card { width: 82px; height: 102px; }
 .response-cards .card:hover { transform: translateY(-7px); box-shadow: 0 10px 25px #000b, 0 0 0 2px var(--gold); }
 .harvest-panel { width: min(720px, 94vw); }
+.guanxing-panel { width: min(700px, 96vw); max-height: calc(100dvh - 20px); overflow-y: auto; }
+.guanxing-panel > p { margin-bottom: 8px; }
+.guanxing-section { margin: 8px 0; }
+.guanxing-section > b { display: block; margin-bottom: 5px; color: #d4ba7d; font-size: 12px; }
+.guanxing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 45px; }
+.guanxing-row .card { width: 70px; height: 85px; }
+.guanxing-choice > div:last-child { display: flex; gap: 3px; margin-top: 3px; }
+.guanxing-choice button { min-height: 30px; padding: 3px 6px; border: 1px solid #6d674c; background: #24343a; color: #e5d3a2; cursor: pointer; }
+.guanxing-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.guanxing-actions button { min-height: 34px; }
 .harvest-cards { flex-wrap: wrap; }
 .harvest-cards .card { width: 92px; height: 116px; }
 .fanjian-panel { width: min(500px, 92vw); }
