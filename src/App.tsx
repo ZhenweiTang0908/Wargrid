@@ -9,6 +9,7 @@ import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDista
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
+import { setMusicScene } from './music'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -1236,6 +1237,10 @@ function App() {
   }, [])
 
   useEffect(() => useGameStore.subscribe((next, previous) => playAudioEvents(audioEvents(previous, next))), [])
+
+  useEffect(() => {
+    setMusicScene(!state.generalSelected ? 'menu' : state.winner ? 'result' : state.units.player.hp <= 2 ? 'danger' : 'battle')
+  }, [state.generalSelected, state.winner, state.units.player.hp])
 
   return <main className="game-shell">
     <header className="topbar">

@@ -1,4 +1,5 @@
 import type { AudioEvent, EffectCue, VoiceCue } from './game/audioEvents'
+import { setMusicEnabled, unlockMusic } from './music'
 
 let enabled = true
 let context: AudioContext | null = null
@@ -23,6 +24,7 @@ function audioContext(): AudioContext | null {
 }
 
 export function unlockAudio() {
+  unlockMusic()
   const ctx = audioContext()
   if (!ctx) return
   void ctx.resume()
@@ -31,6 +33,7 @@ export function unlockAudio() {
 
 export function setAudioEnabled(value: boolean) {
   enabled = value
+  setMusicEnabled(value)
   if (master && context) master.gain.setTargetAtTime(value ? 0.8 : 0, context.currentTime, 0.02)
   if (value) unlockAudio()
 }
