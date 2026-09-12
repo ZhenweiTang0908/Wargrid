@@ -87,7 +87,7 @@ function Tile({ position }: { position: Position }) {
   const [hovered, setHovered] = useState(false)
   const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : state.mapId === 'siege' ? ((position.x + position.y) % 2 ? '#283a3a' : '#304144') : state.mapId === 'highland' ? ((position.x + position.y) % 2 ? '#2d3b2c' : '#354432') : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
   const controlColors: Record<Team, string> = { player: '#235e79', north: '#763a32', east: '#5c4177', west: '#76502c' }
-  const color = obstacle ? '#453f36' : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
+  const color = obstacle ? state.mapId === 'highland' ? '#46503d' : '#453f36' : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
 
   return (
     <group position={worldPosition(position)}>
@@ -176,7 +176,13 @@ function Tile({ position }: { position: Position }) {
         {[-.32, 0, .32].map(x => <mesh key={x} position={[x, .65, -.31]} castShadow><boxGeometry args={[.2, .2, .2]} /><meshStandardMaterial color="#898273" roughness={.92} /></mesh>)}
         {[-.32, .32].map(x => <mesh key={x} position={[x, .65, .31]} castShadow><boxGeometry args={[.2, .2, .2]} /><meshStandardMaterial color="#898273" roughness={.92} /></mesh>)}
       </group>}
-      {obstacle && state.mapId !== 'siege' && <group position-y={.82}>
+      {obstacle && state.mapId === 'highland' && <group position-y={.82} rotation-y={(position.x * 7 + position.y * 3) % 5 * .23}>
+        <mesh position-y={.28} castShadow><cylinderGeometry args={[.28, .45, .82, 5]} /><meshStandardMaterial color="#59604f" roughness={1} flatShading /></mesh>
+        <mesh position={[.02, .8, -.02]} rotation-z={.13} castShadow><coneGeometry args={[.34, .65, 5]} /><meshStandardMaterial color="#777867" roughness={.96} flatShading /></mesh>
+        <mesh position={[-.31, .23, .21]} rotation-z={-.2} castShadow><dodecahedronGeometry args={[.28, 0]} /><meshStandardMaterial color="#414a3d" roughness={1} flatShading /></mesh>
+        <mesh position={[.12, .65, .17]} rotation-x={-Math.PI / 2}><planeGeometry args={[.4, .24]} /><meshStandardMaterial color="#66744b" side={THREE.DoubleSide} roughness={1} /></mesh>
+      </group>}
+      {obstacle && state.mapId === 'river' && <group position-y={.82}>
         <mesh position-y={.18} rotation-y={Math.PI / 4}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#6a6254" roughness={.92} /></mesh>
         <mesh position={[.12, .42, -.08]} rotation={[.15, .1, -.2]}><dodecahedronGeometry args={[.22, 0]} /><meshStandardMaterial color="#817765" roughness={1} /></mesh>
         <Sparkles count={5} scale={.7} size={1.3} speed={.08} color="#b4aa90" />
@@ -551,6 +557,19 @@ function Battlefield() {
 }
 
 function WorldScenery() {
+  const mapId = useGameStore(s => s.mapId)
+  if (mapId === 'highland') return <group position-y={-.15}>
+    {[-1, 1].flatMap((sideX, xi) => [-1, 1].map((sideZ, zi) => <group key={`${xi}-${zi}`} position={[sideX * 5.55, 0, sideZ * 5.55]} rotation-y={(xi + zi) * .6}>
+      <mesh position-y={.42} castShadow><dodecahedronGeometry args={[.8, 0]} /><meshStandardMaterial color="#414c40" roughness={1} flatShading /></mesh>
+      <mesh position={[.24, .72, -.2]} castShadow><coneGeometry args={[.62, 1.22, 5]} /><meshStandardMaterial color="#64705b" roughness={1} flatShading /></mesh>
+      <mesh position={[-.37, .34, .24]}><dodecahedronGeometry args={[.46, 0]} /><meshStandardMaterial color="#313d35" roughness={1} flatShading /></mesh>
+    </group>))}
+    {[-4.1, -2.7, 2.7, 4.1].map((x, i) => <group key={x} position={[x, 0, i % 2 ? -5.45 : 5.45]}>
+      <mesh position-y={.45}><cylinderGeometry args={[.08, .11, .9, 6]} /><meshStandardMaterial color="#58452d" roughness={1} /></mesh>
+      <mesh position-y={.9}><coneGeometry args={[.42, .9, 7]} /><meshStandardMaterial color="#264333" roughness={1} flatShading /></mesh>
+      <mesh position-y={1.28}><coneGeometry args={[.32, .82, 7]} /><meshStandardMaterial color="#31513b" roughness={1} flatShading /></mesh>
+    </group>)}
+  </group>
   return <group position-y={-.15}>
     {[-1, 1].map(side => <group key={side} position={[side * 5.65, 0, side * .35]} rotation-y={side < 0 ? Math.PI / 2 : -Math.PI / 2}>
       <mesh position-y={.65}><boxGeometry args={[1.5, 1.35, .5]} /><meshStandardMaterial color="#263234" roughness={.95} /></mesh>
