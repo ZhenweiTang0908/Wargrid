@@ -331,7 +331,7 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team):
       units: { ...state.units, [wielderId]: { ...wielder, hand: wielder.hand.filter(card => card.id !== slash.id), animation: 'attack' } },
       discard: [...state.discard, slash], message, history: log(state, message),
     }
-    return { ...forced, ...resolveSlash(forced, wielderId, victim.id) }
+    return { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
   }
   const message = `${wielder.name}未能出【杀】，${actor.name}获得其【${CARD_LABEL[weapon.kind]}】`
   return {
@@ -370,7 +370,7 @@ function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): P
     units: { ...state.units, [attackerId]: { ...attacker, hand: attacker.hand.filter(card => card.id !== nextSlash.id), animation: 'attack' } },
     discard: [...state.discard, nextSlash], message, history: log(state, message),
   }
-  return resolveSlash(chaseState, attackerId, targetId)
+  return resolveSlash(chaseState, attackerId, targetId, undefined, false, nextSlash)
 }
 
 function liuliRedirect(state: GameState, attackerId: Team, targetId: Team) {
@@ -383,11 +383,11 @@ function liuliRedirect(state: GameState, attackerId: Team, targetId: Team) {
   return { targetId: redirect.id, state: { ...state, units: { ...state.units, [targetId]: { ...target, hand: target.hand.slice(1), animation: 'cast' } }, discard: [...state.discard, payment], message, history: log(state, message) } }
 }
 
-function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false): Partial<GameState> {
-  const slashCard = state.discard[state.discard.length - 1]
+function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manualResponse?: Card | null, armorChecked = false, slashCard?: Card): Partial<GameState> {
+  slashCard ??= state.discard[state.discard.length - 1]
   if (manualResponse === undefined) {
     const redirected = liuliRedirect(state, attackerId, targetId)
-    if (redirected) return resolveSlash(redirected.state, attackerId, redirected.targetId)
+    if (redirected) return resolveSlash(redirected.state, attackerId, redirected.targetId, undefined, false, slashCard)
   }
   let attacker = state.units[attackerId], target = state.units[targetId]
   if (manualResponse === undefined) {
@@ -867,11 +867,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (!canSlash(state, unit, target)) return
         if (targetId === 'player' && action.unit !== 'player') {
           const redirected = liuliRedirect(base, action.unit, targetId)
-          if (redirected) { set({ ...redirected.state, ...resolveSlash(redirected.state, action.unit, redirected.targetId) }); return }
+          if (redirected) { set({ ...redirected.state, ...resolveSlash(redirected.state, action.unit, redirected.targetId, undefined, false, card) }); return }
           const tieqi = judgeTieqi(base, action.unit); base = tieqi.state
-          if (tieqi.locked) { set({ ...base, ...resolveSlash(base, action.unit, targetId, null, true) }); return }
-          const slashCard = base.discard[base.discard.length - 1]
-          const shieldBlocks = target.equipment.armor?.kind === 'shield' && (slashCard.suit === 'spade' || slashCard.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
+          if (tieqi.locked) { set({ ...base, ...resolveSlash(base, action.unit, targetId, null, true, card) }); return }
+          const shieldBlocks = target.equipment.armor?.kind === 'shield' && (card.suit === 'spade' || card.suit === 'club') && unit.equipment.weapon?.kind !== 'qinggang'
           if (!shieldBlocks) {
             let armorChecked = false
             if (target.equipment.armor?.kind === 'bagua' && unit.equipment.weapon?.kind !== 'qinggang') {
@@ -882,21 +881,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
             }
             const requiredCount = unit.skill === 'wushuang' ? 2 : 1
             const prompt = `${unit.name}对你使用【杀】，${requiredCount === 2 ? '【无双】要求连续打出两张【闪】' : '请选择是否打出【闪】'}`
-            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked, prompt }, message: prompt, history: log(base, prompt) }); return
+            set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
           }
         }
         if (action.unit === 'player' && unit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
           const legal = [targetId, ...state.turnOrder.filter(id => id !== action.unit && id !== targetId && state.units[id].hp > 0 && combatDistance(state, unit, state.units[id]) <= effectiveAttackRange(state, unit))].slice(0, 3)
           let working = base
           for (const id of legal) {
-            working = { ...working, ...resolveSlash(working, action.unit, id) }
+            working = { ...working, ...resolveSlash(working, action.unit, id, undefined, false, card) }
             if (working.pendingResponse || working.winner) break
             working = { ...working, units: { ...working.units, [action.unit]: { ...working.units[action.unit], attacksUsed: unit.attacksUsed } } }
           }
           if (!working.pendingResponse) working = { ...working, units: { ...working.units, [action.unit]: { ...working.units[action.unit], attacksUsed: unit.attacksUsed + 1 } }, message: `${unit.name}发动【方天画戟】，一杀多目标` }
           set(working); return
         }
-        set({ ...base, ...resolveSlash(base, action.unit, targetId) }); return
+        set({ ...base, ...resolveSlash(base, action.unit, targetId, undefined, false, card) }); return
       }
       if (kind === 'duel') { set(continueDuel(base, targetId, action.unit)); return }
       if (kind === 'fireAttack') { set(resolveFireAttack(base, action.unit, targetId)); return }
@@ -1067,11 +1066,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
       base = triggerLianying(base, 'player')
       if (pending.effect === 'slash') {
-        const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card, pending.armorChecked)
+        const attackCard = base.discard.find(candidate => candidate.id === pending.originCardId)
+        const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card, pending.armorChecked, attackCard)
         base = { ...base, ...resolved }
       }
     } else if (pending.effect === 'slash') {
-      base = { ...base, ...resolveSlash(base, pending.source, 'player', null, pending.armorChecked) }
+      const attackCard = base.discard.find(candidate => candidate.id === pending.originCardId)
+      base = { ...base, ...resolveSlash(base, pending.source, 'player', null, pending.armorChecked, attackCard) }
     } else {
       const guard = pending.required === 'dodge' ? loyalGuard(base, 'player') : null
       if (guard) {

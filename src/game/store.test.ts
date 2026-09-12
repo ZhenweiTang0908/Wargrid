@@ -1188,6 +1188,39 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(judgement)
   })
 
+  it('retains fire damage after a failed Bagua judgement', () => {
+    const fireSlash = card('fireSlash', 'heart'), bagua = card('bagua'), blackJudge = card('duel', 'spade')
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, position: { x: 1, y: 0 }, hand: [fireSlash], equipment: { weapon: card('greenDragon') } },
+        player: { ...state.units.player, position: { x: 1, y: 1 }, hand: [], equipment: { armor: bagua } },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: fireSlash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', originCardId: fireSlash.id, armorChecked: true })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
+    expect(state.units.player.animation).toBe('fireHit')
+  })
+
+  it('checks the original black Slash against Renwang Shield after Double Sword discards', () => {
+    const blackSlash = card('slash', 'club'), sword = card('doubleSword'), shield = card('shield'), redPayment = card('peach', 'heart')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [blackSlash], equipment: { weapon: sword } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, gender: 'female', hand: [redPayment], equipment: { armor: shield } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: blackSlash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([blackSlash, redPayment]))
+    expect(state.message).toContain('仁王盾')
+  })
+
   it('applies slash damage when the player declines to respond', () => {
     const slash = card('slash', 'heart')
     useGameStore.setState(state => ({
