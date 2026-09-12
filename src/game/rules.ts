@@ -54,6 +54,26 @@ export const HIGHLAND_TERRAIN: Terrain[] = [
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
   ...terrainLine('village', [{ x: 0, y: 2 }, { x: 8, y: 6 }]),
 ]
+export const WETLAND_OBSTACLES: Position[] = [
+  { x: 1, y: 3 }, { x: 7, y: 3 }, { x: 1, y: 5 }, { x: 7, y: 5 },
+  { x: 3, y: 1 }, { x: 5, y: 1 }, { x: 3, y: 7 }, { x: 5, y: 7 },
+]
+export const WETLAND_TERRAIN: Terrain[] = [
+  ...terrainLine('water', [
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 3 })),
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 5 })),
+    ...Array.from({ length: 3 }, (_, y) => ({ x: 0, y: y + 3 })),
+    ...Array.from({ length: 3 }, (_, y) => ({ x: 8, y: y + 3 })),
+  ]),
+  ...terrainLine('marsh', [{ x: 3, y: 4 }, { x: 5, y: 4 }, { x: 2, y: 2 }, { x: 6, y: 2 }, { x: 2, y: 6 }, { x: 6, y: 6 }]),
+  ...terrainLine('bridge', [{ x: 2, y: 3 }, { x: 6, y: 3 }, { x: 2, y: 5 }, { x: 6, y: 5 }]),
+  ...terrainLine('road', [{ x: 4, y: 0 }, { x: 4, y: 1 }, { x: 4, y: 2 }, { x: 4, y: 6 }, { x: 4, y: 7 }, { x: 4, y: 8 }]),
+  ...terrainLine('forest', [{ x: 0, y: 1 }, { x: 8, y: 1 }, { x: 0, y: 7 }, { x: 8, y: 7 }]),
+  ...terrainLine('ridge', [{ x: 2, y: 4 }, { x: 6, y: 4 }]),
+  ...terrainLine('watchtower', [{ x: 0, y: 4 }, { x: 8, y: 4 }]),
+  ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
+  ...terrainLine('village', [{ x: 1, y: 1 }, { x: 7, y: 7 }]),
+]
 const riverObjects: MapObject[] = [
   { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
   { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
@@ -75,6 +95,14 @@ const highlandObjects: MapObject[] = [
   { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
   { id: 'east-shrine', position: { x: 8, y: 3 }, kind: 'healingShrine', claimed: false },
   { id: 'west-drum', position: { x: 0, y: 5 }, kind: 'warDrum', claimed: false },
+  { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
+  { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
+]
+const wetlandObjects: MapObject[] = [
+  { id: 'south-cache', position: { x: 3, y: 6 }, kind: 'supplyCache', claimed: false },
+  { id: 'north-cache', position: { x: 5, y: 2 }, kind: 'supplyCache', claimed: false },
+  { id: 'east-shrine', position: { x: 7, y: 4 }, kind: 'healingShrine', claimed: false },
+  { id: 'west-drum', position: { x: 1, y: 4 }, kind: 'warDrum', claimed: false },
   { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
   { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
 ]
@@ -292,8 +320,8 @@ export function createInitialState(deck?: Card[], randomizeIdentities = false, r
   const initialDeck = deck ?? (deckMode === 'standard' ? createStandardDeck(random) : createDeck())
   const hiddenIdentities: Identity[] = randomizeIdentities ? shuffle<Identity>(['loyalist', 'rebel', 'renegade'], random) : ['loyalist', 'rebel', 'renegade']
   const state: GameState = {
-    mapId, deckMode, size: BOARD_SIZE, terrain: mapId === 'siege' ? SIEGE_TERRAIN : mapId === 'highland' ? HIGHLAND_TERRAIN : TERRAIN, obstacles: mapId === 'siege' ? SIEGE_OBSTACLES : mapId === 'highland' ? HIGHLAND_OBSTACLES : OBSTACLES, controlPoint: CONTROL_POINT,
-    mapObjects: (mapId === 'siege' ? siegeObjects : mapId === 'highland' ? highlandObjects : riverObjects).map(object => ({ ...object, position: { ...object.position } })),
+    mapId, deckMode, size: BOARD_SIZE, terrain: mapId === 'siege' ? SIEGE_TERRAIN : mapId === 'highland' ? HIGHLAND_TERRAIN : mapId === 'wetland' ? WETLAND_TERRAIN : TERRAIN, obstacles: mapId === 'siege' ? SIEGE_OBSTACLES : mapId === 'highland' ? HIGHLAND_OBSTACLES : mapId === 'wetland' ? WETLAND_OBSTACLES : OBSTACLES, controlPoint: CONTROL_POINT,
+    mapObjects: (mapId === 'siege' ? siegeObjects : mapId === 'highland' ? highlandObjects : mapId === 'wetland' ? wetlandObjects : riverObjects).map(object => ({ ...object, position: { ...object.position } })),
     units: {
       player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: initialDeck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
       north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: hiddenIdentities[0], faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: initialDeck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },

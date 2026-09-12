@@ -75,6 +75,15 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().obstacles).toContainEqual({ x: 3, y: 2 })
   })
 
+  it('keeps the wetland battlefield when restarting after general selection', () => {
+    useGameStore.getState().selectMap('wetland')
+    expect(useGameStore.getState().mapId).toBe('wetland')
+    useGameStore.getState().selectGeneral('wusheng')
+    useGameStore.getState().dispatch({ type: 'RESTART' })
+    expect(useGameStore.getState().mapId).toBe('wetland')
+    expect(useGameStore.getState().obstacles).toContainEqual({ x: 3, y: 7 })
+  })
+
   it('switches between standard and expanded card pools before selection and preserves the choice', () => {
     useGameStore.getState().selectDeckMode('expanded')
     let state = useGameStore.getState()

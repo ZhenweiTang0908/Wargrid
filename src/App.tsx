@@ -85,7 +85,7 @@ function Tile({ position }: { position: Position }) {
   const attackPreview = previewingSlash && !samePosition(state.units.player.position, position) && pathDistance(state, state.units.player.position, position, 'player') <= effectiveAttackRange(state, state.units.player)
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
-  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : state.mapId === 'siege' ? ((position.x + position.y) % 2 ? '#283a3a' : '#304144') : state.mapId === 'highland' ? ((position.x + position.y) % 2 ? '#2d3b2c' : '#354432') : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
+  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : state.mapId === 'siege' ? ((position.x + position.y) % 2 ? '#283a3a' : '#304144') : state.mapId === 'highland' ? ((position.x + position.y) % 2 ? '#2d3b2c' : '#354432') : state.mapId === 'wetland' ? ((position.x + position.y) % 2 ? '#273a35' : '#30443a') : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
   const controlColors: Record<Team, string> = { player: '#235e79', north: '#763a32', east: '#5c4177', west: '#76502c' }
   const color = obstacle ? state.mapId === 'highland' ? '#46503d' : '#453f36' : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
 
@@ -181,6 +181,11 @@ function Tile({ position }: { position: Position }) {
         <mesh position={[.02, .8, -.02]} rotation-z={.13} castShadow><coneGeometry args={[.34, .65, 5]} /><meshStandardMaterial color="#777867" roughness={.96} flatShading /></mesh>
         <mesh position={[-.31, .23, .21]} rotation-z={-.2} castShadow><dodecahedronGeometry args={[.28, 0]} /><meshStandardMaterial color="#414a3d" roughness={1} flatShading /></mesh>
         <mesh position={[.12, .65, .17]} rotation-x={-Math.PI / 2}><planeGeometry args={[.4, .24]} /><meshStandardMaterial color="#66744b" side={THREE.DoubleSide} roughness={1} /></mesh>
+      </group>}
+      {obstacle && state.mapId === 'wetland' && <group position-y={.82} rotation-y={(position.x + position.y) * .24}>
+        <mesh position-y={.22} rotation-z={.08} castShadow><cylinderGeometry args={[.31, .43, .72, 5]} /><meshStandardMaterial color="#746d59" roughness={1} flatShading /></mesh>
+        <mesh position={[.13, .62, -.1]} rotation-z={-.36} castShadow><boxGeometry args={[.43, .31, .4]} /><meshStandardMaterial color="#928674" roughness={1} flatShading /></mesh>
+        <mesh position={[-.23, .38, .2]} rotation-z={.54}><boxGeometry args={[.15, .68, .15]} /><meshStandardMaterial color="#514f42" roughness={1} /></mesh>
       </group>}
       {obstacle && state.mapId === 'river' && <group position-y={.82}>
         <mesh position-y={.18} rotation-y={Math.PI / 4}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#6a6254" roughness={.92} /></mesh>
@@ -558,6 +563,19 @@ function Battlefield() {
 
 function WorldScenery() {
   const mapId = useGameStore(s => s.mapId)
+  if (mapId === 'wetland') return <group position-y={-.15}>
+    {[-1, 1].map(side => <group key={side} position={[side * 5.4, 0, 0]}>
+      <mesh position-y={.1} rotation-x={-Math.PI / 2}><circleGeometry args={[1.3, 20]} /><meshStandardMaterial color="#20444b" roughness={.42} /></mesh>
+      {[-.75, .1, .75].map((offset, index) => <group key={index} position={[offset, 0, index % 2 ? .54 : -.5]}>
+        <mesh position-y={.39} rotation-z={index % 2 ? -.18 : .12}><cylinderGeometry args={[.18, .24, .82, 5]} /><meshStandardMaterial color="#605c4e" roughness={1} flatShading /></mesh>
+        <mesh position-y={.88}><coneGeometry args={[.1, .39, 5]} /><meshStandardMaterial color="#876f4e" roughness={1} /></mesh>
+      </group>)}
+    </group>)}
+    {[-4.6, 4.6].map((x, index) => <group key={x} position={[x, 0, index ? -5.1 : 5.1]}>
+      <mesh position-y={.65}><cylinderGeometry args={[.07, .1, 1.3, 6]} /><meshStandardMaterial color="#4c3928" /></mesh>
+      <mesh position-y={1.27}><coneGeometry args={[.42, 1.08, 7]} /><meshStandardMaterial color="#385b42" roughness={1} flatShading /></mesh>
+    </group>)}
+  </group>
   if (mapId === 'highland') return <group position-y={-.15}>
     {[-1, 1].flatMap((sideX, xi) => [-1, 1].map((sideZ, zi) => <group key={`${xi}-${zi}`} position={[sideX * 5.55, 0, sideZ * 5.55]} rotation-y={(xi + zi) * .6}>
       <mesh position-y={.42} castShadow><dodecahedronGeometry args={[.8, 0]} /><meshStandardMaterial color="#414c40" roughness={1} flatShading /></mesh>
@@ -638,7 +656,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>选将前可选择双河、围城或山谷战场，以及标准或扩展牌池。每回合获得 4 点移动力；双河地图涉水耗 2 点，桥梁只耗 1 点；围城地图的城墙不可进入，需争夺入口；山谷地图的山壁分割侧翼路线。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>选将前可选择双河、围城、山谷或泽国战场，以及标准或扩展牌池。每回合获得 4 点移动力；涉水与泥沼耗 2 点，桥梁只耗 1 点；围城地图需争夺城墙入口，山谷地图由山壁分割侧翼，泽国地图的环形水道提供中央涉水和侧翼过桥两条路线。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
       <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
@@ -686,6 +704,7 @@ function GeneralSelect() {
       <button className={mapId === 'river' ? 'active' : ''} onClick={() => selectMap('river')}><strong>双河争渡</strong><span>涉水耗力，中央桥梁是交通要道</span></button>
       <button className={mapId === 'siege' ? 'active' : ''} onClick={() => selectMap('siege')}><strong>围城夺旗</strong><span>城墙阻路，四道入口与瞭望台决定攻防</span></button>
       <button className={mapId === 'highland' ? 'active' : ''} onClick={() => selectMap('highland')}><strong>山谷伏击</strong><span>林地掩护，山壁分路，泥沼拖慢中央推进</span></button>
+      <button className={mapId === 'wetland' ? 'active' : ''} onClick={() => selectMap('wetland')}><strong>泽国遗城</strong><span>中央涉水或侧翼过桥，废墟与水道改变路线</span></button>
     </div>
     <div className="map-options" aria-label="选择牌池">
       <button className={deckMode === 'standard' ? 'active' : ''} onClick={() => selectDeckMode('standard')}><strong>标准牌池 · 108 张</strong><span>标准包与 EX 牌的花色、点数及数量</span></button>
@@ -827,7 +846,7 @@ function App() {
 
   return <main className="game-shell">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{state.mapId === 'siege' ? '围城夺旗' : state.mapId === 'highland' ? '山谷伏击' : '双河争渡'} · {state.deckMode === 'standard' ? '标准' : '扩展'} · 第 {state.turn} 回合</small></div></div>
+      <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{state.mapId === 'siege' ? '围城夺旗' : state.mapId === 'highland' ? '山谷伏击' : state.mapId === 'wetland' ? '泽国遗城' : '双河争渡'} · {state.deckMode === 'standard' ? '标准' : '扩展'} · 第 {state.turn} 回合</small></div></div>
       <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
         <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>

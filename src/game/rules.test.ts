@@ -10,6 +10,17 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 }))
 
 describe('board rules', () => {
+  it('builds a wetland map with costly central water and side bridges', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'wetland')
+    expect(state.mapId).toBe('wetland')
+    expect(terrainAt(state, { x: 4, y: 3 })).toBe('water')
+    expect(movementCost(state, { x: 4, y: 3 })).toBe(2)
+    expect(terrainAt(state, { x: 2, y: 3 })).toBe('bridge')
+    expect(movementCost(state, { x: 2, y: 3 })).toBe(1)
+    expect(state.obstacles).toContainEqual({ x: 3, y: 7 })
+    for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
+    expect(state.mapObjects.every(object => !state.obstacles.some(wall => wall.x === object.position.x && wall.y === object.position.y))).toBe(true)
+  })
   it('builds a highland map with four traversable routes and tactical side lanes', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'highland')
     expect(state.mapId).toBe('highland')
