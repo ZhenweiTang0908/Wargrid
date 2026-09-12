@@ -2631,6 +2631,37 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(shield)
   })
 
+  it('lets AI Da Qiao redirect Slash by discarding equipment when she has no hand cards', () => {
+    const slash = card('slash', 'heart'), shield = card('shield', 'spade')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+      north: { ...state.units.north, skill: 'guose', skills: ['guose', 'liuli'], position: { x: 4, y: 0 }, hand: [], equipment: { armor: shield } },
+      east: { ...state.units.east, position: { x: 5, y: 0 }, hand: [], equipment: {} },
+    } } ))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.equipment.armor).toBeUndefined()
+    expect(state.discard).toContainEqual(shield)
+    expect(state.units.east.hp).toBeLessThan(4)
+    expect(state.history.some(entry => entry.includes('流离'))).toBe(true)
+  })
+
+  it('does not let AI Liuli use a weapon that would leave the redirected target out of range', () => {
+    const slash = card('slash', 'heart'), weapon = card('qinggang', 'spade')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+      north: { ...state.units.north, skill: 'guose', skills: ['guose', 'liuli'], position: { x: 4, y: 0 }, hand: [], equipment: { weapon } },
+      east: { ...state.units.east, position: { x: 6, y: 0 }, hand: [], equipment: {} },
+      west: { ...state.units.west, position: { x: 8, y: 8 }, hand: [], equipment: {} },
+    } } ))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBeLessThan(4)
+    expect(state.units.north.equipment.weapon).toEqual(weapon)
+    expect(state.discard).not.toContainEqual(weapon)
+  })
+
   it('does not offer Liuli when discarding the only weapon would put every target out of range', () => {
     useGameStore.getState().selectGeneral('guose')
     const slash = card('slash', 'heart'), weapon = card('greenDragon')

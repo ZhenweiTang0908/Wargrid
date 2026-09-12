@@ -448,12 +448,21 @@ function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): P
 
 function liuliRedirect(state: GameState, attackerId: Team, targetId: Team) {
   const target = state.units[targetId]
-  if (!target.skills.includes('liuli') || !target.hand.length) return null
-  const redirect = state.turnOrder.map(id => state.units[id]).find(unit => unit.id !== attackerId && unit.id !== targetId && unit.hp > 0 && combatDistance(state, target, unit) <= effectiveAttackRange(state, target))
-  if (!redirect) return null
-  const payment = target.hand[0]
+  if (!target.skills.includes('liuli')) return null
+  const option = [...target.hand, ...equippedCards(target)].map(payment => {
+    const equipment = { ...target.equipment }
+    const slot = (Object.keys(equipment) as (keyof typeof equipment)[]).find(key => equipment[key]?.id === payment.id)
+    if (slot) delete equipment[slot]
+    const afterPayment = { ...target, equipment }
+    const redirect = state.turnOrder.map(id => state.units[id]).find(unit => unit.id !== attackerId && unit.id !== targetId && unit.hp > 0 && combatDistance(state, afterPayment, unit) <= effectiveAttackRange(state, afterPayment))
+    return redirect ? { payment, redirect, equipment, wasEquipped: !!slot } : null
+  }).find((choice): choice is NonNullable<typeof choice> => !!choice)
+  if (!option) return null
+  const { payment, redirect, equipment, wasEquipped } = option
+  const recovery = resolveEquipmentLoss(target, wasEquipped ? [payment] : [], state.deck, [...state.discard, payment])
   const message = `${target.name}发动【流离】，弃置【${CARD_LABEL[payment.kind]}】将【杀】转移给${redirect.name}`
-  return { targetId: redirect.id, state: { ...state, units: { ...state.units, [targetId]: { ...target, hand: target.hand.slice(1), animation: 'cast' } }, discard: [...state.discard, payment], message, history: log(state, message) } }
+  const redirected = { ...state, units: { ...state.units, [targetId]: { ...target, hp: recovery.hp, hand: [...target.hand.filter(card => card.id !== payment.id), ...recovery.drawn], equipment, animation: recovery.healed ? 'heal' as const : 'cast' as const } }, deck: recovery.deck, discard: recovery.discard, message, history: log(state, message) }
+  return { targetId: redirect.id, state: !wasEquipped && target.hand.length === 1 ? triggerLianying(redirected, targetId) : redirected }
 }
 
 function offerPlayerLiuli(state: GameState, attackerId: Team, slashCard: Card, forcedSlashAttacksUsed?: number): GameState | null {
