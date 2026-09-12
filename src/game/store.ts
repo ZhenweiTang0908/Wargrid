@@ -114,14 +114,15 @@ const equippedCards = (unit: Unit) => Object.values(unit.equipment).filter((card
 const rescueCard = (state: GameState, unit: Unit) => unit.hand.find(card => card.kind === 'peach')
   ?? (state.currentUnit !== unit.id && unit.skills.includes('jijiu') ? [...unit.hand, ...equippedCards(unit)].find(isRed) : undefined)
 const selfRescueCard = (state: GameState, unit: Unit) => rescueCard(state, unit) ?? unit.hand.find(card => card.kind === 'wine')
-function payRescueCard(state: GameState, team: Team, card: Card): GameState {
+function payRescueCard(state: GameState, team: Team, card: Card, otherResolvingCards: Card[] = []): GameState {
   const unit = state.units[team], equipment = { ...unit.equipment }
+  const resolvingCards = [card, ...otherResolvingCards]
   const wasLastHandCard = unit.hand.length === 1 && unit.hand[0].id === card.id
   const slot = (Object.keys(equipment) as (keyof typeof equipment)[]).find(key => equipment[key]?.id === card.id)
   if (slot) delete equipment[slot]
-  const loss = resolveEquipmentLoss(unit, slot ? [card] : [], state.deck, [...state.discard, card])
+  const loss = resolveEquipmentLoss(unit, slot ? [card] : [], state.deck, [...state.discard, card], resolvingCards.map(item => item.id))
   const paid = { ...state, units: { ...state.units, [team]: { ...unit, hp: loss.hp, hand: [...unit.hand.filter(candidate => candidate.id !== card.id), ...loss.drawn], equipment, animation: loss.healed ? 'heal' as const : 'cast' as const } }, deck: loss.deck, discard: loss.discard }
-  return wasLastHandCard ? triggerLianying(paid, team) : paid
+  return wasLastHandCard ? triggerLianying(paid, team, resolvingCards) : paid
 }
 const rescueAmount = (target: Unit, helper: Unit, card: Card) =>
   card.kind === 'peach' && target.identity === 'lord' && target.skills.includes('jiuyuan') && helper.id !== target.id && helper.faction === 'wu' ? 2 : 1
@@ -130,10 +131,11 @@ function triggerLianying(state: GameState, team: Team, resolvingCards: Card[] = 
   const unit = state.units[team]
   if (unit.hp <= 0 || unit.hand.length || !unit.skills.includes('lianying')) return state
   const resolvingIds = new Set(resolvingCards.map(card => card.id))
+  const withheld = state.discard.filter(card => resolvingIds.has(card.id))
   const draw = drawCards(state.deck, state.discard.filter(card => !resolvingIds.has(card.id)), 1)
   if (!draw.drawn.length) return state
   const message = `${unit.name}发动【连营】，失去最后一张手牌后摸一张牌`
-  return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: [...draw.discard, ...resolvingCards], message, history: log(state, message) }
+  return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: [...draw.discard, ...withheld], message, history: log(state, message) }
 }
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
 const drawWhileResolving = (deck: Card[], discard: Card[], count: number, sourceCard?: Card) =>
@@ -597,8 +599,8 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     const responseDiscard = dodge ? [...state.discard, ...dodgeCards] : guard ? [...state.discard, guard.dodge] : state.discard
     const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : baguaDodge ? `${target.name}的【八卦阵】视为第一张【闪】，再${responseText(target, dodge!, 'dodge')}响应【无双】` : `${target.name}${dodgeCards.length > 1 ? `${dodgeCards.map(card => responseText(target, card, 'dodge')).join('，')}响应【无双】` : responseText(target, dodge!, 'dodge')}`
     let defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
-    if (dodge && manualResponse === undefined) defendedState = triggerLianying(defendedState, targetId)
-    if (guard) defendedState = triggerLianying(defendedState, guard.unit.id)
+    if (dodge && manualResponse === undefined) defendedState = triggerLianying(defendedState, targetId, [...dodgeCards, ...(slashCard ? [slashCard] : [])])
+    if (guard) defendedState = triggerLianying(defendedState, guard.unit.id, [guard.dodge, ...(slashCard ? [slashCard] : [])])
     if (!shieldBlocks) {
       const forced = axeAfterDodge(defendedState, attackerId, targetId, slashCard, 1 + (attacker.drunk ? 1 : 0) + (attacker.luoyiActive ? 1 : 0))
       if (forced) return forced
@@ -650,7 +652,7 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCa
       return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`, false, sourceCard)
     }
     const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
-    for (const slash of slashes) working = payRescueCard(working, current, slash)
+    for (const slash of slashes) working = payRescueCard(working, current, slash, sourceCard ? [sourceCard] : [])
     working = { ...working, message, history: log(working, message) }
     ;[current, other] = [other, current]
   }
@@ -702,16 +704,16 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
     if (nullify) {
       const message = `${target.name}以【无懈可击】抵消【${CARD_LABEL[kind]}】`
       working = { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...working.discard, nullify], message, history: log(working, message) }
-      working = triggerLianying(working, targetId)
+      working = triggerLianying(working, targetId, [nullify, ...(sourceCard ? [sourceCard] : [])])
       continue
     }
     if (response || guard) {
       const message = guard ? `${guard.unit.name}发动【护驾】保护主公` : `${target.name}${responseText(target, response!, responseKind)}响应【${CARD_LABEL[kind]}】`
       working = guard
         ? { ...working, units: { ...working.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' } }, discard: [...working.discard, guard.dodge], message, history: log(working, message) }
-        : payRescueCard(working, targetId, response!)
+        : payRescueCard(working, targetId, response!, sourceCard ? [sourceCard] : [])
       working = { ...working, message, history: log(working, message) }
-      if (guard) working = triggerLianying(working, guard.unit.id)
+      if (guard) working = triggerLianying(working, guard.unit.id, [guard.dodge, ...(sourceCard ? [sourceCard] : [])])
     } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`, false, sourceCard) }
     if (working.winner) break
   }
@@ -1372,14 +1374,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const player = base.units.player, remaining = (pending.requiredCount ?? 1) - 1
       const prompt = `【无双】还需打出 ${remaining} 张【闪】，或放弃并承受伤害`
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双】打出第一张【闪】`) }
-      base = triggerLianying(base, 'player')
+      base = triggerLianying(base, 'player', [card, ...base.discard.filter(item => item.id === pending.originCardId)])
       set(base); return
     }
     if (card) {
       const player = base.units.player
       const response = pending.required === 'slash' || pending.required === 'dodge' ? responseText(player, card, pending.required) : `打出【${CARD_LABEL[card.kind]}】`
       const message = `${player.name}${response}响应【${CARD_LABEL[pending.effect]}】`
-      base = payRescueCard(base, 'player', card)
+      base = payRescueCard(base, 'player', card, base.discard.filter(item => item.id === pending.originCardId))
       base = { ...base, message, history: log(base, message) }
       if (pending.effect === 'slash') {
         const attackCard = base.discard.find(candidate => candidate.id === pending.originCardId)

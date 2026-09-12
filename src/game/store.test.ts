@@ -2359,6 +2359,40 @@ describe('standard card scenarios', () => {
     expect(state.discard).toEqual([arrows])
   })
 
+  it('keeps Arrows and the last Dodge out of AI Lianying draw', () => {
+    const arrows = card('arrows'), dodge = card('dodge'), oldCard = card('peach', 'heart')
+    useGameStore.setState(state => ({ deck: [], discard: [oldCard], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [arrows] },
+      north: { ...state.units.north, name: '陆逊', skill: 'qianxun', skills: ['qianxun', 'lianying'], hand: [dodge] },
+      east: { ...state.units.east, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([oldCard])
+    expect(state.discard).toEqual(expect.arrayContaining([arrows, dodge]))
+  })
+
+  it('keeps Arrows and the last Dodge out of player Lianying draw', () => {
+    const arrows = card('arrows'), dodge = card('dodge'), oldCard = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [], discard: [oldCard], units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [arrows] },
+      player: { ...state.units.player, name: '陆逊', skill: 'qianxun', skills: ['qianxun', 'lianying'], hand: [dodge] },
+      north: { ...state.units.north, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toEqual([oldCard])
+    expect(state.discard).toEqual(expect.arrayContaining([arrows, dodge]))
+  })
+
   it('opens the dodge response after a failed Bagua judgement', () => {
     const slash = card('slash', 'heart'), bagua = card('bagua', 'club'), judgement = card('duel', 'spade', 9), dodge = card('dodge', 'diamond')
     useGameStore.setState(state => ({
