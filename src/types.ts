@@ -127,6 +127,8 @@ export interface GameState {
   selectedAsRende: boolean
   selectedAsGuose: boolean
   qingnangMode: boolean
+  jieyinMode: boolean
+  jieyinSelection: string[]
   lijianMode: boolean
   lijianTargets: Team[]
   spearMode: boolean

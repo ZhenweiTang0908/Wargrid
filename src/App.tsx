@@ -267,18 +267,19 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
   const factionAccent: Record<Faction, string> = { wei: '#607fae', shu: '#59a66c', wu: '#d15b4f', qun: '#9a8a74' }
   const accent = factionAccent[unit.faction]
-  const selectedKind = state.qingnangMode ? undefined : selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
+  const selectedKind = state.qingnangMode || state.jieyinMode ? undefined : selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const attackSource = selectedAsSlash && Object.values(state.units.player.equipment).some(card => card?.id === selectedCardId)
     ? { ...state.units.player, equipment: Object.fromEntries(Object.entries(state.units.player.equipment).filter(([, card]) => card?.id !== selectedCardId)) as Unit['equipment'] } : state.units.player
   const canLijianTarget = state.lijianMode && team !== 'player' && unit.hp > 0 && unit.gender === 'male' && !state.lijianTargets.includes(team)
   const canQingnangTarget = state.qingnangMode && !!selectedCardId && unit.hp > 0 && unit.hp < unit.maxHp
+  const canJieyinTarget = state.jieyinMode && state.jieyinSelection.length === 2 && team !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male'
   const lijianSelected = state.lijianTargets.includes(team)
   const canChainTarget = selectedKind === 'ironChain' && unit.hp > 0
   const chainSelected = state.chainTargets.includes(team)
   const borrowedWielder = state.borrowedSwordWielder
   const canBorrowedWielder = selectedKind === 'borrowedSword' && team !== 'player' && !borrowedWielder && !!unit.equipment.weapon && Object.values(state.units).some(victim => canBorrowedSwordTarget(state, unit, victim))
   const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
-  const canTarget = canQingnangTarget || canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
+  const canTarget = canQingnangTarget || canJieyinTarget || canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, attackSource, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean))) ||
     canBorrowedWielder || canBorrowedVictim ||
@@ -313,6 +314,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
       onClick={previewUnit ? undefined : e => {
         e.stopPropagation()
         if (canQingnangTarget) state.chooseQingnangTarget(team)
+        else if (canJieyinTarget) state.chooseJieyinTarget(team)
         else if (canChainTarget) state.selectChainTarget(team)
         else if (canLijianTarget) state.selectLijianTarget(team)
         else if (canBorrowedWielder) state.selectBorrowedSwordWielder(team)
@@ -1223,7 +1225,7 @@ function App() {
     <footer className="command-deck">
       <div className="movement"><span>{state.turnStage === 'play' ? `出牌阶段 · 移动 ${state.units.player.movement}` : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{Array.from({ length: Math.max(3, state.units.player.movement) }, (_, index) => index + 1).map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
       <div className="hand" aria-label="你的手牌">
-        {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : state.zhihengMode ? state.zhihengSelection.includes(card.id) : state.spearMode ? state.spearSelection.includes(card.id) : selectedCard?.id === card.id} />)}
+        {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : state.jieyinMode ? state.jieyinSelection.includes(card.id) : state.zhihengMode ? state.zhihengSelection.includes(card.id) : state.spearMode ? state.spearSelection.includes(card.id) : selectedCard?.id === card.id} />)}
         {state.zhihengMode && Object.values(state.units.player.equipment).filter((card): card is Card => !!card).map(card => <CardView key={card.id} card={card} equipped selected={state.zhihengSelection.includes(card.id)} />)}
         {state.selectedAsGuose && Object.values(state.units.player.equipment).filter((card): card is Card => !!card && card.suit === 'diamond').map(card => <CardView key={card.id} card={card} equipped selected={state.selectedCardId === card.id} />)}
         {state.selectedAsSlash && state.units.player.skills.includes('wusheng') && Object.values(state.units.player.equipment).filter((card): card is Card => !!card && (card.suit === 'heart' || card.suit === 'diamond')).map(card => <CardView key={card.id} card={card} equipped selected={state.selectedCardId === card.id} />)}
@@ -1237,7 +1239,7 @@ function App() {
         {state.turnStage === 'play' && canZhiheng && <button className={`secondary skill-action ${state.zhihengMode ? 'active' : ''}`} onClick={() => state.activateZhiheng()}><Swords />{state.zhihengMode && state.zhihengSelection.length ? `制衡${state.zhihengSelection.length}` : '制衡'}</button>}
         {state.turnStage === 'play' && canQingnang && <button className={`secondary skill-action ${state.qingnangMode ? 'active' : ''}`} onClick={() => state.activateQingnang()}><Swords />青囊</button>}
         {state.turnStage === 'play' && canFanjian && <button className={`secondary skill-action ${state.selectedAsFanjian ? 'active' : ''}`} onClick={() => state.activateFanjian()}><Swords />反间</button>}
-        {state.turnStage === 'play' && canJieyin && <button className="secondary skill-action" onClick={() => state.activateJieyin()}><Swords />结姻</button>}
+        {state.turnStage === 'play' && canJieyin && <button className={`secondary skill-action ${state.jieyinMode ? 'active' : ''}`} onClick={() => state.activateJieyin()}><Swords />{state.jieyinMode ? `结姻 ${state.jieyinSelection.length}/2` : '结姻'}</button>}
         {state.turnStage === 'play' && canRende && <button className={`secondary skill-action ${state.selectedAsRende ? 'active' : ''}`} onClick={() => state.activateRende()}><Swords />仁德</button>}
         {state.turnStage === 'play' && canKurou && <button className="secondary skill-action" onClick={() => state.activateKurou()}><Swords />苦肉</button>}
         {state.turnStage === 'play' && canGuose && <button className={`secondary skill-action ${state.selectedAsGuose ? 'active' : ''}`} onClick={() => state.activateGuose()}><Swords />国色</button>}
