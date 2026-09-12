@@ -90,4 +90,49 @@ describe('player Guicai judgement window', () => {
     expect(resolved.currentUnit).toBe('north')
     expect(resolved.phase).toBe('ai')
   })
+
+  it('waits for a Peach rescue before the Lightning victim draws turn cards', () => {
+    const delayed = card('lightning', 'spade')
+    const replacement = card('slash', 'spade', 5)
+    const peach = card('peach', 'heart')
+    const original = card('dodge', 'heart')
+    const drawA = card('slash', 'club'), drawB = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, deck: [original, drawA, drawB], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [replacement, peach] },
+      north: { ...state.units.north, hp: 3, hand: [], judgement: [delayed] },
+    } }, 'north'))
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    const waiting = useGameStore.getState()
+    expect(waiting.pendingResponse?.effect).toBe('dying')
+    expect(waiting.pendingTurnStart?.team).toBe('north')
+    expect(waiting.units.north.hand).toHaveLength(0)
+    expect(waiting.deck).toEqual([drawA, drawB])
+    useGameStore.getState().respond(peach.id)
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingTurnStart).toBeNull()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.north.hp).toBe(1)
+    expect(resolved.units.north.hand).toEqual([drawA, drawB])
+  })
+
+  it('skips a character killed by Lightning instead of dealing turn cards to the dead', () => {
+    const delayed = card('lightning', 'spade')
+    const hit = card('slash', 'spade', 5)
+    const drawA = card('slash', 'club'), drawB = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    const waiting = beginTurn({ ...state, deck: [hit, drawA, drawB], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [card('dodge', 'club')] },
+      north: { ...state.units.north, hp: 2, hand: [], judgement: [delayed] },
+    } }, 'north')
+    expect(waiting.pendingJudgement?.team).toBe('north')
+    useGameStore.setState(waiting)
+    useGameStore.getState().chooseJudgementCard(null)
+    const resolved = useGameStore.getState()
+    expect(resolved.units.north.hp).toBeLessThanOrEqual(0)
+    expect(resolved.units.north.hand).toHaveLength(0)
+    expect(resolved.currentUnit).toBe('east')
+  })
 })

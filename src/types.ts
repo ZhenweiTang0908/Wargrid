@@ -135,6 +135,7 @@ export interface GameState {
   pendingFanjian: PendingFanjian | null
   pendingPlunder: PendingPlunder | null
   pendingJudgement: PendingJudgement | null
+  pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string
   history: string[]

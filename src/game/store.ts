@@ -707,6 +707,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
   }
   unit = { ...working.units[team], judgement: [] }
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
+  if (unit.hp <= 0) return beginTurn({ ...working, units: { ...working.units, [team]: unit } }, nextSeat(working, team))
   let tuxiCount = 0
   if (unit.skills.includes('tuxi')) {
     let units = { ...working.units }, gained: Card[] = []
@@ -1096,6 +1097,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
           base = { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true) }
         }
       }
+      if (base.pendingTurnStart && !base.pendingResponse) {
+        const { team, skipPlay } = base.pendingTurnStart
+        const ready = { ...base, pendingTurnStart: null }
+        if (!ready.winner) {
+          const survivor = ready.units[team].hp > 0 ? team : nextSeat(ready, team)
+          base = beginTurn(ready, survivor, survivor === team, survivor === team && skipPlay)
+        } else base = ready
+      }
       set(base)
       if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
       return
@@ -1274,7 +1283,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : ''}${owner.name}的【${isLightning ? '闪电' : '乐不思蜀'}】${result}`
     let settled: GameState = { ...state, units, discard: [...state.discard, ...discarded], pendingJudgement: null, message, history: log(state, message) }
     if (isLightning && failed) settled = { ...settled, ...elementalDamage(settled, pending.team, pending.team, 3, 'thunder') }
-    const next = beginTurn(settled, pending.team, true, pending.skipPlay || (!isLightning && failed))
+    const skipPlay = pending.skipPlay || (!isLightning && failed)
+    const next = settled.pendingResponse
+      ? { ...settled, pendingTurnStart: { team: pending.team, skipPlay } }
+      : beginTurn(settled, pending.team, true, skipPlay)
     set(next)
     if (next.phase === 'ai' && !next.pendingJudgement && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
   },
