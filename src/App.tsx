@@ -506,15 +506,34 @@ function UnitPiece({ team }: { team: Team }) {
         <mesh position={[0, 1.48, 0]}><torusGeometry args={[.25, .035, 7, 16]} /><meshStandardMaterial color="#c89b43" metalness={.8} /></mesh>
         <group position={[-.43, .84, .08]} rotation={[0, 0, .35]}>{[0, 1, 2, 3, 4].map(i => <mesh key={i} position={[(i - 2) * .055, .43, 0]} rotation-z={(i - 2) * -.11}><capsuleGeometry args={[.035, .48, 3, 6]} /><meshStandardMaterial color="#d9d2b8" /></mesh>)}</group>
         <mesh position={[.34, 1.28, 0]} rotation-x={Math.PI / 2}><torusGeometry args={[.13, .025, 6, 14]} /><meshStandardMaterial color="#d6a94a" metalness={.9} emissive="#76520c" emissiveIntensity={.5} /></mesh>
+        {[-1, 1].map(side => <group key={side} position={[side * .43, 1.12, -.13]} rotation-z={side * -.32}>
+          <mesh position={[side * .13, .14, 0]}><boxGeometry args={[.48, .075, .12]} /><meshStandardMaterial color="#8b6137" roughness={.8} /></mesh>
+          <mesh position={[side * .32, .2, 0]} rotation-z={side * .55}><boxGeometry args={[.42, .25, .045]} /><meshStandardMaterial color="#c1a96c" metalness={.3} roughness={.65} /></mesh>
+          <mesh position={[side * .39, .21, .04]}><sphereGeometry args={[.075, 8, 6]} /><meshStandardMaterial color="#d7aa4d" metalness={.85} /></mesh>
+        </group>)}
+        <mesh position={[0, .89, .32]}><torusGeometry args={[.22, .035, 6, 14]} /><meshStandardMaterial color="#c9953d" metalness={.85} /></mesh>
+        {[0, 1, 2, 3].map(i => <mesh key={i} position={[0, .89, .34]} rotation-z={i * Math.PI / 4}><boxGeometry args={[.035, .37, .025]} /><meshStandardMaterial color="#d9c695" metalness={.55} /></mesh>)}
+        <mesh position={[0, .89, .37]}><sphereGeometry args={[.065, 10, 8]} /><meshStandardMaterial color="#53aca1" emissive="#174d48" emissiveIntensity={.5} /></mesh>
       </>}
       {unit.skill === 'qixi' && <>
         {[[-.31, 1.02], [.31, 1.02], [-.22, .78]].map(([x, y], i) => <mesh key={i} position={[x, y, .22]}><sphereGeometry args={[.08, 10, 8]} /><meshStandardMaterial color="#d5a847" metalness={.85} emissive="#71510d" emissiveIntensity={.35} /></mesh>)}
         <group position={[.45, .86, 0]} rotation-z={-.48}><mesh position-y={.28}><cylinderGeometry args={[.035, .035, 1.45, 7]} /><meshStandardMaterial color="#45291b" /></mesh><mesh position={[0, 1.02, 0]} rotation-z={-.25}><boxGeometry args={[.16, .75, .055]} /><meshStandardMaterial color="#aeb8b8" metalness={.95} /></mesh></group>
+        <mesh position={[0, 1.43, .2]}><boxGeometry args={[.48, .085, .14]} /><meshStandardMaterial color="#a43e37" roughness={.85} /></mesh>
+        <mesh position={[-.32, 1.22, -.12]} rotation-z={-.3}><boxGeometry args={[.075, .55, .045]} /><meshStandardMaterial color="#a43e37" roughness={.9} /></mesh>
+        <mesh position={[-.16, .78, .33]} rotation-z={-.32}><torusGeometry args={[.36, .035, 6, 16, Math.PI * 1.05]} /><meshStandardMaterial color="#b9a57e" roughness={.9} /></mesh>
+        <mesh position={[.15, .8, .34]}><boxGeometry args={[.21, .24, .065]} /><meshStandardMaterial color="#8d5030" roughness={.8} /></mesh>
+        <mesh position={[.15, .8, .39]}><torusGeometry args={[.075, .018, 6, 12]} /><meshStandardMaterial color="#d7aa4d" metalness={.85} /></mesh>
       </>}
       {unit.skill === 'biyue' && <>
         <mesh position={[0, 1.48, 0]}><torusGeometry args={[.26, .035, 7, 16, Math.PI]} /><meshStandardMaterial color="#d9b8c8" metalness={.7} /></mesh>
         {[-.2, .2].map((x, i) => <mesh key={i} position={[x, 1.55, 0]}><sphereGeometry args={[.075, 10, 8]} /><meshStandardMaterial color="#b73e62" emissive="#65162c" emissiveIntensity={.5} /></mesh>)}
         <group position={[-.42, .86, .08]} rotation-z={.38}><mesh position-y={.45}><boxGeometry args={[.32, .82, .055]} /><meshStandardMaterial color="#7f354f" roughness={.6} /></mesh></group>
+        {[-1, 1].map(side => <group key={side} position={[side * .31, 1.1, -.08]} rotation-z={side * .35}>
+          <mesh position={[side * .07, -.38, 0]}><boxGeometry args={[.15, .9, .045]} /><meshStandardMaterial color={side < 0 ? '#d698b5' : '#8f4d91'} roughness={.7} side={THREE.DoubleSide} /></mesh>
+          <mesh position={[side * .1, -.76, .02]}><sphereGeometry args={[.07, 8, 6]} /><meshStandardMaterial color="#d8a953" metalness={.8} /></mesh>
+        </group>)}
+        <mesh position={[0, 1.66, .02]} rotation-z={Math.PI / 4}><boxGeometry args={[.46, .035, .035]} /><meshStandardMaterial color="#ddb969" metalness={.8} /></mesh>
+        <mesh position={[.22, 1.83, .02]}><sphereGeometry args={[.075, 8, 6]} /><meshStandardMaterial color="#b94477" emissive="#6e244c" emissiveIntensity={.45} /></mesh>
       </>}
       {unit.skill === 'zhiheng' && <>
         <mesh position={[0, 1.5, 0]}><boxGeometry args={[.48, .18, .34]} /><meshStandardMaterial color="#b99646" metalness={.8} /></mesh>
