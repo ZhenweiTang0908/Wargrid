@@ -18,6 +18,8 @@ interface GameStore extends GameState {
   chooseLuoshen: (continueJudging: boolean) => void
   assignGuanxing: (cardId: string, destination: 'top' | 'bottom' | 'pool') => void
   finishGuanxing: (keepOriginal?: boolean) => void
+  selectTuxiTarget: (team: Team) => void
+  finishTuxi: (useSkill: boolean) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -617,7 +619,7 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: [...unit.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
 }
 
-export function beginTurn(state: GameState, team: Team, resume = false, previousSkipPlay = false): GameState {
+export function beginTurn(state: GameState, team: Team, resume = false, previousSkipPlay = false, selectedTuxiCount = 0, tuxiResolved = false): GameState {
   let working = state, unit = state.units[team], skipPlay = previousSkipPlay
   if (!resume && team === 'player' && state.mapObjects.some(object => object.claimed)) {
     const message = '新一轮开始，战场设施已重新补给'
@@ -714,8 +716,12 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
   unit = { ...working.units[team], judgement: [] }
   if (working.winner) return { ...working, units: { ...working.units, [team]: unit } }
   if (unit.hp <= 0) return beginTurn({ ...working, units: { ...working.units, [team]: unit } }, nextSeat(working, team))
-  let tuxiCount = 0
-  if (unit.skills.includes('tuxi')) {
+  let tuxiCount = selectedTuxiCount
+  if (unit.skills.includes('tuxi') && !tuxiResolved) {
+    if (team === 'player' && Object.values(working.units).some(candidate => candidate.id !== team && candidate.hp > 0 && candidate.hand.length)) {
+      const message = `${unit.name}摸牌阶段：是否发动【突袭】，从一至两名角色处获得手牌？`
+      return { ...working, units: { ...working.units, [team]: unit }, pendingTuxi: { targets: [], skipPlay }, message, history: log(working, message) }
+    }
     let units = { ...working.units }, gained: Card[] = []
     for (const target of targetsFor(working, team).filter(candidate => candidate.hand.length).slice(0, 2)) {
       const stolen = units[target.id].hand[0]; if (!stolen) continue
@@ -784,7 +790,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -1356,6 +1362,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const message = keepOriginal ? `${state.units.player.name}结束【观星】，保留所见牌的顺序` : `${state.units.player.name}结束【观星】，将 ${pending.top.length} 张置于牌堆顶、${pending.bottom.length} 张置于牌堆底`
     set(beginTurn({ ...state, deck, pendingGuanxing: null, message, history: log(state, message) }, 'player', true))
   },
+  selectTuxiTarget: team => {
+    const state = get(), pending = state.pendingTuxi, target = state.units[team]
+    if (!pending || team === 'player' || !target || target.hp <= 0 || !target.hand.length) return
+    const selected = pending.targets.includes(team)
+    if (!selected && pending.targets.length >= 2) return
+    const targets = selected ? pending.targets.filter(id => id !== team) : [...pending.targets, team]
+    set({ pendingTuxi: { ...pending, targets }, message: `【突袭】已选择 ${targets.length}/2 名角色` })
+  },
+  finishTuxi: useSkill => {
+    const state = get(), pending = state.pendingTuxi
+    if (!pending || (useSkill && !pending.targets.length)) return
+    let units = { ...state.units }, gained: Card[] = []
+    if (useSkill) for (const team of pending.targets) {
+      const target = units[team]
+      if (target.hp <= 0 || !target.hand.length) continue
+      const stolen = target.hand[Math.floor(Math.random() * target.hand.length)]
+      units = { ...units, [team]: { ...target, hand: target.hand.filter(card => card.id !== stolen.id), animation: 'hit' } }
+      gained.push(stolen)
+    }
+    if (gained.length) units = { ...units, player: { ...units.player, hand: [...units.player.hand, ...gained], animation: 'cast' } }
+    const message = gained.length ? `${units.player.name}发动【突袭】，从 ${gained.length} 名角色处各获得一张手牌` : `${units.player.name}不发动【突袭】，正常摸两张牌`
+    set(beginTurn({ ...state, units, pendingTuxi: null, message, history: log(state, message) }, 'player', true, pending.skipPlay, gained.length, true))
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1504,7 +1533,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return

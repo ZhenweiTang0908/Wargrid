@@ -144,6 +144,7 @@ export interface GameState {
   pendingJudgement: PendingJudgement | null
   pendingLuoshen: { gained: number } | null
   pendingGuanxing: PendingGuanxing | null
+  pendingTuxi: { targets: Team[]; skipPlay: boolean } | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string

@@ -137,6 +137,10 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .guanxing-choice button { min-height: 30px; padding: 3px 6px; border: 1px solid #6d674c; background: #24343a; color: #e5d3a2; cursor: pointer; }
 .guanxing-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .guanxing-actions button { min-height: 34px; }
+.tuxi-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tuxi-options button { display: grid; gap: 4px; min-height: 78px; padding: 8px; border: 1px solid #415760; background: #16282e; color: #e5e0ca; cursor: pointer; }
+.tuxi-options button.active { border-color: #e4bf72; background: #3e392d; }
+.tuxi-options span, .tuxi-options small { font-size: 11px; color: #a9bac0; }
 .harvest-cards { flex-wrap: wrap; }
 .harvest-cards .card { width: 92px; height: 116px; }
 .fanjian-panel { width: min(500px, 92vw); }

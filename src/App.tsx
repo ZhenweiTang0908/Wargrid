@@ -707,7 +707,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'qingnang', name: '华佗', title: '神医', faction: '群', portrait: '/heroes/hua-tuo.png', skillName: '青囊 · 急救', copy: '每回合弃一张牌治疗友方；濒死响应时红牌可当【桃】。' },
   { skill: 'yingzi', name: '周瑜', title: '大都督', faction: '吴', portrait: '/heroes/zhou-yu.png', skillName: '英姿 · 反间', copy: '摸牌阶段摸三张；每回合赠出一张牌让目标猜花色。' },
   { skill: 'guanxing', name: '诸葛亮', title: '迟暮的丞相', faction: '蜀', portrait: '/heroes/zhuge-liang.png', skillName: '观星 · 空城', copy: '准备阶段观看牌堆顶并安排至牌堆顶或底；没有手牌时不能成为杀或决斗目标。' },
-  { skill: 'tuxi', name: '张辽', title: '前将军', faction: '魏', portrait: '/heroes/zhang-liao.png', skillName: '突袭', copy: '摸牌阶段改为从至多两名有手牌的敌方角色各获得一张牌。' },
+  { skill: 'tuxi', name: '张辽', title: '前将军', faction: '魏', portrait: '/heroes/zhang-liao.png', skillName: '突袭', copy: '摸牌阶段可选一至两名有手牌的其他角色，各获得一张暗置手牌，取代正常摸牌。' },
   { skill: 'luoyi', name: '许褚', title: '虎痴', faction: '魏', portrait: '/heroes/xu-chu.png', skillName: '裸衣', copy: '摸牌阶段少摸一张，本回合杀与决斗造成的伤害增加 1。' },
   { skill: 'jieyin', name: '孙尚香', title: '弓腰姬', faction: '吴', portrait: '/heroes/sun-shangxiang.png', skillName: '结姻 · 枭姬', copy: '弃两牌与受伤男性各回复体力；失去装备后摸两张牌。' },
   { skill: 'paoxiao', name: '张飞', title: '万夫不当', faction: '蜀', portrait: '/heroes/zhang-fei.png', skillName: '咆哮', copy: '出牌阶段使用【杀】没有次数限制。' },
@@ -839,6 +839,26 @@ function GuanxingWindow() {
       {!pending.bottom.length && <span className="no-response">暂无</span>}
     </div></div>
     <div className="guanxing-actions"><button className="decline-response" onClick={() => finish(true)}>保留原顺序</button><button className="primary" disabled={!!pending.pool.length} onClick={() => finish(false)}>确认安排</button></div>
+  </section></div>
+}
+
+function TuxiWindow() {
+  const pending = useGameStore(s => s.pendingTuxi)
+  const units = useGameStore(s => s.units)
+  const selectTarget = useGameStore(s => s.selectTuxiTarget)
+  const finish = useGameStore(s => s.finishTuxi)
+  if (!pending) return null
+  const targets = Object.values(units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.hand.length)
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">摸牌阶段 · 突袭</span>
+    <h1>选择一至两名角色</h1>
+    <p>从每位目标的暗置手牌中随机获得一张，取代本次正常摸牌。也可以不发动，改为摸两张牌。</p>
+    <div className="tuxi-options">
+      {targets.map(unit => <button key={unit.id} className={pending.targets.includes(unit.id) ? 'active' : ''} onClick={() => selectTarget(unit.id)}>
+        <strong>{unit.name}</strong><span>手牌 {unit.hand.length} 张</span><small>{pending.targets.includes(unit.id) ? '已选择' : '选择目标'}</small>
+      </button>)}
+    </div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => finish(false)}>正常摸两张</button><button className="primary" disabled={!pending.targets.length} onClick={() => finish(true)}>发动突袭 {pending.targets.length}/2</button></div>
   </section></div>
 }
 
@@ -996,6 +1016,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingJudgement && <JudgementWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoshen && <LuoshenWindow />}
     {state.generalSelected && !tutorial && state.pendingGuanxing && <GuanxingWindow />}
+    {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}

@@ -464,16 +464,48 @@ describe('standard card scenarios', () => {
     useGameStore.getState().selectGeneral('tuxi')
     const northCard = card('dodge'), eastCard = card('peach'), untouched = card('slash'), deckA = card('duel'), deckB = card('drawTwo')
     const state = useGameStore.getState()
-    state.deck = [deckA, deckB]
-    state.units.player = { ...state.units.player, hand: [] }
-    state.units.north = { ...state.units.north, hand: [northCard], revealed: true }
-    state.units.east = { ...state.units.east, hand: [eastCard], revealed: true }
-    state.units.west = { ...state.units.west, hand: [untouched], revealed: true }
-    const result = beginTurn(state, 'player')
+    const waiting = beginTurn({ ...state, pendingTuxi: null, deck: [deckA, deckB], units: { ...state.units,
+      player: { ...state.units.player, hand: [] }, north: { ...state.units.north, hand: [northCard], revealed: true },
+      east: { ...state.units.east, hand: [eastCard], revealed: true }, west: { ...state.units.west, hand: [untouched], revealed: true },
+    } }, 'player')
+    expect(waiting.pendingTuxi?.targets).toEqual([])
+    useGameStore.setState(waiting)
+    useGameStore.getState().selectTuxiTarget('east')
+    useGameStore.getState().selectTuxiTarget('west')
+    useGameStore.getState().finishTuxi(true)
+    const result = useGameStore.getState()
     expect(result.units.player.hand).toHaveLength(2)
     expect(result.units.player.hand).toEqual(expect.arrayContaining([eastCard, untouched]))
     expect(result.deck).toEqual([deckA, deckB])
+    expect(result.pendingTuxi).toBeNull()
     expect(result.history.some(entry => entry.includes('突袭'))).toBe(true)
+  })
+
+  it('lets Zhang Liao decline Tuxi and draw normally', () => {
+    useGameStore.getState().selectGeneral('tuxi')
+    const drawA = card('duel'), drawB = card('drawTwo')
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, pendingTuxi: null, deck: [drawA, drawB], units: { ...state.units, player: { ...state.units.player, hand: [] } } }, 'player'))
+    useGameStore.getState().finishTuxi(false)
+    const result = useGameStore.getState()
+    expect(result.units.player.hand).toEqual([drawA, drawB])
+    expect(result.pendingTuxi).toBeNull()
+  })
+
+  it('lets Zhang Liao take one card from any other character, including a loyalist', () => {
+    useGameStore.getState().selectGeneral('tuxi')
+    const loyalistCard = card('peach'), drawA = card('slash'), drawB = card('dodge')
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, pendingTuxi: null, deck: [drawA, drawB], units: { ...state.units,
+      player: { ...state.units.player, hand: [] }, north: { ...state.units.north, identity: 'loyalist', hand: [loyalistCard] },
+      east: { ...state.units.east, hand: [] }, west: { ...state.units.west, hand: [] },
+    } }, 'player'))
+    useGameStore.getState().selectTuxiTarget('north')
+    useGameStore.getState().finishTuxi(true)
+    const result = useGameStore.getState()
+    expect(result.units.player.hand).toEqual([loyalistCard])
+    expect(result.units.north.hand).toEqual([])
+    expect(result.deck).toEqual([drawA, drawB])
   })
 
   it('lets Xu Chu draw one and add damage through Luoyi', () => {
