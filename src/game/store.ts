@@ -184,6 +184,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     const prompt = `${target.name}进入濒死状态，需要 ${requiredCount} 张【桃】或【酒】才能救回，是否使用？`
     return {
       units: { ...state.units, [targetId]: { ...target, hp, animation: 'hit' } },
+      deck: state.deck, discard: state.discard,
       pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt },
       message: prompt,
       history: log(state, `${target.name}进入濒死状态`),
@@ -217,7 +218,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     const requiredCount = 1 - hp
     const prompt = `${target.name}进入濒死状态，还需要 ${requiredCount} 张【桃】，是否援救？`
     units = { ...units, [targetId]: { ...units[targetId], revealed: target.revealed } }
-    return { units, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
+    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
   }
   let deck = rescuedDeck
   const hasKiller = hp <= 0 && attackerId !== targetId
@@ -278,8 +279,8 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
         discard = [...discard, ...paid]
         skillText += `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
       } else {
-        units = { ...units, [attackerId]: { ...attacker, hp: Math.max(0, attacker.hp - 1), revealed: attacker.hp <= 1 ? true : attacker.revealed, animation: 'hit' } }
-        skillText += `；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
+        const retaliation = `${finalMessage}${skillText}；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
+        return damage({ ...state, units, deck, discard }, targetId, attackerId, 1, retaliation)
       }
     } else if (judge) skillText += `；【刚烈】判定为红桃，未生效`
   }

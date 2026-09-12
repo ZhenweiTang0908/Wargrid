@@ -1115,6 +1115,44 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(judgement)
   })
 
+  it('opens a dying Peach response when Ganglie would kill the player', () => {
+    const attack = card('slash', 'heart'), peach = card('peach', 'diamond'), judgement = card('dismantle', 'spade', 8)
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: { ...state.units,
+        player: { ...state.units.player, position: { x: 8, y: 3 }, hp: 1, hand: [attack, peach] },
+        east: { ...state.units.east, position: { x: 8, y: 4 }, hand: [] },
+        north: { ...state.units.north, hand: [] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'east' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'player' })
+    useGameStore.getState().respond(peach.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.winner).toBeNull()
+    expect(state.discard).toEqual(expect.arrayContaining([judgement, peach]))
+  })
+
+  it('settles lord defeat when Ganglie kills a player without rescue', () => {
+    const attack = card('slash', 'heart'), judgement = card('dismantle', 'spade', 8), armor = card('bagua')
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: { ...state.units,
+        player: { ...state.units.player, position: { x: 8, y: 3 }, hp: 1, hand: [attack], equipment: { armor } },
+        east: { ...state.units.east, position: { x: 8, y: 4 }, hand: [] },
+        north: { ...state.units.north, hand: [] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'east' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(0)
+    expect(state.units.player.equipment).toEqual({})
+    expect(state.discard).toContainEqual(armor)
+    expect(state.phase).toBe('finished')
+    expect(state.winner).toBe('east')
+  })
+
   it('lets Sima Yi gain a source card through Feedback', () => {
     const attack = card('slash', 'heart'), spare = card('peach', 'diamond', 3)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 0, y: 3 }, hand: [attack, spare] }, west: { ...state.units.west, position: { x: 0, y: 4 }, hand: [] } } }))
