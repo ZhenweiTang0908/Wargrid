@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
-import { canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
+import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -85,9 +85,10 @@ function Tile({ position }: { position: Position }) {
   const attackPreview = previewingSlash && !samePosition(state.units.player.position, position) && pathDistance(state, state.units.player.position, position, 'player') <= effectiveAttackRange(state, state.units.player)
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
-  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : state.mapId === 'siege' ? ((position.x + position.y) % 2 ? '#283a3a' : '#304144') : state.mapId === 'highland' ? ((position.x + position.y) % 2 ? '#2d3b2c' : '#354432') : state.mapId === 'wetland' ? ((position.x + position.y) % 2 ? '#273a35' : '#30443a') : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
+  const map = MAP_DEFINITIONS[state.mapId]
+  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : map.groundColors[(position.x + position.y) % 2]
   const controlColors: Record<Team, string> = { player: '#235e79', north: '#763a32', east: '#5c4177', west: '#76502c' }
-  const color = obstacle ? state.mapId === 'highland' ? '#46503d' : '#453f36' : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
+  const color = obstacle ? map.obstacleColor : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
 
   return (
     <group position={worldPosition(position)}>
@@ -701,10 +702,7 @@ function GeneralSelect() {
     <span className="eyebrow">主公选将</span>
     <h1>选择本局武将</h1>
     <div className="map-options battlefield-options" aria-label="选择战场">
-      <button className={mapId === 'river' ? 'active' : ''} onClick={() => selectMap('river')}><strong>双河争渡</strong><span>涉水耗力，中央桥梁是交通要道</span></button>
-      <button className={mapId === 'siege' ? 'active' : ''} onClick={() => selectMap('siege')}><strong>围城夺旗</strong><span>城墙阻路，四道入口与瞭望台决定攻防</span></button>
-      <button className={mapId === 'highland' ? 'active' : ''} onClick={() => selectMap('highland')}><strong>山谷伏击</strong><span>林地掩护，山壁分路，泥沼拖慢中央推进</span></button>
-      <button className={mapId === 'wetland' ? 'active' : ''} onClick={() => selectMap('wetland')}><strong>泽国遗城</strong><span>中央涉水或侧翼过桥，废墟与水道改变路线</span></button>
+      {MAP_IDS.map(id => <button key={id} className={mapId === id ? 'active' : ''} onClick={() => selectMap(id)}><strong>{MAP_DEFINITIONS[id].name}</strong><span>{MAP_DEFINITIONS[id].description}</span></button>)}
     </div>
     <div className="map-options" aria-label="选择牌池">
       <button className={deckMode === 'standard' ? 'active' : ''} onClick={() => selectDeckMode('standard')}><strong>标准牌池 · 108 张</strong><span>标准包与 EX 牌的花色、点数及数量</span></button>
@@ -847,7 +845,7 @@ function App() {
 
   return <main className="game-shell">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{state.mapId === 'siege' ? '围城夺旗' : state.mapId === 'highland' ? '山谷伏击' : state.mapId === 'wetland' ? '泽国遗城' : '双河争渡'} · {state.deckMode === 'standard' ? '标准' : '扩展'} · 第 {state.turn} 回合</small></div></div>
+      <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{MAP_DEFINITIONS[state.mapId].name} · {state.deckMode === 'standard' ? '标准' : '扩展'} · 第 {state.turn} 回合</small></div></div>
       <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
         <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>

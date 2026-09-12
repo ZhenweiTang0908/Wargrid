@@ -107,6 +107,22 @@ const wetlandObjects: MapObject[] = [
   { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
 ]
 
+export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland']
+export const MAP_DEFINITIONS: Record<MapId, {
+  name: string
+  description: string
+  obstacles: Position[]
+  terrain: Terrain[]
+  objects: MapObject[]
+  groundColors: [string, string]
+  obstacleColor: string
+}> = {
+  river: { name: '双河争渡', description: '涉水耗力，中央桥梁是交通要道', obstacles: OBSTACLES, terrain: TERRAIN, objects: riverObjects, groundColors: ['#132c32', '#17363d'], obstacleColor: '#453f36' },
+  siege: { name: '围城夺旗', description: '城墙阻路，四道入口与瞭望台决定攻防', obstacles: SIEGE_OBSTACLES, terrain: SIEGE_TERRAIN, objects: siegeObjects, groundColors: ['#283a3a', '#304144'], obstacleColor: '#453f36' },
+  highland: { name: '山谷伏击', description: '林地掩护，山壁分路，泥沼拖慢中央推进', obstacles: HIGHLAND_OBSTACLES, terrain: HIGHLAND_TERRAIN, objects: highlandObjects, groundColors: ['#2d3b2c', '#354432'], obstacleColor: '#46503d' },
+  wetland: { name: '泽国遗城', description: '中央涉水或侧翼过桥，废墟与水道改变路线', obstacles: WETLAND_OBSTACLES, terrain: WETLAND_TERRAIN, objects: wetlandObjects, groundColors: ['#273a35', '#30443a'], obstacleColor: '#453f36' },
+}
+
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y
 export const positionKey = (p: Position) => `${p.x},${p.y}`
 export function terrainAt(state: Pick<GameState, 'terrain'>, p: Position): TerrainKind {
@@ -319,9 +335,10 @@ export function determineWinner(units: Record<Team, Unit>): Team | null {
 export function createInitialState(deck?: Card[], randomizeIdentities = false, random = Math.random, mapId: MapId = 'river', deckMode: DeckMode = 'standard'): GameState {
   const initialDeck = deck ?? (deckMode === 'standard' ? createStandardDeck(random) : createDeck())
   const hiddenIdentities: Identity[] = randomizeIdentities ? shuffle<Identity>(['loyalist', 'rebel', 'renegade'], random) : ['loyalist', 'rebel', 'renegade']
+  const map = MAP_DEFINITIONS[mapId]
   const state: GameState = {
-    mapId, deckMode, size: BOARD_SIZE, terrain: mapId === 'siege' ? SIEGE_TERRAIN : mapId === 'highland' ? HIGHLAND_TERRAIN : mapId === 'wetland' ? WETLAND_TERRAIN : TERRAIN, obstacles: mapId === 'siege' ? SIEGE_OBSTACLES : mapId === 'highland' ? HIGHLAND_OBSTACLES : mapId === 'wetland' ? WETLAND_OBSTACLES : OBSTACLES, controlPoint: CONTROL_POINT,
-    mapObjects: (mapId === 'siege' ? siegeObjects : mapId === 'highland' ? highlandObjects : mapId === 'wetland' ? wetlandObjects : riverObjects).map(object => ({ ...object, position: { ...object.position } })),
+    mapId, deckMode, size: BOARD_SIZE, terrain: map.terrain, obstacles: map.obstacles, controlPoint: CONTROL_POINT,
+    mapObjects: map.objects.map(object => ({ ...object, position: { ...object.position } })),
     units: {
       player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: initialDeck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
       north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: hiddenIdentities[0], faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: initialDeck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, createStandardDeck, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
+import { MAP_DEFINITIONS, MAP_IDS, attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, createStandardDeck, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -10,6 +10,18 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 }))
 
 describe('board rules', () => {
+  it('keeps every selectable battlefield definition playable', () => {
+    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland'])
+    for (const id of MAP_IDS) {
+      const map = MAP_DEFINITIONS[id]
+      const state = createInitialState(fixedDeck(), false, Math.random, id)
+      expect(map.name.length).toBeGreaterThan(0)
+      expect(map.description.length).toBeGreaterThan(0)
+      expect(state.terrain).toBe(map.terrain)
+      expect(state.obstacles).toBe(map.obstacles)
+      for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
+    }
+  })
   it('builds a wetland map with costly central water and side bridges', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'wetland')
     expect(state.mapId).toBe('wetland')
