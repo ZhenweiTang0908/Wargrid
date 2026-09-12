@@ -322,13 +322,17 @@ function resolveIronChain(state: GameState, actorId: Team, targetId: Team): Part
   return { units: { ...state.units, [targetId]: { ...target, chained, animation: 'cast' } }, message, history: log(state, message) }
 }
 
-function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team): Partial<GameState> {
+function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, slashCardId?: string | null): Partial<GameState> {
   const wielder = state.units[wielderId], actor = state.units[actorId], weapon = wielder.equipment.weapon
   if (!weapon) return state
-  const slash = responseCard(wielder, 'slash')
+  const slash = slashCardId === null ? undefined : slashCardId ? wielder.hand.find(card => card.id === slashCardId) : responseCard(wielder, 'slash')
   const victim = targetsFor(state, wielderId)
-    .filter(unit => unit.id !== actorId && canSlash(state, wielder, unit))
+    .filter(unit => unit.id !== actorId && unit.hp > 0 && !(unit.skills.includes('kongcheng') && unit.hand.length === 0) && combatDistance(state, wielder, unit) <= effectiveAttackRange(state, wielder))
     .sort((a, b) => combatDistance(state, wielder, a) - combatDistance(state, wielder, b))[0]
+  if (wielderId === 'player' && slashCardId === undefined && slash && victim) {
+    const prompt = `${actor.name}使用【借刀杀人】，请打出【杀】攻击${victim.name}，或放弃并交出武器`
+    return { pendingResponse: { effect: 'borrowedSword', source: actorId, target: wielderId, required: 'slash', prompt }, message: prompt, history: log(state, prompt) }
+  }
   if (slash && victim) {
     const message = `${actor.name}借刀，令${wielder.name}对${victim.name}使用【杀】`
     const forced: GameState = {
@@ -336,7 +340,8 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team):
       units: { ...state.units, [wielderId]: { ...wielder, hand: wielder.hand.filter(card => card.id !== slash.id), animation: 'attack' } },
       discard: [...state.discard, slash], message, history: log(state, message),
     }
-    return { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
+    const resolved = { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
+    return { ...resolved, units: { ...resolved.units, [wielderId]: { ...resolved.units[wielderId], attacksUsed: wielder.attacksUsed } } }
   }
   const message = `${wielder.name}未能出【杀】，${actor.name}获得其【${CARD_LABEL[weapon.kind]}】`
   return {
@@ -1048,6 +1053,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
           } else base = applyUnderlying(base)
         } else if (pending.trick === 'harvest' && base.pendingHarvest) base = advanceHarvest(base, base.pendingHarvest.pool, base.pendingHarvest.order.slice(1))
       } else base = applyUnderlying(base)
+      set(base)
+      if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
+      return
+    }
+    if (pending.effect === 'borrowedSword') {
+      base = { ...base, ...resolveBorrowedSword(base, pending.source, 'player', card?.id ?? null) }
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return

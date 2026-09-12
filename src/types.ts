@@ -56,7 +56,7 @@ export interface Unit {
 }
 
 export interface PendingResponse {
-  effect: 'slash' | 'arrows' | 'barbarians' | 'duel' | 'nullify' | 'dying'
+  effect: 'slash' | 'arrows' | 'barbarians' | 'duel' | 'borrowedSword' | 'nullify' | 'dying'
   source: Team
   target: Team
   required: 'dodge' | 'slash' | 'peach' | 'nullify'

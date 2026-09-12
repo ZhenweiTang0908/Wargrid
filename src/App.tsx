@@ -682,7 +682,7 @@ function ResponseWindow() {
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
-    <p>选择一张【{CARD_LABEL[pending.required]}】打出{(pending.requiredCount ?? 1) > 1 ? `（还需 ${pending.requiredCount} 张）` : ''}，或放弃响应并承受效果。</p>
+    <p>{pending.effect === 'borrowedSword' ? '选择一张【杀】打出；放弃则将武器交给锦囊使用者。' : `选择一张【${CARD_LABEL[pending.required]}】打出${(pending.requiredCount ?? 1) > 1 ? `（还需 ${pending.requiredCount} 张）` : ''}，或放弃响应并承受效果。`}</p>
     <div className="response-cards">
       {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
@@ -690,7 +690,7 @@ function ResponseWindow() {
       </button>)}
       {!responses.length && <span className="no-response">手牌中没有【{CARD_LABEL[pending.required]}】</span>}
     </div>
-    <button className="decline-response" onClick={() => respond(null)}>放弃响应</button>
+    <button className="decline-response" onClick={() => respond(null)}>{pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>
   </section></div>
 }
 
