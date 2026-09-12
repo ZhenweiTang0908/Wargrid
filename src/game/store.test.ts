@@ -582,6 +582,43 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('救援'))).toBe(true)
   })
 
+  it('applies Jiuyuan from the actual dying health after a two-damage Slash', () => {
+    useGameStore.getState().selectGeneral('zhiheng')
+    const slash = card('slash'), first = card('peach', 'heart'), second = card('peach', 'diamond')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 1, hand: [] },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'wu', hand: [first, second] },
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash], drunk: true },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.north.hand).toEqual([second])
+    expect(state.discard).toContainEqual(first)
+    expect(state.winner).toBeNull()
+  })
+
+  it('doubles a Wu player Peach when rescuing an AI lord with Jiuyuan', () => {
+    useGameStore.getState().selectGeneral('zhiheng')
+    const slash = card('slash'), peach = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, identity: 'loyalist', hand: [peach] },
+      north: { ...state.units.north, identity: 'lord', hp: 1, hand: [], skills: ['jiuyuan'] },
+      east: { ...state.units.east, position: { x: 4, y: 1 }, hand: [slash] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'north' })
+    useGameStore.getState().respond(peach.id)
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
+    expect(state.winner).toBeNull()
+  })
+
   it('requires two dodges against Lu Bu Wushuang slash', () => {
     useGameStore.getState().selectGeneral('wushuang')
     const slash = card('slash'), onlyDodge = card('dodge')

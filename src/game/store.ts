@@ -96,6 +96,8 @@ const alliesFor = (state: GameState, team: Team) => {
 const rescueCard = (unit: Unit) => unit.hand.find(card => card.kind === 'peach')
   ?? (unit.skills.includes('jijiu') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
 const selfRescueCard = (unit: Unit) => rescueCard(unit) ?? unit.hand.find(card => card.kind === 'wine')
+const rescueAmount = (target: Unit, helper: Unit, card: Card) =>
+  card.kind === 'peach' && target.identity === 'lord' && target.skills.includes('jiuyuan') && helper.id !== target.id && helper.faction === 'wu' ? 2 : 1
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
 function triggerLianying(state: GameState, team: Team): GameState {
   const unit = state.units[team]
@@ -162,8 +164,9 @@ function rescueDyingPlayer(state: GameState, startingHp: number) {
     if (!helper || !peach) break
     working = { ...working, units: { ...working.units, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== peach.id), animation: 'cast' } }, discard: [...working.discard, peach] }
     working = triggerLianying(working, helper.id)
-    hp += 1
-    helpers.push(`${helper.name}${peach.kind === 'peach' ? '使用【桃】' : '发动【急救】'}`)
+    const healing = rescueAmount(working.units.player, helper, peach)
+    hp += healing
+    helpers.push(`${helper.name}${peach.kind === 'peach' ? '使用【桃】' : '发动【急救】'}${healing === 2 ? '触发【救援】' : ''}`)
   }
   return { state: working, hp, helpers }
 }
@@ -175,16 +178,6 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   }
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
   let rescuedUnits = state.units
-  if (!skipRescue && hp <= 0 && target.identity === 'lord' && target.faction === 'wu' && target.skills.includes('jiuyuan')) {
-    const helper = Object.values(state.units).find(unit => unit.id !== targetId && unit.identity === 'loyalist' && unit.faction === 'wu' && unit.hp > 0 && unit.hand.some(card => card.kind === 'peach'))
-    const peach = helper?.hand.find(card => card.kind === 'peach')
-    if (helper && peach) {
-      rescuedUnits = { ...rescuedUnits, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== peach.id), animation: 'cast' } }
-      discard = [...discard, peach]
-      hp = 2
-      message += `；${helper.name}响应【救援】，令【桃】额外回复 1 点体力`
-    }
-  }
   const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? selfRescueCard({ ...target, hand }) : undefined
   if (playerPeach) {
     const requiredCount = 1 - hp
@@ -214,8 +207,9 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     const aid = helper ? rescueCard(helper) : undefined
     if (!helper || !aid) break
     rescuedUnits = { ...rescuedUnits, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== aid.id), animation: 'cast' } }
-    discard = [...discard, aid]; hp += 1
-    message += `；${helper.name}${aid.kind === 'peach' ? '使用【桃】' : '发动【急救】'}援救${target.name}`
+    const healing = rescueAmount(target, helper, aid)
+    discard = [...discard, aid]; hp += healing
+    message += `；${helper.name}${aid.kind === 'peach' ? '使用【桃】' : '发动【急救】'}援救${target.name}${healing === 2 ? '并触发【救援】' : ''}`
   }
   let units = { ...rescuedUnits, [targetId]: { ...target, hand, hp, revealed: hp <= 0 ? true : target.revealed, animation: playerRescued ? 'heal' as const : 'hit' as const } }
   const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach' || (state.units.player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond'))) : undefined
@@ -1050,13 +1044,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'dying') {
       if (card) {
         const player = base.units.player, target = base.units[pending.target]
-        const nextHp = target.hp + 1, stillDying = nextHp <= 0
+        const healing = pending.target === 'player' ? 1 : rescueAmount(target, player, card)
+        const nextHp = target.hp + healing, stillDying = nextHp <= 0
         const rescuedPlayer = { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), ...(pending.target === 'player' ? { hp: nextHp, animation: 'heal' as const } : {}) }
         const units = { ...base.units, player: rescuedPlayer, [pending.target]: pending.target === 'player' ? rescuedPlayer : { ...target, hp: nextHp, animation: 'heal' as const } }
         const rescueName = card.kind === 'peach' ? '桃' : card.kind === 'wine' ? '酒' : '急救'
         const message = stillDying
           ? `${player.name}使用【${rescueName}】，${target.name}仍处于濒死状态（体力 ${nextHp}）`
-          : pending.target === 'player' ? `${player.name}使用【${rescueName}】自救，回复至 1 点体力` : `${player.name}对${target.name}使用【${rescueName}】，将其救回至 1 点体力`
+          : pending.target === 'player' ? `${player.name}使用【${rescueName}】自救，回复至 1 点体力` : `${player.name}对${target.name}使用【${rescueName}】，将其救回至 ${nextHp} 点体力${healing === 2 ? '（救援）' : ''}`
         const requiredCount = Math.max(0, 1 - nextHp)
         const rescuePrompt = pending.target === 'player' ? `【桃】或【酒】` : '【桃】'
         base = { ...base, units, discard: [...base.discard, card], pendingResponse: stillDying ? { ...pending, requiredCount, prompt: `${target.name}仍需 ${requiredCount} 张${rescuePrompt}，请继续使用或放弃` } : null, message, history: log(base, message) }
