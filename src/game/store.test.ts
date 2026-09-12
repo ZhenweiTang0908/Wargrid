@@ -401,6 +401,41 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(0)
   })
 
+  it('lets player Hua Tuo use a red equipped card for Jijiu once', () => {
+    useGameStore.getState().selectGeneral('qingnang')
+    const attack = card('slash', 'spade'), mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: { ...state.units,
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [attack] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [], equipment: { offensiveMount: mount } },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: attack.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse?.effect).toBe('dying')
+    useGameStore.getState().respond(mount.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.equipment.offensiveMount).toBeUndefined()
+    expect(state.discard.filter(candidate => candidate.id === mount.id)).toHaveLength(1)
+  })
+
+  it('lets AI Hua Tuo rescue himself with a red equipped card', () => {
+    const attack = card('slash', 'spade'), mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({
+      units: { ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [attack] },
+        north: { ...state.units.north, skill: 'qingnang', skills: ['qingnang', 'jijiu'], position: { x: 4, y: 0 }, hp: 1, hand: [], equipment: { offensiveMount: mount } },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(1)
+    expect(state.units.north.equipment.offensiveMount).toBeUndefined()
+    expect(state.discard.filter(candidate => candidate.id === mount.id)).toHaveLength(1)
+  })
+
   it('lets Zhou Yu draw three cards through Yingzi', () => {
     useGameStore.getState().selectGeneral('yingzi')
     const first = card('slash'), second = card('dodge'), third = card('peach')
