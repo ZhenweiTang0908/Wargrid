@@ -841,6 +841,7 @@ function GeneralSelect() {
       </div>
       <div className="general-preview-info"><span>{option.faction} · 3D 棋盘模型</span><strong>{option.name}</strong><small>{option.title} · {option.skillName}</small><p>{option.copy}</p><button className="primary" onClick={() => selectGeneral(option.skill)}>确认选择 {option.name}</button></div>
     </div>
+    <div className="battlefield-selection-label">选择战场 <span>左右滑动查看更多</span></div>
     <div className="map-options battlefield-options" aria-label="选择战场">
       {MAP_IDS.map(id => <button key={id} className={mapId === id ? 'active' : ''} onClick={() => selectMap(id)}><strong>{MAP_DEFINITIONS[id].name}</strong><span>{MAP_DEFINITIONS[id].description}</span></button>)}
     </div>
@@ -850,7 +851,7 @@ function GeneralSelect() {
     </div>
     <div className="general-grid">
       {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}${previewSkill === option.skill ? ' active' : ''}`} onClick={() => setPreviewSkill(option.skill)} aria-pressed={previewSkill === option.skill}>
-        <img src={option.portrait} alt={`${option.name}武将原画`} />
+        <img src={option.portrait} alt={`${option.name}武将原画`} loading="lazy" decoding="async" />
         <span className="faction">{option.faction}</span>
         <div><strong>{option.name}</strong><small>{option.title}</small><b>{option.skillName}</b><p>{option.copy}</p></div>
       </button>)}
@@ -1195,7 +1196,7 @@ function App() {
 
     <aside className="status-left"><PlayerStatus team="player" /></aside>
     <aside className="ai-roster"><PlayerStatus team="north" /><PlayerStatus team="east" /><PlayerStatus team="west" /></aside>
-    <div className="battlefield"><Battlefield /></div>
+    <div className="battlefield">{state.generalSelected && <Battlefield />}</div>
 
     <div className="message-bar"><span className="message-pip" />{state.message}</div>
 

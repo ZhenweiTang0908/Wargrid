@@ -113,6 +113,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .general-preview-info .primary { align-self: flex-end; min-height: 38px; margin-top: 8px; }
 .map-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 13px; }
 .battlefield-options { grid-template-columns: repeat(3, 1fr); }
+.battlefield-selection-label { display: flex; justify-content: space-between; margin: 0 1px 5px; color: #d7c28e; font: 700 12px serif; }
+.battlefield-selection-label span { color: #81979a; font: 10px Inter, "PingFang SC", sans-serif; }
 .map-options button { min-height: 48px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 7px 11px; border: 1px solid #405b61; color: #adbec0; background: #0c1a1e; text-align: left; cursor: pointer; }
 .map-options button.active { border-color: var(--gold); color: #f3dfb0; background: #3b3021; }
 .map-options strong { font: 700 14px serif; }
@@ -210,14 +212,16 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .primary { min-height: 34px; margin-top: 10px; }
   .general-select { padding: 10px 14px; }
   .general-select h1 { margin-bottom: 8px; }
-  .general-preview { grid-template-columns: 124px minmax(0, 1fr); min-height: 112px; margin-bottom: 6px; }
-  .general-preview-stage { height: 112px; }
+  .general-preview { grid-template-columns: 124px minmax(0, 1fr); min-height: 120px; margin-bottom: 6px; }
+  .general-preview-stage { height: 120px; }
   .general-preview-info { padding: 6px 10px; }
   .general-preview-info strong { font-size: 19px; }
   .general-preview-info small, .general-preview-info p { font-size: 9px; }
-  .general-preview-info p { margin-top: 3px; }
-  .general-preview-info .primary { min-height: 28px; margin-top: 4px; font-size: 11px; }
+  .general-preview-info p { display: none; }
+  .general-preview-info .primary { min-height: 40px; margin-top: 5px; font-size: 11px; }
   .map-options { margin-bottom: 6px; }
+  .battlefield-options { display: flex; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .battlefield-options button { flex: 0 0 148px; min-width: 148px; }
   .map-options button { min-height: 34px; padding: 3px 8px; }
   .map-options strong { font-size: 12px; }
   .map-options span { font-size: 8px; }
