@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type Position, type Team, type Unit } from '../types'
 import { attackRange, canBorrowedSwordTarget, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
+import { resolveEquipmentLoss } from './equipment'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
@@ -511,11 +512,10 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       if (equipment[slot]) { removed.push(equipment[slot]!); delete equipment[slot] }
     }
     if (removed.length) {
-      const lionHeal = removed.some(card => card.kind === 'silverLion') && iceTarget.hp < iceTarget.maxHp
-      const lostEquipment = removed.filter(card => Object.values(iceTarget.equipment).some(equipped => equipped?.id === card.id)).length
-      const insight = lostEquipment && iceTarget.skills.includes('xiaoji') ? drawCards(deck, [...discard, ...removed], lostEquipment * 2) : { drawn: [] as Card[], deck, discard: [...discard, ...removed] }
-      const removedIds = new Set(removed.map(card => card.id)), message = `${attacker.name}发动【寒冰剑】，防止伤害并弃置${target.name}${removed.length}张牌${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}${insight.drawn.length ? `；【枭姬】摸${insight.drawn.length}张牌` : ''}`
-      return { ...base, units: { ...units, [targetId]: { ...iceTarget, hp: lionHeal ? iceTarget.hp + 1 : iceTarget.hp, hand: [...iceTarget.hand.filter(card => !removedIds.has(card.id)), ...insight.drawn], equipment, animation: lionHeal ? 'heal' : insight.drawn.length ? 'cast' : 'hit' } }, deck: insight.deck, discard: insight.discard, message, history: log(base, message) }
+      const lostEquipment = removed.filter(card => Object.values(iceTarget.equipment).some(equipped => equipped?.id === card.id))
+      const recovery = resolveEquipmentLoss(iceTarget, lostEquipment, deck, [...discard, ...removed])
+      const removedIds = new Set(removed.map(card => card.id)), message = `${attacker.name}发动【寒冰剑】，防止伤害并弃置${target.name}${removed.length}张牌${recovery.healed ? '；白银狮子令其回复 1 点体力' : ''}${recovery.drawn.length ? `；【枭姬】摸${recovery.drawn.length}张牌` : ''}`
+      return { ...base, units: { ...units, [targetId]: { ...iceTarget, hp: recovery.hp, hand: [...iceTarget.hand.filter(card => !removedIds.has(card.id)), ...recovery.drawn], equipment, animation: recovery.healed ? 'heal' : recovery.drawn.length ? 'cast' : 'hit' } }, deck: recovery.deck, discard: recovery.discard, message, history: log(base, message) }
     }
   }
   const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
@@ -559,15 +559,13 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
   const equipment = { ...target.equipment }
   const lostEquipment = Object.values(equipment).some(card => card?.id === chosen.id)
   for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot]?.id === chosen.id) delete equipment[slot]
-  const lionHeal = chosen.kind === 'silverLion' && target.hp > 0 && target.hp < target.maxHp
-  const xiaoji = lostEquipment && target.skills.includes('xiaoji')
   const nextDiscard = gain ? state.discard : [...state.discard, chosen]
-  const insight = xiaoji ? drawCards(state.deck, nextDiscard, 2) : { drawn: [] as Card[], deck: state.deck, discard: nextDiscard }
+  const recovery = resolveEquipmentLoss(target, lostEquipment ? [chosen] : [], state.deck, nextDiscard)
   const actionText = reason === 'feedback' ? `${actor.name}发动【反馈】` : `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】`
-  const message = `${reason === 'borrowedSword' ? `${target.name}未能出【杀】，${actor.name}获得其【${CARD_LABEL[chosen.kind]}】` : `${actionText}${gain ? '获得' : '弃置'}${target.name}的一张牌`}${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}${xiaoji ? '；枭姬摸两张牌' : ''}`
+  const message = `${reason === 'borrowedSword' ? `${target.name}未能出【杀】，${actor.name}获得其【${CARD_LABEL[chosen.kind]}】` : `${actionText}${gain ? '获得' : '弃置'}${target.name}的一张牌`}${recovery.healed ? '；白银狮子令其回复 1 点体力' : ''}${recovery.drawn.length ? `；枭姬摸${recovery.drawn.length}张牌` : ''}`
   const result: GameState = { ...state,
-    units: { ...state.units, [targetId]: { ...target, hp: lionHeal ? target.hp + 1 : target.hp, hand: [...target.hand.filter(card => card.id !== chosen.id), ...insight.drawn], equipment, animation: lionHeal ? 'heal' : xiaoji ? 'cast' : 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
-    deck: insight.deck, discard: insight.discard, message, history: log(state, message),
+    units: { ...state.units, [targetId]: { ...target, hp: recovery.hp, hand: [...target.hand.filter(card => card.id !== chosen.id), ...recovery.drawn], equipment, animation: recovery.healed ? 'heal' : recovery.drawn.length ? 'cast' : 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
+    deck: recovery.deck, discard: recovery.discard, message, history: log(state, message),
   }
   return triggerLianying(result, targetId)
 }
@@ -933,11 +931,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (isEquipment(kind)) {
         const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
-        const lionHeal = old?.kind === 'silverLion' && unit.hp < unit.maxHp
-        const xiaoji = !!old && unit.skills.includes('xiaoji'), nextDiscard = old ? [...state.discard, old] : state.discard
-        const insight = xiaoji ? drawCards(state.deck, nextDiscard, 2) : { drawn: [] as Card[], deck: state.deck, discard: nextDiscard }
-        const equipped = { ...unit, hp: lionHeal ? unit.hp + 1 : unit.hp, hand: [...removed.hand, ...insight.drawn], equipment: { ...unit.equipment, [slot]: card }, animation: lionHeal ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${lionHeal ? '，失去白银狮子并回复 1 点体力' : ''}${xiaoji ? '；发动【枭姬】摸两张牌' : ''}`
-        set({ units: { ...state.units, [action.unit]: equipped }, deck: insight.deck, discard: insight.discard, selectedCardId: null, message, history: log(state, message) }); return
+        const recovery = resolveEquipmentLoss(unit, old ? [old] : [], state.deck, old ? [...state.discard, old] : state.discard)
+        const equipped = { ...unit, hp: recovery.hp, hand: [...removed.hand, ...recovery.drawn], equipment: { ...unit.equipment, [slot]: card }, animation: recovery.healed ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${recovery.healed ? '，失去白银狮子并回复 1 点体力' : ''}${recovery.drawn.length ? `；发动【枭姬】摸${recovery.drawn.length}张牌` : ''}`
+        set({ units: { ...state.units, [action.unit]: equipped }, deck: recovery.deck, discard: recovery.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
       if (isSlashKind(kind)) {
         if (!canSlash(state, unit, target)) return
