@@ -223,8 +223,8 @@ function UnitPiece({ team }: { team: Team }) {
   const canChainTarget = selectedKind === 'ironChain' && unit.hp > 0
   const chainSelected = state.chainTargets.includes(team)
   const borrowedWielder = state.borrowedSwordWielder
-  const canBorrowedWielder = selectedKind === 'borrowedSword' && team !== 'player' && !borrowedWielder && !!unit.equipment.weapon && Object.values(state.units).some(victim => victim.id !== 'player' && canBorrowedSwordTarget(state, unit, victim))
-  const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && team !== 'player' && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
+  const canBorrowedWielder = selectedKind === 'borrowedSword' && team !== 'player' && !borrowedWielder && !!unit.equipment.weapon && Object.values(state.units).some(victim => canBorrowedSwordTarget(state, unit, victim))
+  const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
   const canTarget = canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, state.units.player, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean))) ||
@@ -264,10 +264,10 @@ function UnitPiece({ team }: { team: Team }) {
         else if (canBorrowedVictim && selectedCardId && borrowedWielder) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: borrowedWielder, targets: [borrowedWielder, team] })
         else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
-      onPointerEnter={() => { if (canTarget || canChainTarget) document.body.style.cursor = 'crosshair' }}
+      onPointerEnter={() => { if (canTarget || canChainTarget || canBorrowedVictim) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
     >
-      {canTarget && (
+      {(canTarget || canBorrowedVictim) && (
         <mesh position-y={.06} rotation-x={-Math.PI / 2}>
           <ringGeometry args={[.47, .56, 32]} />
           <meshBasicMaterial color="#ffcb70" transparent opacity={.9} side={THREE.DoubleSide} />

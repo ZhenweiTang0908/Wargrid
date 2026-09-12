@@ -65,6 +65,7 @@ export interface PendingResponse {
   originCardId?: string
   armorChecked?: boolean
   requiredCount?: number
+  forcedSlashAttacksUsed?: number
 }
 
 export interface PendingHarvest {

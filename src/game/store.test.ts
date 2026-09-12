@@ -1607,6 +1607,53 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toHaveLength(0)
   })
 
+  it('lets the player designate themselves as the Borrowed Sword victim and dodge', () => {
+    const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash'), dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [trick, dodge] },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [forcedSlash], equipment: { weapon }, attacksUsed: 1 },
+    } }))
+    useGameStore.getState().selectCard(trick.id)
+    useGameStore.getState().selectBorrowedSwordWielder('north')
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'player'] })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', source: 'north', required: 'dodge' })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.attacksUsed).toBe(1)
+    expect(state.units.north.equipment.weapon).toEqual(weapon)
+  })
+
+  it('damages the player if they decline the Borrowed Sword Slash', () => {
+    const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [trick] },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [forcedSlash], equipment: { weapon } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'player'] })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.attacksUsed).toBe(0)
+  })
+
+  it('lets Renwang Shield block a black Slash forced by Borrowed Sword', () => {
+    const trick = card('borrowedSword'), weapon = card('greenDragon'), shield = card('shield'), forcedSlash = card('slash', 'spade')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [trick], equipment: { armor: shield } },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [forcedSlash], equipment: { weapon } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'player'] })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.attacksUsed).toBe(0)
+  })
+
   it('lets an armed player choose the forced Slash without consuming their own attack quota', () => {
     const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {

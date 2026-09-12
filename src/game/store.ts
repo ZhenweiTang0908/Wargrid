@@ -342,6 +342,24 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
       units: { ...state.units, [wielderId]: { ...wielder, hand: wielder.hand.filter(card => card.id !== slash.id), animation: 'attack' } },
       discard: [...state.discard, slash], message, history: log(state, message),
     }
+    if (victim.id === 'player' && wielderId !== 'player') {
+      const restored = (result: GameState): GameState => ({ ...result, units: { ...result.units, [wielderId]: { ...result.units[wielderId], attacksUsed: wielder.attacksUsed } } })
+      const redirected = liuliRedirect(forced, wielderId, 'player')
+      if (redirected) return restored({ ...redirected.state, ...resolveSlash(redirected.state, wielderId, redirected.targetId, undefined, false, slash) })
+      const tieqi = judgeTieqi(forced, wielderId)
+      let working = tieqi.state
+      const shieldBlocks = working.units.player.equipment.armor?.kind === 'shield' && (slash.suit === 'spade' || slash.suit === 'club') && wielder.equipment.weapon?.kind !== 'qinggang'
+      if (tieqi.locked || shieldBlocks) return restored({ ...working, ...resolveSlash(working, wielderId, 'player', null, true, slash) })
+      let armorChecked = false
+      if (working.units.player.equipment.armor?.kind === 'bagua' && wielder.equipment.weapon?.kind !== 'qinggang') {
+        const judged = judgeBagua(working, 'player')
+        working = judged.state; armorChecked = true
+        if (judged.success) return working
+      }
+      const requiredCount = wielder.skill === 'wushuang' ? 2 : 1
+      const prompt = `${wielder.name}受【借刀杀人】驱使对你使用【杀】，${requiredCount === 2 ? '请连续打出两张【闪】' : '请选择是否打出【闪】'}`
+      return { ...working, pendingResponse: { effect: 'slash', source: wielderId, target: 'player', required: 'dodge', requiredCount, armorChecked, originCardId: slash.id, forcedSlashAttacksUsed: wielder.attacksUsed, prompt }, message: prompt, history: log(working, prompt) }
+    }
     const resolved = { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
     return { ...resolved, units: { ...resolved.units, [wielderId]: { ...resolved.units[wielderId], attacksUsed: wielder.attacksUsed } } }
   }
@@ -696,7 +714,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), card = state.units.player.hand.find(candidate => candidate.id === state.selectedCardId)
     const wielder = state.units[team]
     if (state.phase !== 'player' || state.turnStage !== 'play' || card?.kind !== 'borrowedSword' || team === 'player' || !wielder.equipment.weapon) return
-    if (!Object.values(state.units).some(victim => victim.id !== 'player' && canBorrowedSwordTarget(state, wielder, victim))) {
+    if (!Object.values(state.units).some(victim => canBorrowedSwordTarget(state, wielder, victim))) {
       set({ message: `${wielder.name}的攻击范围内没有可指定的角色` }); return
     }
     set({ borrowedSwordWielder: team, message: `已选择${wielder.name}，请选择其攻击范围内的角色` })
@@ -1126,6 +1144,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const message = `${guard.unit.name}发动【护驾】保护主公`
         base = { ...base, units: { ...base.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(candidate => candidate.id !== guard.dodge.id), animation: 'cast' } }, discard: [...base.discard, guard.dodge], message, history: log(base, message) }
       } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units.player.name}未能响应【${CARD_LABEL[pending.effect]}】，受到 1 点伤害`, false, base.discard.find(candidate => candidate.id === pending.originCardId)) }
+    }
+    if (pending.effect === 'slash' && pending.forcedSlashAttacksUsed !== undefined) {
+      const attacker = base.units[pending.source]
+      base = { ...base, units: { ...base.units, [pending.source]: { ...attacker, attacksUsed: pending.forcedSlashAttacksUsed } } }
     }
     set(base)
     if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
