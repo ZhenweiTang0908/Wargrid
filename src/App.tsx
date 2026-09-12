@@ -245,15 +245,16 @@ function EquippedGear({ unit }: { unit: Unit }) {
   </>
 }
 
-function UnitPiece({ team }: { team: Team }) {
-  const unit = useGameStore(s => s.units[team])
+function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
+  const liveUnit = useGameStore(s => s.units[team])
+  const unit = previewUnit ?? liveUnit
   const selectedCardId = useGameStore(s => s.selectedCardId)
   const selectedAsSlash = useGameStore(s => s.selectedAsSlash)
   const state = useGameStore()
   const dispatch = useGameStore(s => s.dispatch)
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
-  const target = useMemo(() => new THREE.Vector3(...worldPosition(unit.position)), [unit.position])
+  const target = useMemo(() => new THREE.Vector3(...(previewUnit ? [0, 0, 0] as [number, number, number] : worldPosition(unit.position))), [previewUnit, unit.position])
   const pieceColors: Record<GeneralSkill, string> = { qianxun: '#397b72', lianying: '#397b72', guose: '#c76a78', liuli: '#c76a78', luoshen: '#7776a7', qingguo: '#7776a7', keji: '#326e6c', kurou: '#9a3a2e', tieqi: '#d7dde0', mashu: '#d7dde0', rende: '#477b4b', jijiang: '#477b4b', wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', hujia: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', jieyin: '#b94e58', xiaoji: '#b94e58', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', lijian: '#a94f79', zhiheng: '#3c9291', jiuyuan: '#3c9291', wushuang: '#9d3028' }
   const darkColors: Record<GeneralSkill, string> = { qianxun: '#183c38', lianying: '#183c38', guose: '#542d39', liuli: '#542d39', luoshen: '#292a50', qingguo: '#292a50', keji: '#183a3a', kurou: '#3f201c', tieqi: '#34475a', mashu: '#34475a', rende: '#244629', jijiang: '#244629', wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', hujia: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', jieyin: '#4f2630', xiaoji: '#4f2630', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', lijian: '#51233b', zhiheng: '#193f42', jiuyuan: '#193f42', wushuang: '#351311' }
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
@@ -278,16 +279,17 @@ function UnitPiece({ team }: { team: Team }) {
   ))
 
   useEffect(() => {
-    if (unit.animation === 'idle') return
+    if (previewUnit || unit.animation === 'idle') return
     const timer = window.setTimeout(() => resetAnimation(team), unit.animation === 'move' ? 700 : 480)
     return () => window.clearTimeout(timer)
-  }, [unit.animation, resetAnimation, team])
+  }, [previewUnit, unit.animation, resetAnimation, team])
 
   useFrame(({ clock }, delta) => {
     if (!group.current) return
     group.current.position.lerp(target, Math.min(1, delta * 7))
     const idle = Math.sin(clock.elapsedTime * 2.2 + (team === 'player' ? 0 : team === 'north' ? 1 : team === 'east' ? 2 : 3)) * .035
     group.current.position.y = idle + (unit.animation === 'heal' ? Math.abs(Math.sin(clock.elapsedTime * 10)) * .12 : 0)
+    if (previewUnit) { group.current.rotation.y = Math.sin(clock.elapsedTime * .45) * .38; return }
     const elementalHit = unit.animation === 'fireHit' || unit.animation === 'thunderHit'
     const desiredScale = unit.animation === 'hit' || elementalHit ? .9 + Math.abs(Math.sin(clock.elapsedTime * 25)) * .12 : 1
     group.current.scale.lerp(new THREE.Vector3(desiredScale, desiredScale, desiredScale), delta * 10)
@@ -300,7 +302,7 @@ function UnitPiece({ team }: { team: Team }) {
     <group
       ref={group}
       position={worldPosition(unit.position)}
-      onClick={e => {
+      onClick={previewUnit ? undefined : e => {
         e.stopPropagation()
         if (canChainTarget) state.selectChainTarget(team)
         else if (canLijianTarget) state.selectLijianTarget(team)
@@ -308,7 +310,7 @@ function UnitPiece({ team }: { team: Team }) {
         else if (canBorrowedVictim && selectedCardId && borrowedWielder) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: borrowedWielder, targets: [borrowedWielder, team] })
         else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
-      onPointerEnter={() => { if (canTarget || canChainTarget || canBorrowedVictim) document.body.style.cursor = 'crosshair' }}
+      onPointerEnter={previewUnit ? undefined : () => { if (canTarget || canChainTarget || canBorrowedVictim) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
     >
       {(canTarget || canBorrowedVictim) && (
@@ -778,7 +780,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>选将前可选择双河、围城、山谷、泽国或竹林战场，以及标准或扩展牌池。每回合获得 3 点移动力，从官道开始回合则获得 4 点；涉水与泥沼耗 2 点，桥梁只耗 1 点；围城需争夺城墙入口，山谷由山壁分割侧翼，泽国可中央涉水或侧翼过桥，竹林可借树林掩护绕行。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>选将前可选择八张战场和标准或扩展牌池。每回合获得 3 点移动力，从官道开始回合则获得 4 点；涉水与泥沼耗 2 点，桥梁只耗 1 点。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
       <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
@@ -817,11 +819,28 @@ function GeneralSelect() {
   const selectGeneral = useGameStore(s => s.selectGeneral)
   const selectMap = useGameStore(s => s.selectMap)
   const selectDeckMode = useGameStore(s => s.selectDeckMode)
+  const player = useGameStore(s => s.units.player)
   const mapId = useGameStore(s => s.mapId)
   const deckMode = useGameStore(s => s.deckMode)
+  const [previewSkill, setPreviewSkill] = useState<GeneralSkill>('wusheng')
+  const option = GENERAL_OPTIONS.find(candidate => candidate.skill === previewSkill) ?? GENERAL_OPTIONS[0]
+  const previewUnit = useMemo<Unit>(() => ({ ...player, name: option.name, title: option.title, skill: option.skill, skills: [option.skill], faction: option.faction === '魏' ? 'wei' : option.faction === '蜀' ? 'shu' : option.faction === '吴' ? 'wu' : 'qun', gender: ['大乔', '甄姬', '孙尚香', '黄月英', '貂蝉'].includes(option.name) ? 'female' : 'male', hp: 4, maxHp: 4, equipment: {}, judgement: [], animation: 'idle' }), [option, player])
   return <div className="overlay general-select-overlay"><section className="general-select panel">
     <span className="eyebrow">主公选将</span>
     <h1>选择本局武将</h1>
+    <div className="general-preview">
+      <div className="general-preview-stage" aria-label={`${option.name}的 3D 武将预览`}>
+        <Canvas dpr={[1, 1.4]} camera={{ position: [0, 1.36, 4.15], fov: 35 }} gl={{ antialias: true }}>
+          <color attach="background" args={['#15252b']} />
+          <ambientLight intensity={2.2} />
+          <directionalLight position={[2, 4, 3]} intensity={3.3} color="#fff0cf" />
+          <pointLight position={[-2, 1, -2]} intensity={8} distance={7} color="#5fb2ba" />
+          <OrbitControls target={[0, 1.15, 0]} enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.3} maxPolarAngle={Math.PI / 2.3} />
+          <UnitPiece team="player" previewUnit={previewUnit} />
+        </Canvas>
+      </div>
+      <div className="general-preview-info"><span>{option.faction} · 3D 棋盘模型</span><strong>{option.name}</strong><small>{option.title} · {option.skillName}</small><p>{option.copy}</p><button className="primary" onClick={() => selectGeneral(option.skill)}>确认选择 {option.name}</button></div>
+    </div>
     <div className="map-options battlefield-options" aria-label="选择战场">
       {MAP_IDS.map(id => <button key={id} className={mapId === id ? 'active' : ''} onClick={() => selectMap(id)}><strong>{MAP_DEFINITIONS[id].name}</strong><span>{MAP_DEFINITIONS[id].description}</span></button>)}
     </div>
@@ -830,7 +849,7 @@ function GeneralSelect() {
       <button className={deckMode === 'expanded' ? 'active' : ''} onClick={() => selectDeckMode('expanded')}><strong>扩展牌池 · 116 张</strong><span>加入火杀、雷杀、酒与军争锦囊</span></button>
     </div>
     <div className="general-grid">
-      {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}`} onClick={() => selectGeneral(option.skill)}>
+      {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}${previewSkill === option.skill ? ' active' : ''}`} onClick={() => setPreviewSkill(option.skill)} aria-pressed={previewSkill === option.skill}>
         <img src={option.portrait} alt={`${option.name}武将原画`} />
         <span className="faction">{option.faction}</span>
         <div><strong>{option.name}</strong><small>{option.title}</small><b>{option.skillName}</b><p>{option.copy}</p></div>
