@@ -700,6 +700,24 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('制衡')
   })
 
+  it('lets Sun Quan exchange equipped cards and resolve losing Silver Lion', () => {
+    useGameStore.getState().selectGeneral('zhiheng')
+    const peach = card('peach'), lion = card('silverLion', 'heart'), freshA = card('slash'), freshB = card('dodge')
+    useGameStore.setState(state => ({ deck: [freshA, freshB], discard: [], units: { ...state.units, player: { ...state.units.player, hp: 3, hand: [peach], equipment: { armor: lion } } } }))
+    useGameStore.getState().activateZhiheng()
+    useGameStore.getState().selectCard(peach.id)
+    useGameStore.getState().selectCard(lion.id)
+    expect(useGameStore.getState().zhihengSelection).toEqual([peach.id, lion.id])
+    useGameStore.getState().activateZhiheng()
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.equipment.armor).toBeUndefined()
+    expect(state.units.player.hand.map(item => item.id)).toEqual([freshA.id, freshB.id])
+    expect(state.discard).toContainEqual(peach)
+    expect(state.discard).toContainEqual(lion)
+    expect(state.units.player.skillUsed).toBe(true)
+  })
+
   it('lets Diao Chan discard a card to make two male characters duel through Lijian', () => {
     useGameStore.getState().selectGeneral('biyue')
     const payment = card('dodge')
@@ -2753,6 +2771,21 @@ describe('standard card scenarios', () => {
     const state = useGameStore.getState()
     expect(state.units.north.skillUsed).toBe(true)
     expect(state.units.north.hand).toContainEqual(freshCard)
+    expect(state.history.some(entry => entry.includes('制衡'))).toBe(true)
+  })
+
+  it('lets wounded AI Sun Quan exchange Silver Lion through Zhiheng', async () => {
+    const lion = card('silverLion', 'heart'), fresh = card('nullify', 'spade')
+    useGameStore.setState(state => ({ deck: [fresh], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'zhiheng', skills: ['zhiheng', 'jiuyuan'], position: state.controlPoint, hp: 2, maxHp: 4, hand: [], equipment: { armor: lion } },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.equipment.armor).toBeUndefined()
+    expect(state.units.north.hand).toContainEqual(fresh)
+    expect(state.discard).toContainEqual(lion)
     expect(state.history.some(entry => entry.includes('制衡'))).toBe(true)
   })
 

@@ -1559,11 +1559,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
-    const card = state.units.player.hand.find(c => c.id === id); if (!card) return
+    const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
     if (state.zhihengMode) {
       const selected = state.zhihengSelection.includes(id)
       const zhihengSelection = selected ? state.zhihengSelection.filter(cardId => cardId !== id) : [...state.zhihengSelection, id]
-      set({ zhihengSelection, message: `【制衡】已选择 ${zhihengSelection.length} 张牌，再次点击制衡确认` }); return
+      set({ zhihengSelection, message: `【制衡】已选择 ${zhihengSelection.length} 张手牌或装备，再次点击制衡确认` }); return
     }
     if (state.spearMode) {
       const selected = state.spearSelection.includes(id)
@@ -1607,14 +1607,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), player = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || player.skill !== 'zhiheng' || player.skillUsed) return
     if (!state.zhihengMode) {
-      set({ zhihengMode: true, zhihengSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, message: '【制衡】请选择任意张手牌，再次点击制衡确认' }); return
+      set({ zhihengMode: true, zhihengSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, message: '【制衡】请选择任意张手牌或装备，再次点击制衡确认' }); return
     }
     if (!state.zhihengSelection.length) { set({ zhihengMode: false, message: '已取消制衡' }); return }
-    const chosen = player.hand.filter(card => state.zhihengSelection.includes(card.id))
+    const chosen = [...player.hand, ...equippedCards(player)].filter(card => state.zhihengSelection.includes(card.id))
     const remaining = player.hand.filter(card => !state.zhihengSelection.includes(card.id))
-    const draw = drawCards(state.deck, [...state.discard, ...chosen], chosen.length)
+    const equipment = Object.fromEntries(Object.entries(player.equipment).filter(([, card]) => !card || !state.zhihengSelection.includes(card.id))) as Unit['equipment']
+    const lostEquipment = equippedCards(player).filter(card => state.zhihengSelection.includes(card.id))
+    const loss = resolveEquipmentLoss(player, lostEquipment, state.deck, [...state.discard, ...chosen])
+    const draw = drawCards(loss.deck, loss.discard, chosen.length)
     const message = `${player.name}发动【制衡】，弃置并重摸 ${chosen.length} 张牌`
-    set({ units: { ...state.units, player: { ...player, hand: [...remaining, ...draw.drawn], skillUsed: true, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, zhihengMode: false, zhihengSelection: [], message, history: log(state, message) })
+    set({ units: { ...state.units, player: { ...player, hp: loss.hp, hand: [...remaining, ...loss.drawn, ...draw.drawn], equipment, skillUsed: true, animation: loss.healed ? 'heal' : 'cast' } }, deck: draw.deck, discard: draw.discard, zhihengMode: false, zhihengSelection: [], message, history: log(state, message) })
   },
   activateQingnang: () => {
     const state = get(), healer = state.units.player
@@ -1762,13 +1765,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
         await wait(280); state = get(); ai = state.units[aiId]
       }
     }
-    if (ai.skills.includes('zhiheng') && !ai.skillUsed && ai.hand.length) {
+    if (ai.skills.includes('zhiheng') && !ai.skillUsed) {
       const lacksSlash = !responseCard(ai, 'slash')
-      const exchange = ai.hand.filter(card => card.kind !== 'peach' && card.kind !== 'dodge' && card.kind !== 'slash').slice(0, ai.hand.length > ai.hp ? 2 : lacksSlash ? 1 : 0)
+      const exchange = [
+        ...ai.hand.filter(card => card.kind !== 'peach' && card.kind !== 'dodge' && card.kind !== 'slash').slice(0, ai.hand.length > ai.hp ? 2 : lacksSlash ? 1 : 0),
+        ...(ai.equipment.armor?.kind === 'silverLion' && ai.hp < ai.maxHp ? [ai.equipment.armor] : []),
+      ]
       if (exchange.length) {
-        const exchangeIds = new Set(exchange.map(card => card.id)), draw = drawCards(state.deck, [...state.discard, ...exchange], exchange.length)
+        const exchangeIds = new Set(exchange.map(card => card.id))
+        const equipment = Object.fromEntries(Object.entries(ai.equipment).filter(([, card]) => !card || !exchangeIds.has(card.id))) as Unit['equipment']
+        const lostEquipment = equippedCards(ai).filter(card => exchangeIds.has(card.id))
+        const loss = resolveEquipmentLoss(ai, lostEquipment, state.deck, [...state.discard, ...exchange])
+        const draw = drawCards(loss.deck, loss.discard, exchange.length)
         const message = `${ai.name}发动【制衡】，弃置并重摸 ${exchange.length} 张牌`
-        set({ units: { ...state.units, [aiId]: { ...ai, hand: [...ai.hand.filter(card => !exchangeIds.has(card.id)), ...draw.drawn], skillUsed: true, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) })
+        set({ units: { ...state.units, [aiId]: { ...ai, hp: loss.hp, hand: [...ai.hand.filter(card => !exchangeIds.has(card.id)), ...loss.drawn, ...draw.drawn], equipment, skillUsed: true, animation: loss.healed ? 'heal' : 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) })
         await wait(280); state = get(); ai = state.units[aiId]
       }
     }

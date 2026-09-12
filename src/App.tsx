@@ -733,18 +733,18 @@ function PlayerStatus({ team }: { team: Team }) {
   )
 }
 
-function CardView({ card, selected }: { card: Card; selected: boolean }) {
+function CardView({ card, selected, equipped = false }: { card: Card; selected: boolean; equipped?: boolean }) {
   const selectCard = useGameStore(s => s.selectCard)
   const toggleDiscard = useGameStore(s => s.toggleDiscard)
   const state = useGameStore()
   const discarding = state.phase === 'player' && state.turnStage === 'discard'
-  const disabled = !discarding && (state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))
+  const disabled = !discarding && !state.zhihengMode && (state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))
   const red = card.suit === 'heart' || card.suit === 'diamond'
   return (
     <button className={`card ${card.kind} ${selected ? 'selected' : ''} ${discarding ? 'discarding' : ''}`} disabled={disabled} onClick={() => discarding ? toggleDiscard(card.id) : selectCard(card.id)}>
       <span className={`card-suit ${red ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
       <strong>{CARD_LABEL[card.kind]}</strong>
-      <small>{CARD_COPY[card.kind]}</small>
+      <small>{equipped ? `装备 · ${CARD_COPY[card.kind]}` : CARD_COPY[card.kind]}</small>
     </button>
   )
 }
@@ -1160,6 +1160,7 @@ function App() {
       <div className="movement"><span>{state.turnStage === 'play' ? `出牌阶段 · 移动 ${state.units.player.movement}` : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{Array.from({ length: Math.max(3, state.units.player.movement) }, (_, index) => index + 1).map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
       <div className="hand" aria-label="你的手牌">
         {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : state.zhihengMode ? state.zhihengSelection.includes(card.id) : state.spearMode ? state.spearSelection.includes(card.id) : selectedCard?.id === card.id} />)}
+        {state.zhihengMode && Object.values(state.units.player.equipment).filter((card): card is Card => !!card).map(card => <CardView key={card.id} card={card} equipped selected={state.zhihengSelection.includes(card.id)} />)}
         {!state.units.player.hand.length && <span className="empty-hand">暂无手牌</span>}
       </div>
       <div className="turn-actions">
