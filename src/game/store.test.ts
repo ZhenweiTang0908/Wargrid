@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Card } from '../types'
 import { createInitialState } from './rules'
-import { beginTurn, greenDragonChoices, targetsFor, useGameStore } from './store'
+import { beginTurn, borrowedSwordChoices, greenDragonChoices, targetsFor, useGameStore } from './store'
 
 let nextId = 0
 const card = (kind: Card['kind'], suit: Card['suit'] = 'spade', rank = 7): Card => ({ id: `scenario-${++nextId}`, kind, suit, rank })
@@ -2534,6 +2534,50 @@ describe('standard card scenarios', () => {
     expect(state.units.player.equipment.weapon).toEqual(weapon)
     expect(state.discard).toContainEqual(mount)
     expect(state.units.west.hp).toBe(3)
+  })
+
+  it('lets Guan Yu use the borrowed red weapon as Slash at adjacent range', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const weapon = card('greenDragon', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', pendingResponse: { effect: 'borrowedSword', source: 'east', target: 'player', required: 'slash', prompt: '借刀杀人' }, units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { weapon } },
+      west: { ...state.units.west, position: { x: 4, y: 7 }, hand: [], skill: 'kurou', skills: ['kurou'] },
+    } }))
+    expect(borrowedSwordChoices(useGameStore.getState(), 'east', 'player')).toContainEqual(weapon)
+    useGameStore.getState().respond(weapon.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toBeUndefined()
+    expect(state.units.west.hp).toBe(3)
+    expect(state.units.east.hand).not.toContainEqual(weapon)
+    expect(state.discard).toContainEqual(weapon)
+  })
+
+  it('rejects Wusheng payment of the borrowed weapon when losing its range would miss', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const weapon = card('greenDragon', 'heart')
+    useGameStore.setState(state => ({ pendingResponse: { effect: 'borrowedSword', source: 'east', target: 'player', required: 'slash', prompt: '借刀杀人' }, units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { weapon } },
+      west: { ...state.units.west, position: { x: 4, y: 6 }, hand: [], skill: 'kurou', skills: ['kurou'] },
+    } }))
+    expect(borrowedSwordChoices(useGameStore.getState(), 'east', 'player')).not.toContainEqual(weapon)
+    useGameStore.getState().respond(weapon.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'borrowedSword' })
+    expect(useGameStore.getState().units.player.equipment.weapon).toEqual(weapon)
+  })
+
+  it('lets AI Guan Yu spend his red weapon when Borrowed Sword forces an adjacent Slash', () => {
+    const trick = card('borrowedSword'), weapon = card('greenDragon', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hand: [trick] },
+      north: { ...state.units.north, skill: 'wusheng', skills: ['wusheng'], position: { x: 4, y: 7 }, hand: [], equipment: { weapon } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'player'] })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', source: 'north' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.weapon).toBeUndefined()
+    expect(state.discard).toContainEqual(weapon)
+    expect(state.units.player.hp).toBe(4)
   })
 
   it('transfers the weapon when the player declines Borrowed Sword', () => {

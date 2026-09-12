@@ -3,7 +3,7 @@ import { ContactShadows, Environment, OrbitControls, RoundedBox, Sparkles } from
 import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { useGameStore, isCellReachable, greenDragonChoices } from './game/store'
+import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
@@ -840,6 +840,7 @@ function GeneralSelect() {
 }
 
 function ResponseWindow() {
+  const state = useGameStore()
   const pending = useGameStore(s => s.pendingResponse)
   const player = useGameStore(s => s.units.player)
   const currentUnit = useGameStore(s => s.currentUnit)
@@ -849,7 +850,7 @@ function ResponseWindow() {
   if (!pending) return null
   const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
   const responseEquipment = pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') || pending.required === 'slash' && player.skills.includes('wusheng')
-  const responses = [...player.hand, ...(responseEquipment ? Object.values(player.equipment).filter((card): card is Card => !!card && (pending.effect !== 'borrowedSword' || card.id !== player.equipment.weapon?.id)) : [])].filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
+  const responses = pending.effect === 'borrowedSword' ? borrowedSwordChoices(state, pending.source, 'player') : [...player.hand, ...(responseEquipment ? Object.values(player.equipment).filter((card): card is Card => !!card) : [])].filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
