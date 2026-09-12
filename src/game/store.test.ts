@@ -241,6 +241,25 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('集智'))).toBe(true)
   })
 
+  it('does not draw the resolving trick when Jizhi reshuffles the discard pile', () => {
+    useGameStore.getState().selectGeneral('jizhi')
+    const trick = card('drawTwo'), reward = card('slash')
+    useGameStore.setState(state => ({ deck: [], discard: [reward], units: { ...state.units, player: { ...state.units.player, hand: [trick] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.discard).toContainEqual(trick)
+  })
+
+  it('does not let Draw Two draw itself when the deck is empty', () => {
+    const trick = card('drawTwo'), reward = card('dodge')
+    useGameStore.setState(state => ({ deck: [], discard: [reward], units: { ...state.units, player: { ...state.units.player, hand: [trick] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.discard).toContainEqual(trick)
+  })
+
   it('lets Huang Yueying ignore Snatch distance through Qicai', () => {
     useGameStore.getState().selectGeneral('jizhi')
     const snatch = card('snatch'), prize = card('peach')
@@ -2981,6 +3000,16 @@ describe('standard card scenarios', () => {
     const state = useGameStore.getState()
     expect(state.units.player.hand).toEqual([rewardA, rewardB, rewardC])
     expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
+  it('does not let Lianying return the resolving card to Lu Xun', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const trick = card('drawTwo'), reward = card('peach')
+    useGameStore.setState(state => ({ deck: [], discard: [reward], units: { ...state.units, player: { ...state.units.player, hand: [trick] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.discard).toContainEqual(trick)
   })
 
   it('draws through Lianying after Lu Xun responds with his final dodge', () => {

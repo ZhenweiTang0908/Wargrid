@@ -123,13 +123,14 @@ function payRescueCard(state: GameState, team: Team, card: Card): GameState {
 const rescueAmount = (target: Unit, helper: Unit, card: Card) =>
   card.kind === 'peach' && target.identity === 'lord' && target.skills.includes('jiuyuan') && helper.id !== target.id && helper.faction === 'wu' ? 2 : 1
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
-function triggerLianying(state: GameState, team: Team): GameState {
+function triggerLianying(state: GameState, team: Team, resolvingCards: Card[] = []): GameState {
   const unit = state.units[team]
   if (unit.hp <= 0 || unit.hand.length || !unit.skills.includes('lianying')) return state
-  const draw = drawCards(state.deck, state.discard, 1)
+  const resolvingIds = new Set(resolvingCards.map(card => card.id))
+  const draw = drawCards(state.deck, state.discard.filter(card => !resolvingIds.has(card.id)), 1)
   if (!draw.drawn.length) return state
   const message = `${unit.name}发动【连营】，失去最后一张手牌后摸一张牌`
-  return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+  return { ...state, units: { ...state.units, [team]: { ...unit, hand: draw.drawn, animation: 'cast' } }, deck: draw.deck, discard: [...draw.discard, ...resolvingCards], message, history: log(state, message) }
 }
 const takeCard = (hand: Card[], id: string) => ({ card: hand.find(c => c.id === id), hand: hand.filter(c => c.id !== id) })
 const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find(card => required === 'slash' ? isSlashKind(card.kind) : card.kind === required)
@@ -1028,12 +1029,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playedDeck = loss.deck; playedDiscard = loss.discard
       }
       let base: GameState = { ...state, units: unitsAfterPlay, deck: playedDeck, discard: playedDiscard, selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
-      if (!equippedVirtual && !assistedEquipment) base = triggerLianying(base, assistant?.id ?? action.unit)
+      if (!equippedVirtual && !assistedEquipment) base = triggerLianying(base, assistant?.id ?? action.unit, playedCards)
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
-        const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
+        const insight = drawCards(base.deck, base.discard.filter(item => item.id !== card.id), 1), actor = base.units[action.unit]
         const skillMessage = `${unit.name}发动【集智】，摸一张牌`
-        base = { ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...insight.drawn] } }, deck: insight.deck, discard: insight.discard, message: skillMessage, history: log(base, skillMessage) }
+        base = { ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...insight.drawn] } }, deck: insight.deck, discard: [...insight.discard, card], message: skillMessage, history: log(base, skillMessage) }
       }
       const nullifiable = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'fireAttack', 'ironChain'].includes(kind)
       if (kind === 'borrowedSword' && !target.equipment.weapon) return
@@ -1060,8 +1061,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, wineUsed: true, drunk: true, animation: 'heal' } }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
       if (kind === 'drawTwo') {
-        const draw = drawCards(base.deck, base.discard, 2), actor = base.units[action.unit], message = `${unit.name}使用【无中生有】，摸两张牌`
-        set({ ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: draw.discard, message, history: log(base, message) }); return
+        const draw = drawCards(base.deck, base.discard.filter(item => item.id !== card.id), 2), actor = base.units[action.unit], message = `${unit.name}使用【无中生有】，摸两张牌`
+        set({ ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], message, history: log(base, message) }); return
       }
       if (kind === 'peachGarden') {
         const playerCanRespond = action.unit !== 'player' && base.units.player.hp > 0 && base.units.player.hp < base.units.player.maxHp
