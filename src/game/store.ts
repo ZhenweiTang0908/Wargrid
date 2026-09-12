@@ -1895,6 +1895,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword) return
       if (state.phase === 'finished') return
     }
+    // 连弩和咆哮没有每回合一次的出杀限制，继续使用可命中的【杀】。
+    const extraSlashBudget = get().units[aiId].hand.length + equippedCards(get().units[aiId]).length
+    for (let extra = 0; extra < extraSlashBudget; extra++) {
+      state = get(); ai = state.units[aiId]
+      if (state.phase !== 'ai' || state.currentUnit !== aiId || ai.hp <= 0 || ai.attacksUsed >= slashLimit(ai)) break
+      const slash = responseCard(ai, 'slash') ?? (ai.skills.includes('wusheng') ? equippedCards(ai).find(isRed) : undefined)
+      if (!slash) break
+      const afterPayment = equippedCards(ai).some(item => item.id === slash.id)
+        ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== slash.id)) as Unit['equipment'] } : ai
+      const victim = targetsFor(state, aiId).find(candidate => canSlash(state, afterPayment, candidate))
+      if (!victim) break
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, asSlash: !isSlashKind(slash.kind) })
+      await wait(420)
+      if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().winner) return
+    }
     state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = resolveEndSkill(next, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
     if (next.winner) { set(next); return }
     const nextId = nextSeat(next, aiId), nextState = beginTurn({ ...next, turn: nextId === 'player' ? next.turn + 1 : next.turn, turnStage: 'finish' }, nextId)

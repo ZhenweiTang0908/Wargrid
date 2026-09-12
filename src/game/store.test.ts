@@ -2823,6 +2823,19 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('国色'))).toBe(true)
   })
 
+  it.each(['crossbow', 'paoxiao'] as const)('lets AI use multiple slashes with %s', async ability => {
+    const first = card('slash'), second = card('slash', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: { ...state.units,
+      north: { ...state.units.north, skill: ability === 'paoxiao' ? 'paoxiao' : 'longdan', skills: ability === 'paoxiao' ? ['paoxiao'] : ['longdan'], position: state.controlPoint, hand: [first, second], equipment: ability === 'crossbow' ? { weapon: card('crossbow', 'diamond') } : {} },
+      east: { ...state.units.east, position: { x: 4, y: 5 }, hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(2)
+    expect(state.units.north.attacksUsed).toBe(2)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+  })
+
   it('lets Da Qiao discard a card to redirect slash through Liuli', () => {
     useGameStore.getState().selectGeneral('guose')
     const slash = card('slash'), payment = card('dodge')
