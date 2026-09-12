@@ -18,7 +18,9 @@ describe('standard card scenarios', () => {
     expect(state.units.player).toMatchObject({ name: '赵云', skill: 'longdan', identity: 'lord', hp: 5, maxHp: 5 })
     expect(state.units.north).toMatchObject({ name: '关羽', skill: 'wusheng', identity: 'loyalist', hp: 4, maxHp: 4 })
     expect(state.units.player.skills).toEqual(['longdan'])
-    expect(state.units.player.hand).toEqual(playerHand)
+    expect(state.units.player.hand.slice(0, 4)).toEqual(playerHand)
+    expect(state.units.player.hand).toHaveLength(6)
+    expect(state.deck).toHaveLength(before.deck.length - 2)
     expect(state.units.north.hand).toEqual(northHand)
   })
 
@@ -28,6 +30,28 @@ describe('standard card scenarios', () => {
     expect(state.generalSelected).toBe(true)
     expect(state.units.player).toMatchObject({ name: '张飞', skill: 'paoxiao', identity: 'lord', hp: 5, maxHp: 5 })
     expect(state.units.north.name).toBe('赵云')
+  })
+
+  it('runs the first draw phase when choosing the initial lord general', () => {
+    const before = useGameStore.getState()
+    useGameStore.getState().selectGeneral('wusheng')
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(before.units.player.hand.length + 2)
+    expect(state.units.player.movement).toBe(3)
+    expect(state.turnStage).toBe('play')
+    expect(state.message).toContain('摸两张牌')
+    useGameStore.getState().selectGeneral('longdan')
+    expect(useGameStore.getState().deck).toEqual(state.deck)
+    expect(useGameStore.getState().units.player.hand).toEqual(state.units.player.hand)
+  })
+
+  it('applies first-turn draw skills during general selection', () => {
+    useGameStore.getState().selectGeneral('yingzi')
+    expect(useGameStore.getState().units.player.hand).toHaveLength(7)
+    useGameStore.getState().dispatch({ type: 'RESTART' })
+    useGameStore.getState().selectGeneral('luoyi')
+    expect(useGameStore.getState().units.player.hand).toHaveLength(5)
+    expect(useGameStore.getState().units.player.luoyiActive).toBe(true)
   })
 
   it('switches maps before selection and keeps the map on restart', () => {

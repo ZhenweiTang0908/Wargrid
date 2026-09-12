@@ -721,24 +721,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   selectGeneral: skill => {
     const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill)
-    if (sourceId === 'player') { set({ generalSelected: true, message: `已选择${state.units.player.name}，准备开战` }); return }
+    if (state.generalSelected) return
+    if (sourceId === 'player') { set(beginTurn({ ...state, generalSelected: true }, 'player')); return }
     const player = state.units.player
     const chosen = GENERAL_PROFILE[skill]!, replacement = GENERAL_PROFILE[player.skill]!
     if (!sourceId) {
       const maxHp = (GENERAL_BASE_HP[skill] ?? 4) + 1
-      set({ generalSelected: true, units: { ...state.units, player: { ...player, ...chosen, hp: maxHp, maxHp } }, message: `已选择${chosen.name}，准备开战` })
+      set(beginTurn({ ...state, generalSelected: true, units: { ...state.units, player: { ...player, ...chosen, hp: maxHp, maxHp } } }, 'player'))
       return
     }
     const source = state.units[sourceId]
-    set({
+    set(beginTurn({ ...state,
       generalSelected: true,
       units: {
         ...state.units,
         player: { ...player, ...chosen, hp: (GENERAL_BASE_HP[skill] ?? 4) + 1, maxHp: (GENERAL_BASE_HP[skill] ?? 4) + 1 },
         [sourceId]: { ...source, ...replacement, hp: GENERAL_BASE_HP[player.skill] ?? 4, maxHp: GENERAL_BASE_HP[player.skill] ?? 4 },
       },
-      message: `已选择${chosen.name}，准备开战`,
-    })
+    }, 'player'))
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
