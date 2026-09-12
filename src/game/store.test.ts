@@ -244,6 +244,31 @@ describe('standard card scenarios', () => {
     expect(result.history.some(entry => entry.includes('鬼才'))).toBe(true)
   })
 
+  it('lets AI Sima Yi replace an allied lord judgement', () => {
+    const state = createInitialState([])
+    const indulgence = card('indulgence'), badJudge = card('slash', 'spade'), replacement = card('peach', 'heart')
+    state.deck = [badJudge, card('slash'), card('dodge')]
+    state.units.player = { ...state.units.player, judgement: [indulgence], hand: [] }
+    state.units.west = { ...state.units.west, identity: 'loyalist', hand: [replacement] }
+    const result = beginTurn(state, 'player')
+    expect(result.turnStage).toBe('play')
+    expect(result.units.west.hand).toHaveLength(0)
+    expect(result.discard).toEqual(expect.arrayContaining([badJudge, replacement]))
+    expect(result.history.some(entry => entry.includes('司马懿发动【鬼才】'))).toBe(true)
+  })
+
+  it('lets hostile AI Sima Yi turn a favorable judgement against the lord', () => {
+    const state = createInitialState([])
+    const indulgence = card('indulgence'), goodJudge = card('peach', 'heart'), replacement = card('slash', 'spade')
+    state.deck = [goodJudge, card('slash'), card('dodge')]
+    state.units.player = { ...state.units.player, judgement: [indulgence], hand: [] }
+    state.units.west = { ...state.units.west, hand: [replacement] }
+    const result = beginTurn(state, 'player')
+    expect(result.turnStage).toBe('finish')
+    expect(result.units.west.hand).toHaveLength(0)
+    expect(result.discard).toEqual(expect.arrayContaining([goodJudge, replacement]))
+  })
+
   it('lets Cao Cao gain the damage card through Jianxiong', () => {
     useGameStore.getState().selectGeneral('jianxiong')
     const slash = card('slash', 'spade')
@@ -300,6 +325,7 @@ describe('standard card scenarios', () => {
     const indulgence = card('indulgence'), judge = card('peach', 'heart'), turnA = card('slash'), turnB = card('dodge')
     state.deck = [judge, turnA, turnB]
     state.units.player = { ...state.units.player, judgement: [indulgence], hand: [] }
+    state.units.west = { ...state.units.west, hand: [] }
     const judged = beginTurn(state, 'player')
     expect(judged.units.player.hand).toEqual([judge, turnA, turnB])
     expect(judged.discard).toContainEqual(indulgence)

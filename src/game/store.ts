@@ -656,13 +656,23 @@ export function beginTurn(state: GameState, team: Team): GameState {
     const originalJudge = judged.drawn[0]; if (!originalJudge) break
     let judge = originalJudge, judgementDiscard = [originalJudge]
     const owner = working.units[team]
-    const unfavorable = delayed.kind === 'indulgence' ? originalJudge.suit !== 'heart' : delayed.kind === 'lightning' ? originalJudge.suit === 'spade' && originalJudge.rank >= 2 && originalJudge.rank <= 9 : false
-    if (unfavorable && owner.skills.includes('guicai')) {
-      const replacement = owner.hand.find(card => delayed.kind === 'indulgence' ? card.suit === 'heart' : !(card.suit === 'spade' && card.rank >= 2 && card.rank <= 9))
+    const isUnfavorable = (card: Card) => delayed.kind === 'indulgence' ? card.suit !== 'heart' : delayed.kind === 'lightning' ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 : false
+    const unfavorable = isUnfavorable(originalJudge)
+    const alliedWithOwner = (candidate: Unit) => candidate.id === team ||
+      (candidate.identity === 'lord' || candidate.identity === 'loyalist') && (owner.identity === 'lord' || owner.identity === 'loyalist') ||
+      candidate.identity === 'rebel' && owner.identity === 'rebel'
+    const guicaiActor = working.turnOrder.map(id => working.units[id]).find(candidate => {
+      if (candidate.hp <= 0 || !candidate.skills.includes('guicai') || candidate.id === 'player' && candidate.id !== team) return false
+      const desiredBad = !alliedWithOwner(candidate)
+      return unfavorable !== desiredBad && candidate.hand.some(card => isUnfavorable(card) === desiredBad)
+    })
+    if (guicaiActor) {
+      const desiredBad = !alliedWithOwner(guicaiActor)
+      const replacement = guicaiActor.hand.find(card => isUnfavorable(card) === desiredBad)
       if (replacement) {
         judge = replacement; judgementDiscard = [originalJudge, replacement]
-        const message = `${owner.name}发动【鬼才】，以${replacement.suit}${replacement.rank}改判`
-        working = { ...working, units: { ...working.units, [team]: { ...owner, hand: owner.hand.filter(card => card.id !== replacement.id), animation: 'cast' } }, message, history: log(working, message) }
+        const message = `${guicaiActor.name}发动【鬼才】，以${replacement.suit}${replacement.rank}改判${owner.name}的判定`
+        working = { ...working, units: { ...working.units, [guicaiActor.id]: { ...guicaiActor, hand: guicaiActor.hand.filter(card => card.id !== replacement.id), animation: 'cast' } }, message, history: log(working, message) }
       }
     }
     if (owner.skills.includes('tiandu')) {
