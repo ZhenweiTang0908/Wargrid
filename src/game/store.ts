@@ -954,7 +954,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
         ? unit.hand.filter(card => action.materialIds!.includes(card.id)) : []
       if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
-      const removed = takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
+      const equippedGuose = action.asGuose && unit.skills.includes('guose') ? equippedCards(unit).find(item => item.id === action.cardId && item.suit === 'diamond') : undefined
+      const removed = equippedGuose ? { card: equippedGuose, hand: unit.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
       if (action.recast) {
         if (card.kind !== 'ironChain' || assistant) return
@@ -980,11 +981,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (card.kind === 'lightning' && unit.judgement.some(delayed => delayed.kind === 'lightning')) return
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
       const remainingHand = assistant ? unit.hand : spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
-      const unitsAfterPlay = assistant
+      let unitsAfterPlay = assistant
         ? { ...state.units, [action.unit]: { ...unit, animation: 'cast' as const }, [assistant.id]: { ...assistant, hand: removed.hand, animation: 'cast' as const } }
         : { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' as const } }
-      let base: GameState = { ...state, units: unitsAfterPlay, discard: [...state.discard, ...playedCards], selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
-      base = triggerLianying(base, assistant?.id ?? action.unit)
+      let playedDeck = state.deck, playedDiscard = [...state.discard, ...playedCards]
+      if (equippedGuose) {
+        const equipment = Object.fromEntries(Object.entries(unit.equipment).filter(([, item]) => item?.id !== equippedGuose.id)) as Unit['equipment']
+        const loss = resolveEquipmentLoss(unit, [equippedGuose], playedDeck, playedDiscard)
+        unitsAfterPlay = { ...unitsAfterPlay, [action.unit]: { ...unitsAfterPlay[action.unit], hp: loss.hp, hand: [...remainingHand, ...loss.drawn], equipment, animation: loss.healed ? 'heal' : 'cast' } }
+        playedDeck = loss.deck; playedDiscard = loss.discard
+      }
+      let base: GameState = { ...state, units: unitsAfterPlay, deck: playedDeck, discard: playedDiscard, selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
+      if (!equippedGuose) base = triggerLianying(base, assistant?.id ?? action.unit)
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
         const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
@@ -1079,7 +1087,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'indulgence') {
         const delayed = virtualIndulgence ? { ...card, kind: 'indulgence' as const } : card
         const message = `${unit.name}${virtualIndulgence ? '发动【国色】，将方片牌当' : '将'}【乐不思蜀】置入${target.name}的判定区`
-        set({ units: { ...base.units, [targetId]: { ...target, judgement: [...target.judgement, delayed], animation: 'cast' } }, discard: state.discard, message, history: log(state, message) }); return
+        set({ units: { ...base.units, [targetId]: { ...target, judgement: [...target.judgement, delayed], animation: 'cast' } }, deck: base.deck, discard: base.discard.filter(item => item.id !== card.id), message, history: log(state, message) }); return
       }
       if (kind === 'lightning') {
         const actor = base.units[action.unit], message = `${unit.name}将【闪电】置入判定区`
@@ -1559,11 +1567,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
-    const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
+    const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode || state.selectedAsGuose ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
     if (state.zhihengMode) {
       const selected = state.zhihengSelection.includes(id)
       const zhihengSelection = selected ? state.zhihengSelection.filter(cardId => cardId !== id) : [...state.zhihengSelection, id]
       set({ zhihengSelection, message: `【制衡】已选择 ${zhihengSelection.length} 张手牌或装备，再次点击制衡确认` }); return
+    }
+    if (state.selectedAsGuose) {
+      if (card.suit !== 'diamond') { set({ message: '【国色】只能选择方块牌' }); return }
+      set({ selectedCardId: id, message: `【国色】将【${CARD_LABEL[card.kind]}】当【乐不思蜀】，请选择目标` }); return
     }
     if (state.spearMode) {
       const selected = state.spearSelection.includes(id)
@@ -1660,10 +1672,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ ...drawnState, ...damage(drawnState, 'player', 'player', 1, message) })
   },
   activateGuose: () => {
-    const state = get(), card = state.units.player.hand.find(item => item.id === state.selectedCardId)
-    if (state.phase !== 'player' || state.turnStage !== 'play' || !state.units.player.skills.includes('guose') || !card || card.suit !== 'diamond') return
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('guose') || ![...player.hand, ...equippedCards(player)].some(card => card.suit === 'diamond')) return
     const active = !state.selectedAsGuose
-    set({ selectedAsGuose: active, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, message: active ? '【国色】将方片牌当【乐不思蜀】，请选择目标' : '已取消国色' })
+    const selected = player.hand.find(card => card.id === state.selectedCardId)
+    set({ selectedAsGuose: active, selectedCardId: active && selected?.suit === 'diamond' ? selected.id : null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, message: active ? '【国色】请选择一张方块手牌或装备，再选择目标' : '已取消国色' })
   },
   activateLijian: () => {
     const state = get(), player = state.units.player
@@ -1814,6 +1827,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     state = get(); ai = state.units[aiId]; target = targetsFor(state, aiId)[0]
     if (!target) return
+    if (ai.skills.includes('guose')) {
+      const delayedTarget = targetsFor(state, aiId).find(unit => unit.hp > 0 && !unit.skills.includes('qianxun') && !unit.judgement.some(card => card.kind === 'indulgence'))
+      const payment = ai.hand.find(card => card.suit === 'diamond' && card.kind !== 'peach' && card.kind !== 'dodge')
+        ?? equippedCards(ai).find(card => card.suit === 'diamond')
+      if (delayedTarget && payment) {
+        get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: payment.id, target: delayedTarget.id, asGuose: true })
+        await wait(280); state = get(); ai = state.units[aiId]
+        if (state.pendingResponse || state.winner) return
+      }
+    }
     for (const kind of ['ironChain', 'fireAttack', 'indulgence', 'dismantle', 'snatch', 'borrowedSword', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
       const card = kind === 'slash' ? responseCard(ai, 'slash') : kind === 'dismantle' ? ai.hand.find(c => c.kind === 'dismantle') ?? (ai.skills.includes('qixi') ? ai.hand.find(c => c.suit === 'spade' || c.suit === 'club') : undefined) : ai.hand.find(c => c.kind === kind); if (!card) continue
       if (kind === 'borrowedSword') target = targetsFor(state, aiId).find(unit => !!unit.equipment.weapon) ?? target

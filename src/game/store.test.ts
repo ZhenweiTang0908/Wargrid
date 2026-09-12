@@ -2589,6 +2589,34 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('国色')
   })
 
+  it('lets Da Qiao use a diamond equipped card for Guose', () => {
+    useGameStore.getState().selectGeneral('guose')
+    const equipped = card('crossbow', 'diamond', 1)
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [], equipment: { weapon: equipped } }, east: { ...state.units.east, hand: [] } } }))
+    useGameStore.getState().activateGuose()
+    useGameStore.getState().selectCard(equipped.id)
+    expect(useGameStore.getState().selectedAsGuose).toBe(true)
+    expect(useGameStore.getState().selectedCardId).toBe(equipped.id)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: equipped.id, target: 'east', asGuose: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toBeUndefined()
+    expect(state.units.east.judgement).toContainEqual({ ...equipped, kind: 'indulgence' })
+    expect(state.discard.some(card => card.id === equipped.id)).toBe(false)
+  })
+
+  it('lets AI Da Qiao use a diamond equipped card for Guose', async () => {
+    const equipped = card('crossbow', 'diamond', 1)
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: { ...state.units,
+      north: { ...state.units.north, skill: 'guose', skills: ['guose', 'liuli'], position: state.controlPoint, hand: [], equipment: { weapon: equipped } },
+      east: { ...state.units.east, hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.weapon).toBeUndefined()
+    expect(state.units.east.judgement).toContainEqual({ ...equipped, kind: 'indulgence' })
+    expect(state.history.some(entry => entry.includes('国色'))).toBe(true)
+  })
+
   it('lets Da Qiao discard a card to redirect slash through Liuli', () => {
     useGameStore.getState().selectGeneral('guose')
     const slash = card('slash'), payment = card('dodge')

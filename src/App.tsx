@@ -738,7 +738,7 @@ function CardView({ card, selected, equipped = false }: { card: Card; selected: 
   const toggleDiscard = useGameStore(s => s.toggleDiscard)
   const state = useGameStore()
   const discarding = state.phase === 'player' && state.turnStage === 'discard'
-  const disabled = !discarding && !state.zhihengMode && (state.phase !== 'player' || (card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))
+  const disabled = !discarding && (state.phase !== 'player' || (!state.zhihengMode && !(state.selectedAsGuose && card.suit === 'diamond') && ((card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))))
   const red = card.suit === 'heart' || card.suit === 'diamond'
   return (
     <button className={`card ${card.kind} ${selected ? 'selected' : ''} ${discarding ? 'discarding' : ''}`} disabled={disabled} onClick={() => discarding ? toggleDiscard(card.id) : selectCard(card.id)}>
@@ -1114,7 +1114,7 @@ function App() {
   const [sound, setSound] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
-  const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId)
+  const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.selectedAsGuose ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
   const canWusheng = state.units.player.skill === 'wusheng' && selectedCard && selectedCard.kind !== 'slash' && (selectedCard.suit === 'heart' || selectedCard.suit === 'diamond')
   const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < 1
   const canJijiang = state.units.player.identity === 'lord' && state.units.player.skills.includes('jijiang') && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => isSlashKind(card.kind)) || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge')) || (unit.skills.includes('wusheng') && unit.hand.some(card => card.suit === 'heart' || card.suit === 'diamond'))))
@@ -1125,7 +1125,7 @@ function App() {
   const canJieyin = state.units.player.skills.includes('jieyin') && !state.units.player.skillUsed && state.units.player.hp < state.units.player.maxHp && state.units.player.hand.length >= 2 && Object.values(state.units).some(unit => unit.id !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male')
   const canRende = state.units.player.skills.includes('rende') && !!selectedCard
   const canKurou = state.units.player.skills.includes('kurou') && state.units.player.hp > 0
-  const canGuose = state.units.player.skills.includes('guose') && selectedCard?.suit === 'diamond'
+  const canGuose = state.units.player.skills.includes('guose') && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => card.suit === 'diamond')
   const canLijian = state.units.player.skills.includes('lijian') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.gender === 'male').length >= 2
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
@@ -1161,6 +1161,7 @@ function App() {
       <div className="hand" aria-label="你的手牌">
         {state.units.player.hand.map(card => <CardView key={card.id} card={card} selected={state.turnStage === 'discard' ? state.discardSelection.includes(card.id) : state.zhihengMode ? state.zhihengSelection.includes(card.id) : state.spearMode ? state.spearSelection.includes(card.id) : selectedCard?.id === card.id} />)}
         {state.zhihengMode && Object.values(state.units.player.equipment).filter((card): card is Card => !!card).map(card => <CardView key={card.id} card={card} equipped selected={state.zhihengSelection.includes(card.id)} />)}
+        {state.selectedAsGuose && Object.values(state.units.player.equipment).filter((card): card is Card => !!card && card.suit === 'diamond').map(card => <CardView key={card.id} card={card} equipped selected={state.selectedCardId === card.id} />)}
         {!state.units.player.hand.length && <span className="empty-hand">暂无手牌</span>}
       </div>
       <div className="turn-actions">
