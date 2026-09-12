@@ -50,6 +50,8 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().units.player.hand).toHaveLength(7)
     useGameStore.getState().dispatch({ type: 'RESTART' })
     useGameStore.getState().selectGeneral('luoyi')
+    expect(useGameStore.getState().pendingLuoyi).not.toBeNull()
+    useGameStore.getState().chooseLuoyi(true)
     expect(useGameStore.getState().units.player.hand).toHaveLength(5)
     expect(useGameStore.getState().units.player.luoyiActive).toBe(true)
   })
@@ -512,15 +514,30 @@ describe('standard card scenarios', () => {
     useGameStore.getState().selectGeneral('luoyi')
     const drawn = card('slash'), spare = card('dodge')
     const state = useGameStore.getState()
-    state.deck = [drawn, spare]
-    state.units.player = { ...state.units.player, hand: [] }
-    const begun = beginTurn(state, 'player')
+    useGameStore.setState(beginTurn({ ...state, pendingLuoyi: null, deck: [drawn, spare], units: { ...state.units, player: { ...state.units.player, hand: [] } } }, 'player'))
+    expect(useGameStore.getState().pendingLuoyi).not.toBeNull()
+    useGameStore.getState().chooseLuoyi(true)
+    const begun = useGameStore.getState()
     expect(begun.units.player.hand).toEqual([drawn])
     expect(begun.units.player.luoyiActive).toBe(true)
     useGameStore.setState({ ...begun, units: { ...begun.units, player: { ...begun.units.player, position: { x: 4, y: 1 } }, north: { ...begun.units.north, position: { x: 4, y: 0 }, hand: [] } } })
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: drawn.id, target: 'north' })
     expect(useGameStore.getState().units.north.hp).toBe(2)
     expect(useGameStore.getState().history.some(entry => entry.includes('2 点'))).toBe(true)
+  })
+
+  it('lets Xu Chu decline Luoyi, draw two cards, and deal normal damage', () => {
+    useGameStore.getState().selectGeneral('luoyi')
+    const drawn = card('slash'), spare = card('dodge')
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, pendingLuoyi: null, deck: [drawn, spare], units: { ...state.units, player: { ...state.units.player, hand: [] } } }, 'player'))
+    useGameStore.getState().chooseLuoyi(false)
+    const begun = useGameStore.getState()
+    expect(begun.units.player.hand).toEqual([drawn, spare])
+    expect(begun.units.player.luoyiActive).toBe(false)
+    useGameStore.setState({ ...begun, units: { ...begun.units, player: { ...begun.units.player, position: { x: 4, y: 1 } }, north: { ...begun.units.north, position: { x: 4, y: 0 }, hand: [] } } })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: drawn.id, target: 'north' })
+    expect(useGameStore.getState().units.north.hp).toBe(3)
   })
 
   it('lets Sun Shangxiang heal herself and a wounded male through Jieyin', () => {

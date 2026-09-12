@@ -708,7 +708,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'yingzi', name: '周瑜', title: '大都督', faction: '吴', portrait: '/heroes/zhou-yu.png', skillName: '英姿 · 反间', copy: '摸牌阶段摸三张；每回合赠出一张牌让目标猜花色。' },
   { skill: 'guanxing', name: '诸葛亮', title: '迟暮的丞相', faction: '蜀', portrait: '/heroes/zhuge-liang.png', skillName: '观星 · 空城', copy: '准备阶段观看牌堆顶并安排至牌堆顶或底；没有手牌时不能成为杀或决斗目标。' },
   { skill: 'tuxi', name: '张辽', title: '前将军', faction: '魏', portrait: '/heroes/zhang-liao.png', skillName: '突袭', copy: '摸牌阶段可选一至两名有手牌的其他角色，各获得一张暗置手牌，取代正常摸牌。' },
-  { skill: 'luoyi', name: '许褚', title: '虎痴', faction: '魏', portrait: '/heroes/xu-chu.png', skillName: '裸衣', copy: '摸牌阶段少摸一张，本回合杀与决斗造成的伤害增加 1。' },
+  { skill: 'luoyi', name: '许褚', title: '虎痴', faction: '魏', portrait: '/heroes/xu-chu.png', skillName: '裸衣', copy: '摸牌阶段可选择少摸一张，使本回合【杀】与【决斗】伤害增加 1。' },
   { skill: 'jieyin', name: '孙尚香', title: '弓腰姬', faction: '吴', portrait: '/heroes/sun-shangxiang.png', skillName: '结姻 · 枭姬', copy: '弃两牌与受伤男性各回复体力；失去装备后摸两张牌。' },
   { skill: 'paoxiao', name: '张飞', title: '万夫不当', faction: '蜀', portrait: '/heroes/zhang-fei.png', skillName: '咆哮', copy: '出牌阶段使用【杀】没有次数限制。' },
   { skill: 'jizhi', name: '黄月英', title: '归隐的杰女', faction: '蜀', portrait: '/heroes/huang-yueying.png', skillName: '集智 · 奇才', copy: '普通锦囊摸一张；锦囊牌无距离限制。' },
@@ -859,6 +859,18 @@ function TuxiWindow() {
       </button>)}
     </div>
     <div className="guanxing-actions"><button className="decline-response" onClick={() => finish(false)}>正常摸两张</button><button className="primary" disabled={!pending.targets.length} onClick={() => finish(true)}>发动突袭 {pending.targets.length}/2</button></div>
+  </section></div>
+}
+
+function LuoyiWindow() {
+  const pending = useGameStore(s => s.pendingLuoyi)
+  const choose = useGameStore(s => s.chooseLuoyi)
+  if (!pending) return null
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">摸牌阶段 · 裸衣</span>
+    <h1>是否发动【裸衣】？</h1>
+    <p>发动后本次摸一张牌，本回合使用【杀】或【决斗】造成的伤害 +1；不发动则正常摸两张牌。</p>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(false)}>不发动 · 摸两张</button><button className="primary" onClick={() => choose(true)}>发动裸衣 · 摸一张</button></div>
   </section></div>
 }
 
@@ -1017,6 +1029,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingLuoshen && <LuoshenWindow />}
     {state.generalSelected && !tutorial && state.pendingGuanxing && <GuanxingWindow />}
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
+    {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}

@@ -20,6 +20,7 @@ interface GameStore extends GameState {
   finishGuanxing: (keepOriginal?: boolean) => void
   selectTuxiTarget: (team: Team) => void
   finishTuxi: (useSkill: boolean) => void
+  chooseLuoyi: (useSkill: boolean) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -619,7 +620,7 @@ function resolveEndSkill(state: GameState, team: Team): GameState {
   return { ...state, units: { ...state.units, [team]: { ...unit, hand: [...unit.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
 }
 
-export function beginTurn(state: GameState, team: Team, resume = false, previousSkipPlay = false, selectedTuxiCount = 0, tuxiResolved = false): GameState {
+export function beginTurn(state: GameState, team: Team, resume = false, previousSkipPlay = false, selectedTuxiCount = 0, tuxiResolved = false, luoyiDecision: boolean | null = null): GameState {
   let working = state, unit = state.units[team], skipPlay = previousSkipPlay
   if (!resume && team === 'player' && state.mapObjects.some(object => object.claimed)) {
     const message = '新一轮开始，战场设施已重新补给'
@@ -736,7 +737,11 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
       working = { ...working, units, message, history: log(working, message) }
     }
   }
-  const luoyiActive = unit.skills.includes('luoyi')
+  if (team === 'player' && unit.skills.includes('luoyi') && luoyiDecision === null) {
+    const message = `${unit.name}摸牌阶段：是否发动【裸衣】少摸一张，本回合【杀】和【决斗】伤害 +1？`
+    return { ...working, units: { ...working.units, [team]: unit }, pendingLuoyi: { skipPlay }, message, history: log(working, message) }
+  }
+  const luoyiActive = unit.skills.includes('luoyi') && (team !== 'player' || luoyiDecision === true)
   const drawCount = tuxiCount ? 0 : luoyiActive ? 1 : unit.skills.includes('yingzi') ? 3 : 2
   const draw = drawCards(working.deck, working.discard, drawCount)
   const movement = turnMovement(working, unit)
@@ -790,7 +795,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -1385,6 +1390,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const message = gained.length ? `${units.player.name}发动【突袭】，从 ${gained.length} 名角色处各获得一张手牌` : `${units.player.name}不发动【突袭】，正常摸两张牌`
     set(beginTurn({ ...state, units, pendingTuxi: null, message, history: log(state, message) }, 'player', true, pending.skipPlay, gained.length, true))
   },
+  chooseLuoyi: useSkill => {
+    const state = get(), pending = state.pendingLuoyi
+    if (!pending || !state.units.player.skills.includes('luoyi')) return
+    const message = useSkill ? `${state.units.player.name}发动【裸衣】，少摸一张牌并强化本回合攻击` : `${state.units.player.name}不发动【裸衣】，正常摸两张牌`
+    set(beginTurn({ ...state, pendingLuoyi: null, message, history: log(state, message) }, 'player', true, pending.skipPlay, 0, false, useSkill))
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1533,7 +1544,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
