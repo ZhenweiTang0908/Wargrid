@@ -991,6 +991,26 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('集智'))).toBe(false)
   })
 
+  it('does not draw the recast Iron Chain from an exhausted deck', () => {
+    const chain = card('ironChain'), replacement = card('dodge')
+    useGameStore.setState(state => ({ deck: [], discard: [replacement], units: { ...state.units, player: { ...state.units.player, hand: [chain] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: chain.id, recast: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([replacement])
+    expect(state.discard).toContainEqual(chain)
+  })
+
+  it('triggers Lianying when Lu Xun recasts his final hand card', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const chain = card('ironChain'), lianyingDraw = card('slash'), recastDraw = card('dodge')
+    useGameStore.setState(state => ({ deck: [lianyingDraw, recastDraw], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [chain] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: chain.id, recast: true })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([lianyingDraw, recastDraw])
+    expect(state.discard).toContainEqual(chain)
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
   it('lets the player choose one or two Iron Chain targets including themselves', () => {
     const chain = card('ironChain')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [chain] } } }))

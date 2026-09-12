@@ -990,9 +990,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const card = removed.card
       if (action.recast) {
         if (card.kind !== 'ironChain' || assistant) return
-        const draw = drawCards(state.deck, [...state.discard, card], 1)
+        const afterDiscard = triggerLianying({ ...state, units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, animation: 'cast' } }, discard: [...state.discard, card] }, action.unit, [card])
+        const draw = drawCards(afterDiscard.deck, afterDiscard.discard.filter(item => item.id !== card.id), 1)
         const message = `${unit.name}重铸【铁索连环】，摸一张牌`
-        set({ units: { ...state.units, [action.unit]: { ...unit, hand: [...removed.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, selectedCardId: null, message, history: log(state, message) })
+        const actor = afterDiscard.units[action.unit]
+        set({ ...afterDiscard, units: { ...afterDiscard.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], selectedCardId: null, message, history: log(afterDiscard, message) })
         return
       }
       const virtualDismantle = action.asDismantle && unit.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club')
