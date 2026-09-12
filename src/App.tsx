@@ -8,6 +8,7 @@ import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Fact
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
+import { CharacterBody } from './CharacterBody'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -406,43 +407,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
         })}
       </group>}
       <EquippedGear unit={unit} />
-      <mesh position-y={.18} castShadow>
-        <cylinderGeometry args={[.38, .45, .28, 12]} />
-        <meshStandardMaterial color={color} roughness={.34} metalness={.45} />
-      </mesh>
-      <mesh position-y={.7} castShadow>
-        <cylinderGeometry args={[.28, .34, .8, 10]} />
-        <meshStandardMaterial color={darkColor} roughness={.55} />
-      </mesh>
-      <mesh position={[0, .78, -.23]} rotation-x={.08} castShadow>
-        <coneGeometry args={[.43, .88, 6]} />
-        <meshStandardMaterial color={darkColor} roughness={.82} side={THREE.DoubleSide} />
-      </mesh>
-      {[-.35, .35].map(side => <group key={side} position={[side, .82, 0]} rotation-z={side < 0 ? .2 : -.2}>
-        <mesh position-y={-.08}><capsuleGeometry args={[.075, .42, 4, 7]} /><meshStandardMaterial color={darkColor} roughness={.62} /></mesh>
-        <mesh position-y={-.36}><sphereGeometry args={[.085, 9, 7]} /><meshStandardMaterial color="#d6b28a" roughness={.85} /></mesh>
-      </group>)}
-      {[-.16, .16].map(side => <mesh key={side} position={[side, .17, 0]}><capsuleGeometry args={[.1, .3, 4, 7]} /><meshStandardMaterial color="#242329" roughness={.8} /></mesh>)}
-      <mesh position-y={1.2} castShadow>
-        <sphereGeometry args={[.29, 16, 12]} />
-        <meshStandardMaterial color="#d6b28a" roughness={.8} />
-      </mesh>
-      <mesh position={[0, 1.33, -.12]} scale={[1.04, .78, .82]}>
-        <sphereGeometry args={[.27, 12, 9]} />
-        <meshStandardMaterial color={unit.gender === 'female' ? '#332326' : '#24201d'} roughness={.92} />
-      </mesh>
-      {[-.1, .1].map(side => <mesh key={side} position={[side, 1.23, .264]} scale={[1, .55, .5]}>
-        <sphereGeometry args={[.027, 7, 5]} />
-        <meshStandardMaterial color="#151316" roughness={.45} />
-      </mesh>)}
-      <mesh position={[0, 1.1, .276]} rotation-x={Math.PI / 2} scale={[1, .55, 1]}>
-        <torusGeometry args={[.055, .012, 5, 10, Math.PI]} />
-        <meshStandardMaterial color="#6e3a32" roughness={.9} />
-      </mesh>
-      <mesh position={[0, .91, .285]}>
-        <boxGeometry args={[.58, .11, .045]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={.18} roughness={.58} />
-      </mesh>
+      <CharacterBody unit={unit} color={color} darkColor={darkColor} accent={accent} />
       {unit.skill === 'qianxun' && <>
         <mesh position={[0, 1.49, 0]}><boxGeometry args={[.48, .16, .35]} /><meshStandardMaterial color="#51412f" metalness={.68} /></mesh>
         <mesh position={[0, 1.64, 0]}><cylinderGeometry args={[.1, .13, .24, 7]} /><meshStandardMaterial color="#bd9145" metalness={.82} /></mesh>
@@ -639,10 +604,6 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
         <mesh position={[0, 1.46, 0]}><coneGeometry args={[.3, .3, 6]} /><meshStandardMaterial color="#251719" metalness={.7} /></mesh>
         <group position={[-.48, .82, 0]} rotation-z={.22}><mesh position-y={.3}><cylinderGeometry args={[.035, .035, 1.9, 7]} /><meshStandardMaterial color="#251817" /></mesh><mesh position={[0, 1.3, 0]}><boxGeometry args={[.25, .68, .07]} /><meshStandardMaterial color="#b9b7ad" metalness={.95} /></mesh></group>
       </>}
-      <mesh position={[0, .78, .18]} rotation-x={-.18}>
-        <planeGeometry args={[.62, .88]} />
-        <meshStandardMaterial color={darkColor} side={THREE.DoubleSide} roughness={.9} />
-      </mesh>
       {unit.animation === 'heal' && <Sparkles count={28} scale={1.35} size={4} speed={1} color="#78e89b" position-y={.7} />}
       {unit.animation === 'attack' && <Sparkles count={22} scale={1.25} size={3.5} speed={1.5} color="#ffb347" position-y={.75} />}
       {unit.animation === 'hit' && <Sparkles count={18} scale={1.15} size={3.2} speed={1.8} color="#ff5549" position-y={.7} />}
