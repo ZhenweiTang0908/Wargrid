@@ -1356,6 +1356,33 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('武圣'))).toBe(true)
   })
 
+  it('spends red equipment through Wusheng when answering Duel', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({ pendingResponse: { effect: 'duel', source: 'east', target: 'player', required: 'slash', prompt: '决斗' }, units: { ...state.units,
+      player: { ...state.units.player, hand: [], equipment: { offensiveMount: mount } },
+      east: { ...state.units.east, hand: [] },
+    } }))
+    useGameStore.getState().respond(mount.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.offensiveMount).toBeUndefined()
+    expect(state.discard).toContainEqual(mount)
+    expect(state.units.player.hp).toBe(4)
+  })
+
+  it('spends red equipment through Wusheng when answering Barbarians', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const armor = card('silverLion', 'diamond')
+    useGameStore.setState(state => ({ pendingResponse: { effect: 'barbarians', source: 'east', target: 'player', required: 'slash', prompt: '南蛮入侵' }, units: { ...state.units,
+      player: { ...state.units.player, hp: 3, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().respond(armor.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.armor).toBeUndefined()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.discard).toContainEqual(armor)
+  })
+
   it('lets Zhao Yun use slash as dodge through Longdan', () => {
     const attack = card('slash', 'heart'), converted = card('slash', 'club')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [attack] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [converted] } } }))
@@ -2416,6 +2443,24 @@ describe('standard card scenarios', () => {
     expect(state.units.west.hp).toBe(3)
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.units.player.equipment.weapon).toEqual(weapon)
+  })
+
+  it('lets Guan Yu answer Borrowed Sword with red non-weapon equipment', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const weapon = card('qinggang'), mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', pendingResponse: { effect: 'borrowedSword', source: 'east', target: 'player', required: 'slash', prompt: '借刀杀人' }, units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [] },
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { weapon, offensiveMount: mount } },
+      west: { ...state.units.west, position: { x: 4, y: 7 }, hand: [], skill: 'kurou', skills: ['kurou'] },
+    } }))
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'borrowedSword' })
+    useGameStore.getState().respond(mount.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.offensiveMount).toBeUndefined()
+    expect(state.units.player.equipment.weapon).toEqual(weapon)
+    expect(state.discard).toContainEqual(mount)
+    expect(state.units.west.hp).toBe(3)
   })
 
   it('transfers the weapon when the player declines Borrowed Sword', () => {

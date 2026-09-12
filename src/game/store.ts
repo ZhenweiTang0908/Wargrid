@@ -375,7 +375,7 @@ function resolveIronChain(state: GameState, actorId: Team, targetId: Team): Part
 function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, slashCardId?: string | null, forcedVictimId?: Team): Partial<GameState> {
   const wielder = state.units[wielderId], actor = state.units[actorId], weapon = wielder.equipment.weapon
   if (!weapon) return state
-  const slash = slashCardId === null ? undefined : slashCardId ? wielder.hand.find(card => card.id === slashCardId) : responseCard(wielder, 'slash')
+  const slash = slashCardId === null ? undefined : slashCardId ? [...wielder.hand, ...equippedCards(wielder)].find(card => card.id === slashCardId) : responseCard(wielder, 'slash')
   const victim = forcedVictimId ? state.units[forcedVictimId] : targetsFor(state, wielderId)
     .filter(unit => unit.id !== actorId && canBorrowedSwordTarget(state, wielder, unit))
     .sort((a, b) => combatDistance(state, wielder, a) - combatDistance(state, wielder, b))[0]
@@ -385,12 +385,11 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
     return { pendingResponse: { effect: 'borrowedSword', source: actorId, target: wielderId, required: 'slash', prompt }, message: prompt, history: log(state, prompt) }
   }
   if (slash && victim) {
+    const equippedSlash = equippedCards(wielder).some(card => card.id === slash.id)
+    if (equippedSlash && (!wielder.skills.includes('wusheng') || !isRed(slash) || slash.id === weapon.id)) return state
     const message = `${actor.name}借刀，令${wielder.name}对${victim.name}使用【杀】`
-    const forced: GameState = {
-      ...state,
-      units: { ...state.units, [wielderId]: { ...wielder, hand: wielder.hand.filter(card => card.id !== slash.id), animation: 'attack' } },
-      discard: [...state.discard, slash], message, history: log(state, message),
-    }
+    const paid = payRescueCard(state, wielderId, slash)
+    const forced: GameState = { ...paid, units: { ...paid.units, [wielderId]: { ...paid.units[wielderId], animation: 'attack' } }, message, history: log(paid, message) }
     if (victim.id === 'player' && wielderId !== 'player') {
       const restored = (result: GameState): GameState => ({ ...result, units: { ...result.units, [wielderId]: { ...result.units[wielderId], attacksUsed: wielder.attacksUsed } } })
       const offered = offerPlayerLiuli(forced, wielderId, slash, wielder.attacksUsed)
@@ -1142,7 +1141,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? [...player.hand, ...(pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') ? equippedCards(player) : [])].find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') && isRed(candidate)) || (pending.required === 'slash' && player.skills.includes('wusheng') && isRed(candidate)) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const responseEquipment = pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') || pending.required === 'slash' && player.skills.includes('wusheng')
+    const card = cardId ? [...player.hand, ...(responseEquipment ? equippedCards(player).filter(candidate => pending.effect !== 'borrowedSword' || candidate.id !== player.equipment.weapon?.id) : [])].find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') && isRed(candidate)) || (pending.required === 'slash' && player.skills.includes('wusheng') && isRed(candidate)) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'ganglie') {
@@ -1252,11 +1252,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const responseMessage = `${player.name}${responseText(player, card, 'slash')}响应【决斗】`
         if ((pending.requiredCount ?? 1) > 1) {
           const remaining = (pending.requiredCount ?? 1) - 1, prompt = `【无双决斗】还需打出 ${remaining} 张【杀】`
-          base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, responseMessage) }
-          base = triggerLianying(base, 'player')
+          base = payRescueCard(base, 'player', card)
+          base = { ...base, pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, responseMessage) }
           set(base); return
         }
-        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message: responseMessage, history: log(base, responseMessage) }
+        base = payRescueCard(base, 'player', card)
+        base = { ...base, message: responseMessage, history: log(base, responseMessage) }
         base = { ...base, ...continueDuel(base, pending.source, 'player', base.discard.find(candidate => candidate.id === pending.originCardId)) }
       } else {
         const duelDamage = base.units[pending.source].luoyiActive ? 2 : 1
@@ -1277,8 +1278,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const player = base.units.player
       const response = pending.required === 'slash' || pending.required === 'dodge' ? responseText(player, card, pending.required) : `打出【${CARD_LABEL[card.kind]}】`
       const message = `${player.name}${response}响应【${CARD_LABEL[pending.effect]}】`
-      base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
-      base = triggerLianying(base, 'player')
+      base = payRescueCard(base, 'player', card)
+      base = { ...base, message, history: log(base, message) }
       if (pending.effect === 'slash') {
         const attackCard = base.discard.find(candidate => candidate.id === pending.originCardId)
         const resolved = resolveSlash({ ...base, discard: base.discard.filter(candidate => candidate.id !== card.id) }, pending.source, 'player', card, pending.armorChecked, attackCard)
