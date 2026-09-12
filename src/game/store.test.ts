@@ -2982,6 +2982,46 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
   })
 
+  it('draws through Lianying after AI Lu Xun automatically spends his last Dodge', () => {
+    const slash = card('slash'), dodge = card('dodge'), reward = card('peach')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+      north: { ...state.units.north, name: '陆逊', position: { x: 4, y: 0 }, skill: 'qianxun', skills: ['qianxun', 'lianying'], hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([reward])
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
+  it('draws through Lianying when Double Sword discards AI Lu Xun final card', () => {
+    const slash = card('slash'), weapon = card('doubleSword'), payment = card('peach'), reward = card('dodge')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } },
+      north: { ...state.units.north, name: '陆逊', gender: 'female', position: { x: 4, y: 0 }, skill: 'qianxun', skills: ['qianxun', 'lianying'], hand: [payment] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(1)
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
+  it('draws through Lianying after AI Lu Xun spends his final two cards with Stone Axe', () => {
+    const slash = card('slash'), costA = card('peach'), costB = card('nullify'), dodge = card('dodge'), axe = card('axe'), reward = card('drawTwo')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', deck: [reward], discard: [], units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge] },
+      north: { ...state.units.north, name: '陆逊', position: { x: 4, y: 7 }, skill: 'qianxun', skills: ['qianxun', 'lianying'], hand: [slash, costA, costB], equipment: { weapon: axe } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([reward])
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
   it('lets AI Hua Tuo heal the weakest allied character through Qingnang', async () => {
     const payment = card('nullify')
     useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {

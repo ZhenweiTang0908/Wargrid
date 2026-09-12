@@ -514,7 +514,7 @@ function axeAfterDodge(state: GameState, attackerId: Team, targetId: Team, slash
   }
   if (attacker.hand.length < 2) return null
   const paid = attacker.hand.slice(0, 2)
-  const forced: GameState = { ...state, units: { ...state.units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2) } }, discard: [...state.discard, ...paid] }
+  const forced = triggerLianying({ ...state, units: { ...state.units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2) } }, discard: [...state.discard, ...paid] }, attackerId)
   return damage(forced, attackerId, targetId, amount, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${state.units[targetId].name}`, false, slashCard)
 }
 
@@ -549,6 +549,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     if (target.hand.length) {
       const paid = target.hand[0], message = `${attacker.name}发动【雌雄双股剑】，${target.name}弃置一张手牌`
       state = { ...state, units: { ...state.units, [targetId]: { ...target, hand: target.hand.slice(1), animation: 'cast' } }, discard: [...state.discard, paid], message, history: log(state, message) }
+      state = triggerLianying(state, targetId)
     } else {
       const draw = drawCards(state.deck, state.discard, 1), message = `${attacker.name}发动【雌雄双股剑】，摸一张牌`
       state = { ...state, units: { ...state.units, [attackerId]: { ...attacker, hand: [...attacker.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
@@ -583,7 +584,9 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     const guardedUnits = guard ? { ...state.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' as const } } : state.units
     const responseDiscard = dodge ? [...state.discard, ...dodgeCards] : guard ? [...state.discard, guard.dodge] : state.discard
     const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : baguaDodge ? `${target.name}的【八卦阵】视为第一张【闪】，再${responseText(target, dodge!, 'dodge')}响应【无双】` : `${target.name}${dodgeCards.length > 1 ? `${dodgeCards.map(card => responseText(target, card, 'dodge')).join('，')}响应【无双】` : responseText(target, dodge!, 'dodge')}`
-    const defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
+    let defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
+    if (dodge && manualResponse === undefined) defendedState = triggerLianying(defendedState, targetId)
+    if (guard) defendedState = triggerLianying(defendedState, guard.unit.id)
     if (!shieldBlocks) {
       const forced = axeAfterDodge(defendedState, attackerId, targetId, slashCard, 1 + (attacker.drunk ? 1 : 0) + (attacker.luoyiActive ? 1 : 0))
       if (forced) return forced
