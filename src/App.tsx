@@ -290,6 +290,16 @@ function UnitPiece({ team }: { team: Team }) {
         <Sparkles count={28} scale={[1, 1.65, 1]} size={2.6} speed={2.4} color="#9ed7ff" />
         {[0, 1, 2].map(index => <mesh key={index} position={[(index - 1) * .23, .05 - index * .12, .18]} rotation-z={(index - 1) * .22}><boxGeometry args={[.035, 1.25, .035]} /><meshBasicMaterial color="#c8edff" /></mesh>)}
       </group>}
+      {unit.hp > 0 && <group position-y={2.25}>
+        <mesh position-z={-.015}><boxGeometry args={[Math.max(.46, unit.maxHp * .13 + .1), .17, .035]} /><meshBasicMaterial color="#1d2020" transparent opacity={.82} /></mesh>
+        {Array.from({ length: unit.maxHp }, (_, index) => {
+          const center = (index - (unit.maxHp - 1) / 2) * .13
+          return <mesh key={index} position={[center, 0, .014]}>
+            <boxGeometry args={[.105, .105, .025]} />
+            <meshBasicMaterial color={index < unit.hp ? (unit.hp <= 1 ? '#ef6152' : '#e1bd6f') : '#545b5a'} />
+          </mesh>
+        })}
+      </group>}
       <EquippedGear unit={unit} />
       <mesh position-y={.18} castShadow>
         <cylinderGeometry args={[.38, .45, .28, 12]} />
