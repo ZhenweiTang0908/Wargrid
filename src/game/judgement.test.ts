@@ -43,4 +43,51 @@ describe('player Guicai judgement window', () => {
     expect(resolved.turnStage).toBe('play')
     expect(resolved.discard).toEqual(expect.arrayContaining([delayed, original]))
   })
+
+  it('lets Guicai prevent Lightning and pass it to the next living seat', () => {
+    const delayed = card('lightning', 'spade')
+    const replacement = card('dodge', 'heart')
+    const original = card('slash', 'spade', 5)
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, deck: [original, card('slash', 'club'), card('slash', 'diamond')], units: { ...state.units, player: { ...state.units.player, hand: [replacement], judgement: [delayed] } } }, 'player'))
+    expect(useGameStore.getState().pendingJudgement?.delayed).toEqual(delayed)
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    const resolved = useGameStore.getState()
+    expect(resolved.units.player.hp).toBe(state.units.player.hp)
+    expect(resolved.units.north.judgement).toContainEqual(delayed)
+    expect(resolved.discard).toEqual(expect.arrayContaining([original, replacement]))
+    expect(resolved.discard).not.toContainEqual(delayed)
+  })
+
+  it('lets Guicai make Lightning hit its target', () => {
+    const delayed = card('lightning', 'spade')
+    const replacement = card('slash', 'spade', 5)
+    const original = card('dodge', 'heart')
+    const state = useGameStore.getState()
+    useGameStore.setState(beginTurn({ ...state, deck: [original, card('slash', 'club'), card('slash', 'diamond')], units: { ...state.units, player: { ...state.units.player, hand: [replacement], judgement: [delayed] } } }, 'player'))
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    const resolved = useGameStore.getState()
+    expect(resolved.units.player.hp).toBe(state.units.player.hp - 3)
+    expect(resolved.units.north.judgement).not.toContainEqual(delayed)
+    expect(resolved.discard).toEqual(expect.arrayContaining([delayed, original, replacement]))
+  })
+
+  it('can intervene in an opponent Lightning judgement and resume that turn', () => {
+    const delayed = card('lightning', 'spade')
+    const replacement = card('slash', 'spade', 5)
+    const original = card('dodge', 'heart')
+    const state = useGameStore.getState()
+    const waiting = beginTurn({ ...state, deck: [original, card('slash', 'club'), card('slash', 'diamond')], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [replacement] },
+      north: { ...state.units.north, judgement: [delayed] },
+    } }, 'north')
+    expect(waiting.pendingJudgement?.team).toBe('north')
+    useGameStore.setState(waiting)
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    const resolved = useGameStore.getState()
+    expect(resolved.units.north.hp).toBe(state.units.north.hp - 3)
+    expect(resolved.currentUnit).toBe('north')
+    expect(resolved.phase).toBe('ai')
+  })
 })

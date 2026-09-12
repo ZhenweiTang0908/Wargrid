@@ -655,8 +655,8 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
   for (const [index, delayed] of unit.judgement.entries()) {
     const judged = drawCards(working.deck, working.discard, 1)
     const originalJudge = judged.drawn[0]; if (!originalJudge) break
-    if (delayed.kind === 'indulgence' && working.units.player.hp > 0 && working.units.player.skills.includes('guicai') && working.units.player.hand.length) {
-      const prompt = `${working.units[team].name}的【乐不思蜀】判定为${originalJudge.suit}${originalJudge.rank}，是否发动【鬼才】改判？`
+    if ((delayed.kind === 'indulgence' || delayed.kind === 'lightning') && working.units.player.hp > 0 && working.units.player.skills.includes('guicai') && working.units.player.hand.length) {
+      const prompt = `${working.units[team].name}的【${delayed.kind === 'lightning' ? '闪电' : '乐不思蜀'}】判定为${originalJudge.suit}${originalJudge.rank}，是否发动【鬼才】改判？`
       return { ...working, deck: judged.deck, discard: judged.discard, units: { ...working.units, [team]: { ...working.units[team], judgement: unit.judgement.slice(index + 1) } }, pendingJudgement: { team, delayed, original: originalJudge, skipPlay }, message: prompt, history: log(working, prompt) }
     }
     let judge = originalJudge, judgementDiscard = [originalJudge]
@@ -1259,16 +1259,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const judge = replacement ?? pending.original
     const owner = state.units[pending.team]
     const tiandu = owner.skills.includes('tiandu')
-    const failed = judge.suit !== 'heart'
-    const discarded = [pending.delayed, pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
+    const isLightning = pending.delayed.kind === 'lightning'
+    const failed = isLightning ? judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9 : judge.suit !== 'heart'
+    const passedLightning = isLightning && !failed
+    const discarded = [...(passedLightning ? [] : [pending.delayed]), pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
     const playerAfter = replacement ? { ...player, hand: player.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } : player
     const ownerAfter = pending.team === 'player' ? playerAfter : owner
     const units = { ...state.units, player: playerAfter,
       [pending.team]: { ...ownerAfter, hand: tiandu ? [...ownerAfter.hand, judge] : ownerAfter.hand },
     }
-    const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : ''}${owner.name}的【乐不思蜀】${failed ? '判定失败，跳过出牌阶段' : '判定通过'}`
-    const settled = { ...state, units, discard: [...state.discard, ...discarded], pendingJudgement: null, message, history: log(state, message) }
-    const next = beginTurn(settled, pending.team, true, pending.skipPlay || failed)
+    const nextTarget = passedLightning ? nextSeat(state, pending.team) : null
+    if (nextTarget) units[nextTarget] = { ...units[nextTarget], judgement: [...units[nextTarget].judgement, pending.delayed] }
+    const result = isLightning ? failed ? '受到 3 点雷电伤害' : `传递给${units[nextTarget!].name}` : failed ? '判定失败，跳过出牌阶段' : '判定通过'
+    const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : ''}${owner.name}的【${isLightning ? '闪电' : '乐不思蜀'}】${result}`
+    let settled: GameState = { ...state, units, discard: [...state.discard, ...discarded], pendingJudgement: null, message, history: log(state, message) }
+    if (isLightning && failed) settled = { ...settled, ...elementalDamage(settled, pending.team, pending.team, 3, 'thunder') }
+    const next = beginTurn(settled, pending.team, true, pending.skipPlay || (!isLightning && failed))
     set(next)
     if (next.phase === 'ai' && !next.pendingJudgement && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
   },
