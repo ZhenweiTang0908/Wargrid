@@ -106,9 +106,9 @@ const alliesFor = (state: GameState, team: Team) => {
     (actor.identity === 'rebel' && unit.identity === 'rebel')
   ))
 }
-const rescueCard = (unit: Unit) => unit.hand.find(card => card.kind === 'peach')
-  ?? (unit.skills.includes('jijiu') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
-const selfRescueCard = (unit: Unit) => rescueCard(unit) ?? unit.hand.find(card => card.kind === 'wine')
+const rescueCard = (state: GameState, unit: Unit) => unit.hand.find(card => card.kind === 'peach')
+  ?? (state.currentUnit !== unit.id && unit.skills.includes('jijiu') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
+const selfRescueCard = (state: GameState, unit: Unit) => rescueCard(state, unit) ?? unit.hand.find(card => card.kind === 'wine')
 const rescueAmount = (target: Unit, helper: Unit, card: Card) =>
   card.kind === 'peach' && target.identity === 'lord' && target.skills.includes('jiuyuan') && helper.id !== target.id && helper.faction === 'wu' ? 2 : 1
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
@@ -172,8 +172,8 @@ function rescueDyingPlayer(state: GameState, startingHp: number) {
   let working = state, hp = startingHp
   const helpers: string[] = []
   while (hp <= 0) {
-    const helper = alliesFor(working, 'player').find(unit => unit.id !== 'player' && rescueCard(unit))
-    const peach = helper && rescueCard(helper)
+    const helper = alliesFor(working, 'player').find(unit => unit.id !== 'player' && rescueCard(working, unit))
+    const peach = helper && rescueCard(working, helper)
     if (!helper || !peach) break
     working = { ...working, units: { ...working.units, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== peach.id), animation: 'cast' } }, discard: [...working.discard, peach] }
     working = triggerLianying(working, helper.id)
@@ -191,7 +191,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   }
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
   let rescuedUnits = state.units
-  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? selfRescueCard({ ...target, hand }) : undefined
+  const playerPeach = !skipRescue && targetId === 'player' && hp <= 0 ? selfRescueCard(state, { ...target, hand }) : undefined
   if (playerPeach) {
     const requiredCount = 1 - hp
     const prompt = `${target.name}进入濒死状态，需要 ${requiredCount} 张【桃】或【酒】才能救回，是否使用？`
@@ -211,14 +211,14 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     if (rescued.helpers.length) message += `；${rescued.helpers.join('、')}援救${target.name}`
   }
   while (!skipRescue && targetId !== 'player' && hp <= 0) {
-    const selfAid = selfRescueCard({ ...target, hand })
+    const selfAid = selfRescueCard(state, { ...target, hand })
     if (selfAid) {
       hand = hand.filter(card => card.id !== selfAid.id); discard = [...discard, selfAid]; hp += 1
       message += `；${target.name}${selfAid.kind === 'peach' ? '使用【桃】自救' : selfAid.kind === 'wine' ? '使用【酒】自救' : '发动【急救】自救'}`
       continue
     }
-    const helper = alliesFor({ ...state, units: rescuedUnits }, targetId).find(unit => unit.id !== targetId && unit.id !== 'player' && rescueCard(unit))
-    const aid = helper ? rescueCard(helper) : undefined
+    const helper = alliesFor({ ...state, units: rescuedUnits }, targetId).find(unit => unit.id !== targetId && unit.id !== 'player' && rescueCard(state, unit))
+    const aid = helper ? rescueCard(state, helper) : undefined
     if (!helper || !aid) break
     rescuedUnits = { ...rescuedUnits, [helper.id]: { ...helper, hand: helper.hand.filter(card => card.id !== aid.id), animation: 'cast' } }
     const healing = rescueAmount(target, helper, aid)
@@ -226,7 +226,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     message += `；${helper.name}${aid.kind === 'peach' ? '使用【桃】' : '发动【急救】'}援救${target.name}${healing === 2 ? '并触发【救援】' : ''}`
   }
   let units = { ...rescuedUnits, [targetId]: { ...target, hand, hp, revealed: hp <= 0 ? true : target.revealed, animation: playerRescued ? 'heal' as const : 'hit' as const } }
-  const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? state.units.player.hand.find(card => card.kind === 'peach' || (state.units.player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond'))) : undefined
+  const aidPeach = !skipRescue && hp <= 0 && targetId !== 'player' && state.units.player.hp > 0 ? rescueCard(state, state.units.player) : undefined
   if (aidPeach) {
     const requiredCount = 1 - hp
     const prompt = `${target.name}进入濒死状态，还需要 ${requiredCount} 张【桃】，是否援救？`
@@ -1112,7 +1112,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
-    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const card = cardId ? player.hand.find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (candidate.suit === 'heart' || candidate.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     let base: GameState = { ...state, pendingResponse: null }
     if (pending.effect === 'ganglie') {

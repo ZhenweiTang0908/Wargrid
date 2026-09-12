@@ -386,6 +386,21 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('急救')
   })
 
+  it('does not allow Jijiu during Hua Tuo’s own turn', () => {
+    useGameStore.getState().selectGeneral('qingnang')
+    const redCard = card('dodge', 'heart')
+    useGameStore.setState(state => ({
+      currentUnit: 'player', phase: 'player',
+      units: { ...state.units, player: { ...state.units.player, hp: 0, hand: [redCard] } },
+      pendingResponse: { effect: 'dying', source: 'east', target: 'player', required: 'peach', prompt: '濒死救援' },
+    }))
+    useGameStore.getState().respond(redCard.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse?.effect).toBe('dying')
+    expect(state.units.player.hand).toContainEqual(redCard)
+    expect(state.units.player.hp).toBe(0)
+  })
+
   it('lets Zhou Yu draw three cards through Yingzi', () => {
     useGameStore.getState().selectGeneral('yingzi')
     const first = card('slash'), second = card('dodge'), third = card('peach')

@@ -821,12 +821,13 @@ function GeneralSelect() {
 function ResponseWindow() {
   const pending = useGameStore(s => s.pendingResponse)
   const player = useGameStore(s => s.units.player)
+  const currentUnit = useGameStore(s => s.currentUnit)
   const attackerWeapon = useGameStore(s => s.pendingResponse ? s.units[s.pendingResponse.source].equipment.weapon?.kind : undefined)
   const respond = useGameStore(s => s.respond)
   const activateBagua = useGameStore(s => s.activateBagua)
   if (!pending) return null
   const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
-  const responses = player.hand.filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
+  const responses = player.hand.filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
