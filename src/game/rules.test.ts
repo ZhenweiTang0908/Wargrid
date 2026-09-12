@@ -11,7 +11,7 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 
 describe('board rules', () => {
   it('keeps every selectable battlefield definition playable', () => {
-    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple'])
+    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple', 'winter'])
     for (const id of MAP_IDS) {
       const map = MAP_DEFINITIONS[id]
       const state = createInitialState(fixedDeck(), false, Math.random, id)
@@ -103,6 +103,15 @@ describe('board rules', () => {
     expect(terrainAt(state, { x: 3, y: 3 })).toBe('watchtower')
     expect(findPath(state, state.units.player.position, state.controlPoint, 'player').length).toBeGreaterThan(0)
     expect(findPath(state, state.units.east.position, state.controlPoint, 'east').length).toBeGreaterThan(0)
+    expect(state.mapObjects.every(object => !state.obstacles.some(wall => wall.x === object.position.x && wall.y === object.position.y))).toBe(true)
+  })
+  it('builds a winter pass with an eastern objective and costly snowdrifts', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'winter')
+    expect(state.controlPoint).toEqual({ x: 5, y: 4 })
+    expect(state.obstacles).toContainEqual({ x: 3, y: 3 })
+    expect(movementCost(state, { x: 4, y: 2 })).toBe(2)
+    expect(terrainAt(state, { x: 5, y: 3 })).toBe('road')
+    for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
     expect(state.mapObjects.every(object => !state.obstacles.some(wall => wall.x === object.position.x && wall.y === object.position.y))).toBe(true)
   })
   it('finds an orthogonal route and avoids obstacles', () => {
