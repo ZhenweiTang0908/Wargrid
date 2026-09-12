@@ -3,7 +3,7 @@ import { ContactShadows, Environment, OrbitControls, RoundedBox, Sparkles } from
 import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { useGameStore, isCellReachable } from './game/store'
+import { useGameStore, isCellReachable, greenDragonChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 
@@ -973,18 +973,19 @@ function LuoyiWindow() {
 
 function GreenDragonWindow() {
   const pending = useGameStore(s => s.pendingGreenDragon)
+  const state = useGameStore()
   const player = useGameStore(s => s.units.player)
   const target = useGameStore(s => pending ? s.units[pending.target] : null)
   const choose = useGameStore(s => s.chooseGreenDragon)
   if (!pending || !target) return null
-  const slashes = player.hand.filter(card => isSlashKind(card.kind) || player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond') || player.skills.includes('longdan') && card.kind === 'dodge')
+  const slashes = greenDragonChoices(state, 'player', pending.target)
   return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
     <span className="eyebrow">武器技能 · 青龙偃月刀</span>
     <h1>继续追击{target.name}？</h1>
-    <p>刚才的【杀】已被闪避。可以再打出一张【杀】攻击同一目标，也可以保留手牌。</p>
+    <p>刚才的【杀】已被闪避。可以再打出一张【杀】攻击同一目标，也可以放弃追击。</p>
     <div className="response-cards">{slashes.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => choose(card.id)}>
       <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
-      <strong>{CARD_LABEL[card.kind]}</strong><small>{isSlashKind(card.kind) ? CARD_COPY[card.kind] : player.skills.includes('longdan') && card.kind === 'dodge' ? '龙胆 · 当【杀】使用' : '武圣 · 当【杀】使用'}</small>
+      <strong>{CARD_LABEL[card.kind]}</strong><small>{isSlashKind(card.kind) ? CARD_COPY[card.kind] : player.skills.includes('longdan') && card.kind === 'dodge' ? '龙胆 · 当【杀】使用' : `${player.hand.some(held => held.id === card.id) ? '手牌' : '装备'} · 武圣 → 杀`}</small>
     </button>)}</div>
     <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(null)}>不追击 · 保留手牌</button></div>
   </section></div>

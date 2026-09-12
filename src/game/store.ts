@@ -141,6 +141,16 @@ const slashResponses = (unit: Unit) => [
   ...(unit.skill === 'longdan' ? unit.hand.filter(card => card.kind === 'dodge') : []),
   ...(unit.skills.includes('wusheng') ? [...unit.hand, ...equippedCards(unit)].filter(card => isRed(card) && !isSlashKind(card.kind)) : []),
 ]
+export function greenDragonChoices(state: GameState, attackerId: Team, targetId: Team): Card[] {
+  const attacker = state.units[attackerId], target = state.units[targetId]
+  if (attacker.equipment.weapon?.kind !== 'greenDragon' || attacker.hp <= 0 || target.hp <= 0 || target.skills.includes('kongcheng') && target.hand.length === 0) return []
+  return slashResponses(attacker).filter(card => {
+    if (card.id === attacker.equipment.weapon?.id) return false
+    const equipped = equippedCards(attacker).some(item => item.id === card.id)
+    const afterPayment = equipped ? { ...attacker, equipment: Object.fromEntries(Object.entries(attacker.equipment).filter(([, item]) => item?.id !== card.id)) as Unit['equipment'] } : attacker
+    return combatDistance(state, afterPayment, target) <= effectiveAttackRange(state, afterPayment)
+  })
+}
 const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
   if (state.units[targetId].identity !== 'lord' || !state.units[targetId].skills.includes('hujia')) return null
@@ -434,19 +444,15 @@ function judgeTieqi(state: GameState, attackerId: Team) {
 
 function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> | null {
   const attacker = state.units[attackerId]
-  if (attacker.equipment.weapon?.kind !== 'greenDragon') return null
-  const nextSlash = responseCard(attacker, 'slash')
+  const nextSlash = greenDragonChoices(state, attackerId, targetId)[0]
   if (!nextSlash) return null
   if (attackerId === 'player') {
     const message = `${attacker.name}的【青龙偃月刀】可继续追击${state.units[targetId].name}，请选择一张【杀】或放弃`
     return { ...state, pendingGreenDragon: { target: targetId }, message, history: log(state, message) }
   }
   const message = `${attacker.name}发动【青龙偃月刀】，继续对${state.units[targetId].name}使用【杀】`
-  const chaseState: GameState = {
-    ...state,
-    units: { ...state.units, [attackerId]: { ...attacker, hand: attacker.hand.filter(card => card.id !== nextSlash.id), animation: 'attack' } },
-    discard: [...state.discard, nextSlash], message, history: log(state, message),
-  }
+  const paid = payRescueCard(state, attackerId, nextSlash)
+  const chaseState: GameState = { ...paid, units: { ...paid.units, [attackerId]: { ...paid.units[attackerId], animation: 'attack' } }, message, history: log(paid, message) }
   return resolveSlash(chaseState, attackerId, targetId, undefined, false, nextSlash)
 }
 
@@ -1494,10 +1500,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ pendingGreenDragon: null, message, history: log(state, message) })
       return
     }
-    const card = attacker.hand.find(candidate => candidate.id === cardId && responseCard({ ...attacker, hand: [candidate] }, 'slash'))
+    const card = greenDragonChoices(state, 'player', pending.target).find(candidate => candidate.id === cardId)
     if (!card || state.units[pending.target].hp <= 0) return
     const message = `${attacker.name}发动【青龙偃月刀】，继续对${state.units[pending.target].name}使用【杀】`
-    const chaseState: GameState = { ...state, pendingGreenDragon: null, units: { ...state.units, player: { ...attacker, hand: attacker.hand.filter(candidate => candidate.id !== card.id), animation: 'attack' } }, discard: [...state.discard, card], message, history: log(state, message) }
+    const paid = payRescueCard({ ...state, pendingGreenDragon: null }, 'player', card)
+    const chaseState: GameState = { ...paid, units: { ...paid.units, player: { ...paid.units.player, animation: 'attack' } }, message, history: log(paid, message) }
     set({ ...chaseState, ...resolveSlash(chaseState, 'player', pending.target, undefined, false, card) })
   },
   chooseLiuli: (cardId, targetId) => {

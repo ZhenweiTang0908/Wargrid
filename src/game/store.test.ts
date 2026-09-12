@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Card } from '../types'
 import { createInitialState } from './rules'
-import { beginTurn, targetsFor, useGameStore } from './store'
+import { beginTurn, greenDragonChoices, targetsFor, useGameStore } from './store'
 
 let nextId = 0
 const card = (kind: Card['kind'], suit: Card['suit'] = 'spade', rank = 7): Card => ({ id: `scenario-${++nextId}`, kind, suit, rank })
@@ -1853,6 +1853,34 @@ describe('standard card scenarios', () => {
     expect(state.units.player.attacksUsed).toBe(2)
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([firstSlash.id, secondSlash.id, dodge.id]))
     expect(state.history.some(entry => entry.includes('青龙偃月刀'))).toBe(true)
+  })
+
+  it('lets Guan Yu chase with red equipment through Wusheng', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const firstSlash = card('slash'), weapon = card('greenDragon'), armor = card('silverLion', 'heart'), dodge = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 2 }, hp: 3, hand: [firstSlash], equipment: { weapon, armor } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: firstSlash.id, target: 'north' })
+    expect(useGameStore.getState().pendingGreenDragon).toEqual({ target: 'north' })
+    expect(greenDragonChoices(useGameStore.getState(), 'player', 'north')).toContainEqual(armor)
+    useGameStore.getState().chooseGreenDragon(armor.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.armor).toBeUndefined()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(armor)
+  })
+
+  it('does not offer Wusheng chase with a mount that would leave the target out of range', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const weapon = card('greenDragon'), mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 4 }, hand: [], equipment: { weapon, offensiveMount: mount } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [card('dodge')] },
+    } }))
+    expect(greenDragonChoices(useGameStore.getState(), 'player', 'north')).not.toContainEqual(mount)
   })
 
   it('lets the player decline Green Dragon Blade and keep the next slash', () => {
