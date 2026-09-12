@@ -1701,6 +1701,40 @@ describe('standard card scenarios', () => {
     expect(state.discard).toEqual(expect.arrayContaining([judgement, dodge]))
   })
 
+  it('requires an AI defender to add a Dodge after a successful Bagua judgement against Wushuang', () => {
+    const slash = card('slash', 'heart'), bagua = card('bagua'), judgement = card('peach', 'heart'), dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 8 }, hand: [slash] },
+        north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [dodge], equipment: { armor: bagua } },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([judgement, dodge, slash]))
+    expect(state.message).toContain('八卦阵')
+  })
+
+  it('lets Wushuang hit an AI defender with no second Dodge after Bagua succeeds', () => {
+    const slash = card('slash', 'heart'), bagua = card('bagua'), judgement = card('peach', 'heart')
+    useGameStore.setState(state => ({
+      deck: [judgement], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 8 }, hand: [slash] },
+        north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [], equipment: { armor: bagua } },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toEqual(expect.arrayContaining([judgement, slash]))
+  })
+
   it('retains fire damage after a failed Bagua judgement', () => {
     const fireSlash = card('fireSlash', 'heart'), bagua = card('bagua'), blackJudge = card('duel', 'spade')
     useGameStore.setState(state => ({
