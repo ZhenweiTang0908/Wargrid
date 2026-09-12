@@ -483,7 +483,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
   }
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && slashCard && (slashCard.suit === 'spade' || slashCard.suit === 'club') && attacker.equipment.weapon?.kind !== 'qinggang'
-  const availableDodges = target.hand.filter(card => card.kind === 'dodge' || (target.skill === 'longdan' && isSlashKind(card.kind)))
+  const availableDodges = target.hand.filter(card => card.kind === 'dodge' || (target.skill === 'longdan' && isSlashKind(card.kind)) || (target.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   const requiredDodges = attacker.skill === 'wushuang' && manualResponse === undefined ? (baguaDodge ? 1 : 2) : 1
   const dodgeCards = shieldBlocks ? [] : manualResponse === undefined ? (availableDodges.length >= requiredDodges ? availableDodges.slice(0, requiredDodges) : []) : manualResponse ? [manualResponse] : []
   const dodge = dodgeCards[0]
@@ -499,7 +499,7 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       const forcedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: { ...updatedAttacker, hand: attacker.hand.slice(2) }, [targetId]: updatedTarget }, discard: [...responseDiscard, ...paid] }
       return damage(forcedState, attackerId, targetId, attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${target.name}`, false, slashCard)
     }
-    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : baguaDodge ? `${target.name}的【八卦阵】视为第一张【闪】，再打出一张【闪】响应【无双】` : `${target.name}${dodgeCards.length > 1 ? '连续打出两张【闪】响应【无双】' : responseText(target, dodge!, 'dodge')}`
+    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : baguaDodge ? `${target.name}的【八卦阵】视为第一张【闪】，再${responseText(target, dodge!, 'dodge')}响应【无双】` : `${target.name}${dodgeCards.length > 1 ? `${dodgeCards.map(card => responseText(target, card, 'dodge')).join('，')}响应【无双】` : responseText(target, dodge!, 'dodge')}`
     const defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
     return shieldBlocks ? defendedState : greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
   }

@@ -754,6 +754,49 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toHaveLength(0)
   })
 
+  it('lets AI Zhen Ji use a black hand card as Dodge through Qingguo', () => {
+    const slash = card('slash', 'heart'), black = card('peach', 'club')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, skill: 'luoshen', skills: ['luoshen', 'qingguo'], position: { x: 4, y: 7 }, hand: [black] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([])
+    expect(state.discard).toContainEqual(black)
+    expect(state.message).toContain('倾国')
+  })
+
+  it('requires two black cards when AI Zhen Ji faces Wushuang', () => {
+    const slash = card('slash', 'heart'), first = card('peach', 'club'), second = card('duel', 'spade'), red = card('peach', 'heart')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, skill: 'luoshen', skills: ['luoshen', 'qingguo'], position: { x: 4, y: 7 }, hand: [first, second, red] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([red])
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+    expect(state.message).toContain('倾国')
+  })
+
+  it('does not treat a red non-Dodge as Qingguo', () => {
+    const slash = card('slash', 'heart'), red = card('peach', 'heart')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [slash] },
+      north: { ...state.units.north, skill: 'luoshen', skills: ['luoshen', 'qingguo'], position: { x: 4, y: 7 }, hand: [red] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.hand).toEqual([red])
+  })
+
   it('requires two slashes per duel response against Wushuang', () => {
     useGameStore.getState().selectGeneral('wushuang')
     const duel = card('duel'), onlySlash = card('slash')
