@@ -183,6 +183,28 @@ export const WINTER_TERRAIN: Terrain[] = [
   ...terrainLine('village', [{ x: 0, y: 6 }, { x: 8, y: 2 }]),
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
 ]
+export const TERRACES_OBSTACLES: Position[] = [
+  { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 3 },
+  { x: 1, y: 6 }, { x: 2, y: 6 }, { x: 2, y: 5 },
+  { x: 6, y: 2 }, { x: 7, y: 3 },
+  { x: 6, y: 6 }, { x: 7, y: 5 },
+]
+export const TERRACES_TERRAIN: Terrain[] = [
+  ...terrainLine('forest', [
+    { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 0, y: 3 }, { x: 0, y: 5 }, { x: 1, y: 7 }, { x: 0, y: 7 },
+    { x: 3, y: 2 }, { x: 3, y: 6 }, { x: 5, y: 1 }, { x: 5, y: 7 },
+  ]),
+  ...terrainLine('ridge', [{ x: 3, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 3 }, { x: 5, y: 5 }, { x: 7, y: 2 }, { x: 7, y: 6 }]),
+  ...terrainLine('marsh', [{ x: 1, y: 3 }, { x: 1, y: 5 }, { x: 6, y: 1 }, { x: 6, y: 7 }]),
+  ...terrainLine('road', [
+    ...Array.from({ length: 9 }, (_, y) => ({ x: 4, y })),
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 4 })),
+    { x: 5, y: 2 }, { x: 5, y: 6 }, { x: 6, y: 3 }, { x: 6, y: 5 },
+  ]),
+  ...terrainLine('watchtower', [{ x: 2, y: 4 }, { x: 8, y: 2 }]),
+  ...terrainLine('village', [{ x: 0, y: 6 }, { x: 8, y: 6 }]),
+  ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
+]
 const riverObjects: MapObject[] = [
   { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
   { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
@@ -263,8 +285,16 @@ const winterObjects: MapObject[] = [
   { id: 'west-beacon', position: { x: 0, y: 2 }, kind: 'scoutBeacon', claimed: false },
   { id: 'east-beacon', position: { x: 8, y: 7 }, kind: 'scoutBeacon', claimed: false },
 ]
+const terracesObjects: MapObject[] = [
+  { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
+  { id: 'north-cache', position: { x: 3, y: 1 }, kind: 'supplyCache', claimed: false },
+  { id: 'west-shrine', position: { x: 0, y: 6 }, kind: 'healingShrine', claimed: false },
+  { id: 'east-drum', position: { x: 8, y: 4 }, kind: 'warDrum', claimed: false },
+  { id: 'west-beacon', position: { x: 0, y: 2 }, kind: 'scoutBeacon', claimed: false },
+  { id: 'east-beacon', position: { x: 8, y: 7 }, kind: 'scoutBeacon', claimed: false },
+]
 
-export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple', 'winter']
+export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple', 'winter', 'terraces']
 export const MAP_DEFINITIONS: Record<MapId, {
   name: string
   description: string
@@ -285,6 +315,7 @@ export const MAP_DEFINITIONS: Record<MapId, {
   desert: { name: '西凉沙驿', description: '中央驿道纵贯沙原，盐沼拖慢侧翼，绿洲提供补给', obstacles: DESERT_OBSTACLES, terrain: DESERT_TERRAIN, objects: desertObjects, groundColors: ['#8d6945', '#9e7850'], obstacleColor: '#ad8960' },
   maple: { name: '枫林旧寨', description: '据点偏西，东侧须穿寨或绕林，瞭望台掩护两翼', controlPoint: { x: 3, y: 4 }, obstacles: MAPLE_OBSTACLES, terrain: MAPLE_TERRAIN, objects: mapleObjects, groundColors: ['#49362d', '#55402e'], obstacleColor: '#765c49' },
   winter: { name: '雪岭烽道', description: '据点偏东，山脊封锁斜线；雪堆耗力，驿道可快速穿行', controlPoint: { x: 5, y: 4 }, obstacles: WINTER_OBSTACLES, terrain: WINTER_TERRAIN, objects: winterObjects, groundColors: ['#9db4b7', '#adc2c3'], obstacleColor: '#647b86' },
+  terraces: { name: '云岭梯田', description: '据点偏东；西侧林木掩护，东侧山脊与瞭望台争夺射程', controlPoint: { x: 6, y: 4 }, obstacles: TERRACES_OBSTACLES, terrain: TERRACES_TERRAIN, objects: terracesObjects, groundColors: ['#44513a', '#536044'], obstacleColor: '#665f48' },
 }
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y

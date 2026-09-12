@@ -16,7 +16,7 @@ export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'fireHit' | 'thunderHit' | 'heal' | 'cast'
 export type TerrainKind = 'plain' | 'forest' | 'water' | 'bridge' | 'ridge' | 'road' | 'camp' | 'watchtower' | 'village' | 'marsh' | 'snow'
-export type MapId = 'river' | 'siege' | 'highland' | 'wetland' | 'bamboo' | 'pass' | 'dockyard' | 'desert' | 'maple' | 'winter'
+export type MapId = 'river' | 'siege' | 'highland' | 'wetland' | 'bamboo' | 'pass' | 'dockyard' | 'desert' | 'maple' | 'winter' | 'terraces'
 export type DeckMode = 'standard' | 'expanded'
 export type EquipmentSlot = 'weapon' | 'armor' | 'offensiveMount' | 'defensiveMount'
 export type GeneralSkill = 'lijian' | 'jiuyuan' | 'hujia' | 'qianxun' | 'lianying' | 'guose' | 'liuli' | 'luoshen' | 'qingguo' | 'keji' | 'kurou' | 'tieqi' | 'mashu' | 'rende' | 'jijiang' | 'wusheng' | 'longdan' | 'ganglie' | 'feedback' | 'guicai' | 'jianxiong' | 'yiji' | 'tiandu' | 'qingnang' | 'jijiu' | 'yingzi' | 'fanjian' | 'guanxing' | 'kongcheng' | 'tuxi' | 'luoyi' | 'jieyin' | 'xiaoji' | 'paoxiao' | 'jizhi' | 'qicai' | 'qixi' | 'biyue' | 'zhiheng' | 'wushuang'
@@ -189,7 +189,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   qinggang: '攻击范围 2，攻击无视护甲', greenDragon: '攻击范围 3；【杀】被闪避后可继续出【杀】', spear: '攻击范围 3；两张手牌可当【杀】', axe: '攻击范围 3；闪避后弃两牌可强制命中', halberd: '攻击范围 4；最后手牌的【杀】可攻击三人', qilinBow: '攻击范围 5；造成伤害后弃置目标坐骑',
   doubleSword: '攻击范围 2；异性目标弃一张牌，否则你摸一张', iceSword: '攻击范围 2；防止伤害并弃置目标两张牌',
   gudingBlade: '攻击范围 2；无手牌目标受到伤害 +1', vermilionFan: '攻击范围 4；普通【杀】改为火焰伤害',
-  shield: '使黑色【杀】失效', bagua: '受到【杀】时红色判定视为【闪】', silverLion: '受到的伤害最多为 1；失去时回复 1 点体力',
+  shield: '使黑色【杀】失效', bagua: '需要打出【闪】时可判定，红色视为打出【闪】', silverLion: '受到的伤害最多为 1；失去时回复 1 点体力',
   arrows: '所有其他角色需打出【闪】', barbarians: '所有其他角色需打出【杀】', nullify: '抵消锦囊或反制另一张【无懈可击】',
   indulgence: '置于其他角色判定区，可能跳过出牌', lightning: '判定为黑桃 2～9 时造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '亮出等量牌，所有存活角色依次各选一张',

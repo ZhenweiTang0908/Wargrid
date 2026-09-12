@@ -11,7 +11,7 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 
 describe('board rules', () => {
   it('keeps every selectable battlefield definition playable', () => {
-    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple', 'winter'])
+    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard', 'desert', 'maple', 'winter', 'terraces'])
     for (const id of MAP_IDS) {
       const map = MAP_DEFINITIONS[id]
       const state = createInitialState(fixedDeck(), false, Math.random, id)
@@ -34,6 +34,17 @@ describe('board rules', () => {
     for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
     const controlling = { ...state, units: { ...state.units, player: { ...state.units.player, position: state.controlPoint } } }
     expect(scoreControlPoint(controlling, 'player').scores.player).toBe(1)
+  })
+  it('makes the eastern terrace objective reachable through the central road and ridge flank', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'terraces')
+    expect(state.controlPoint).toEqual({ x: 6, y: 4 })
+    expect(terrainAt(state, state.controlPoint)).toBe('road')
+    expect(terrainAt(state, { x: 3, y: 3 })).toBe('ridge')
+    expect(terrainAt(state, { x: 1, y: 3 })).toBe('marsh')
+    expect(movementCost(state, { x: 1, y: 3 })).toBe(2)
+    expect(terrainAt(state, { x: 2, y: 4 })).toBe('watchtower')
+    expect(state.obstacles).toContainEqual({ x: 7, y: 3 })
+    for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
   })
   it('keeps the desert oasis reachable while salt flats slow the flanks', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'desert')
