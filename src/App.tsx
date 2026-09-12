@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { ContactShadows, Environment, OrbitControls, RoundedBox, Sparkles } from '@react-three/drei'
+import { ContactShadows, OrbitControls, RoundedBox, Sparkles } from '@react-three/drei'
 import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -670,7 +670,6 @@ function Battlefield() {
           <meshStandardMaterial color="#091c21" roughness={.9} metalness={.12} />
         </RoundedBox>
         <ContactShadows opacity={.65} scale={11} blur={2.4} far={5} color="#000000" />
-        <Environment preset="night" />
       </Suspense>
       <OrbitControls makeDefault target={[0, .1, 0]} minDistance={13} maxDistance={18} minPolarAngle={.55} maxPolarAngle={1.12} minAzimuthAngle={-.8} maxAzimuthAngle={.8} enablePan={false} />
     </Canvas>
