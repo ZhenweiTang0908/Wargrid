@@ -136,6 +136,11 @@ const responseCard = (unit: Unit, required: 'slash' | 'dodge') => unit.hand.find
   ?? (unit.skill === 'longdan' ? unit.hand.find(card => required === 'slash' ? card.kind === 'dodge' : isSlashKind(card.kind)) : undefined)
   ?? (required === 'slash' && unit.skills.includes('wusheng') ? unit.hand.find(card => card.suit === 'heart' || card.suit === 'diamond') : undefined)
   ?? (required === 'dodge' && unit.skills.includes('qingguo') ? unit.hand.find(card => card.suit === 'spade' || card.suit === 'club') : undefined)
+const slashResponses = (unit: Unit) => [
+  ...unit.hand.filter(card => isSlashKind(card.kind)),
+  ...(unit.skill === 'longdan' ? unit.hand.filter(card => card.kind === 'dodge') : []),
+  ...(unit.skills.includes('wusheng') ? [...unit.hand, ...equippedCards(unit)].filter(card => isRed(card) && !isSlashKind(card.kind)) : []),
+]
 const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
   if (state.units[targetId].identity !== 'lord' || !state.units[targetId].skills.includes('hujia')) return null
@@ -375,7 +380,7 @@ function resolveIronChain(state: GameState, actorId: Team, targetId: Team): Part
 function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, slashCardId?: string | null, forcedVictimId?: Team): Partial<GameState> {
   const wielder = state.units[wielderId], actor = state.units[actorId], weapon = wielder.equipment.weapon
   if (!weapon) return state
-  const slash = slashCardId === null ? undefined : slashCardId ? [...wielder.hand, ...equippedCards(wielder)].find(card => card.id === slashCardId) : responseCard(wielder, 'slash')
+  const slash = slashCardId === null ? undefined : slashCardId ? slashResponses(wielder).find(card => card.id === slashCardId) : slashResponses(wielder).find(card => card.id !== weapon.id)
   const victim = forcedVictimId ? state.units[forcedVictimId] : targetsFor(state, wielderId)
     .filter(unit => unit.id !== actorId && canBorrowedSwordTarget(state, wielder, unit))
     .sort((a, b) => combatDistance(state, wielder, a) - combatDistance(state, wielder, b))[0]
@@ -602,15 +607,14 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCa
       return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', requiredCount, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
     }
     const responder = working.units[current]
-    const slashes = responder.hand.filter(card => isSlashKind(card.kind) || (responder.skill === 'longdan' && card.kind === 'dodge')).slice(0, requiredCount)
+    const slashes = slashResponses(responder).slice(0, requiredCount)
     if (slashes.length < requiredCount) {
       const duelDamage = working.units[other].luoyiActive ? 2 : 1
       return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`, false, sourceCard)
     }
-    const slashIds = new Set(slashes.map(card => card.id))
     const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
-    working = { ...working, units: { ...working.units, [current]: { ...responder, hand: responder.hand.filter(c => !slashIds.has(c.id)), animation: 'cast' } }, discard: [...working.discard, ...slashes], message, history: log(working, message) }
-    working = triggerLianying(working, current)
+    for (const slash of slashes) working = payRescueCard(working, current, slash)
+    working = { ...working, message, history: log(working, message) }
     ;[current, other] = [other, current]
   }
   return working
@@ -656,14 +660,15 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       working = triggerLianying(working, targetId)
       continue
     }
-    const response = responseCard(target, responseKind)
+    const response = responseKind === 'slash' ? slashResponses(target)[0] : responseCard(target, responseKind)
     const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
     if (response || guard) {
       const message = guard ? `${guard.unit.name}发动【护驾】保护主公` : `${target.name}${responseText(target, response!, responseKind)}响应【${CARD_LABEL[kind]}】`
       working = guard
         ? { ...working, units: { ...working.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' } }, discard: [...working.discard, guard.dodge], message, history: log(working, message) }
-        : { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== response!.id), animation: 'cast' } }, discard: [...working.discard, response!], message, history: log(working, message) }
-      working = triggerLianying(working, targetId)
+        : payRescueCard(working, targetId, response!)
+      working = { ...working, message, history: log(working, message) }
+      if (guard) working = triggerLianying(working, guard.unit.id)
     } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`, false, sourceCard) }
     if (working.winner) break
   }

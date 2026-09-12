@@ -1383,6 +1383,32 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(armor)
   })
 
+  it('lets AI Guan Yu spend red equipment when answering Duel', () => {
+    const duel = card('duel'), armor = card('silverLion', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units,
+      east: { ...state.units.east, skill: 'kurou', skills: ['kurou'], hand: [duel] },
+      north: { ...state.units.north, skill: 'wusheng', skills: ['wusheng'], hp: 2, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.armor).toBeUndefined()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(armor)
+  })
+
+  it('lets AI Guan Yu spend red equipment when answering Barbarians', () => {
+    const trick = card('barbarians'), armor = card('silverLion', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units,
+      east: { ...state.units.east, hand: [trick] },
+      north: { ...state.units.north, skill: 'wusheng', skills: ['wusheng'], hp: 2, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.armor).toBeUndefined()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(armor)
+  })
+
   it('lets Zhao Yun use slash as dodge through Longdan', () => {
     const attack = card('slash', 'heart'), converted = card('slash', 'club')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [attack] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [converted] } } }))
