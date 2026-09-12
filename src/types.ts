@@ -76,6 +76,12 @@ export interface PendingFanjian {
   card: Card
 }
 
+export interface PendingPlunder {
+  source: Team
+  target: Team
+  gain: boolean
+}
+
 export interface GameState {
   size: number
   terrain: Terrain[]
@@ -113,6 +119,7 @@ export interface GameState {
   pendingResponse: PendingResponse | null
   pendingHarvest: PendingHarvest | null
   pendingFanjian: PendingFanjian | null
+  pendingPlunder: PendingPlunder | null
   winner: Team | null
   message: string
   history: string[]

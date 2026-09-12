@@ -154,6 +154,8 @@ describe('standard card scenarios', () => {
     const snatch = card('snatch'), prize = card('peach')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [snatch] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [prize] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: snatch.id, target: 'north' })
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ target: 'north', gain: true })
+    useGameStore.getState().choosePlunderCard(prize.id)
     const state = useGameStore.getState()
     expect(state.units.player.hand).toContainEqual(prize)
     expect(state.units.north.hand).toHaveLength(0)
@@ -362,11 +364,40 @@ describe('standard card scenarios', () => {
     useGameStore.getState().activateQixi()
     expect(useGameStore.getState().selectedAsDismantle).toBe(true)
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: material.id, target: 'east', asDismantle: true })
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ target: 'east', gain: false })
+    useGameStore.getState().choosePlunderCard(victimCard.id)
     const state = useGameStore.getState()
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.units.east.hand).toHaveLength(0)
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([material.id, victimCard.id]))
     expect(state.message).toContain('过河拆桥')
+  })
+
+  it('lets the player choose a specific equipment with Dismantle', () => {
+    const dismantle = card('dismantle'), hidden = card('peach'), armor = card('shield')
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [dismantle] }, east: { ...state.units.east, hand: [hidden], equipment: { armor } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: dismantle.id, target: 'east' })
+    useGameStore.getState().choosePlunderCard(armor.id)
+    const state = useGameStore.getState()
+    expect(state.pendingPlunder).toBeNull()
+    expect(state.units.east.hand).toContainEqual(hidden)
+    expect(state.units.east.equipment.armor).toBeUndefined()
+    expect(state.discard).toContainEqual(armor)
+  })
+
+  it('keeps the choice open when a Plunder card ID is invalid', () => {
+    const snatch = card('snatch'), hidden = card('dodge')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [snatch] },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [hidden] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: snatch.id, target: 'north' })
+    useGameStore.getState().choosePlunderCard('missing-card')
+    const state = useGameStore.getState()
+    expect(state.pendingPlunder).toMatchObject({ target: 'north', gain: true })
+    expect(state.units.north.hand).toContainEqual(hidden)
+    expect(state.units.player.hand).not.toContainEqual(hidden)
   })
 
   it('lets Diao Chan draw at the end of her turn through Biyue', () => {

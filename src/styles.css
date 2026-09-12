@@ -130,6 +130,13 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .suit-choices button.red { color: #df6258; }
 .suit-choices strong { font: 700 32px serif; }
 .suit-choices span { font-size: 12px; }
+.plunder-panel { width: min(650px, 94vw); }
+.plunder-cards { min-height: 116px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.plunder-cards .card, .hidden-card { width: 82px; height: 106px; cursor: pointer; }
+.hidden-card { display: grid; place-items: center; align-content: center; gap: 7px; border: 1px solid #80683d; color: #e2ca91; background: repeating-linear-gradient(45deg, #172c32, #172c32 5px, #203941 5px, #203941 10px); }
+.hidden-card strong { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid #b99855; border-radius: 50%; font: 700 22px serif; }
+.hidden-card span { font-size: 10px; letter-spacing: .08em; }
+.plunder-cards button:hover { transform: translateY(-5px); box-shadow: 0 9px 22px #000a, 0 0 0 2px var(--gold); }
 .no-response { color: #81969b; padding: 25px; border: 1px dashed #385158; }
 .decline-response { min-height: 40px; margin-top: 17px; padding: 0 24px; border: 1px solid #86544c; color: #efc1ba; background: #321a18; cursor: pointer; }
 .report-overlay { z-index: 65; }

@@ -8,6 +8,7 @@ interface GameStore extends GameState {
   respond: (cardId: string | null) => void
   chooseHarvest: (cardId: string) => void
   chooseFanjianSuit: (suit: Card['suit']) => void
+  choosePlunderCard: (cardId: string) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -496,9 +497,10 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team): Partial
   return working
 }
 
-function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: boolean): Partial<GameState> {
+function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: boolean, cardId?: string): Partial<GameState> {
   const actor = state.units[actorId], target = state.units[targetId]
-  const chosen = target.hand[0] ?? target.equipment.weapon ?? target.equipment.armor ?? target.equipment.offensiveMount ?? target.equipment.defensiveMount
+  const targetCards = [...target.hand, ...Object.values(target.equipment).filter((card): card is Card => !!card)]
+  const chosen = cardId ? targetCards.find(card => card.id === cardId) : targetCards[0]
   if (!chosen) {
     const message = `${target.name}没有可被${gain ? '获得' : '弃置'}的牌`
     return { message, history: log(state, message) }
@@ -693,7 +695,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -919,7 +921,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: state.discard, message, history: log(state, message) }); return
       }
       if (kind === 'dismantle' || kind === 'snatch') {
-        set(takeTargetCard(base, action.unit, targetId, kind === 'snatch')); return
+        const gain = kind === 'snatch'
+        const targetCards = [...target.hand, ...Object.values(target.equipment).filter((item): item is Card => !!item)]
+        if (action.unit === 'player' && targetCards.length) {
+          const message = `请选择${gain ? '获得' : '弃置'}${target.name}的一张牌`
+          set({ ...base, pendingPlunder: { source: action.unit, target: targetId, gain }, message, history: log(base, message) })
+        } else set(takeTargetCard(base, action.unit, targetId, gain))
+        return
       }
       return
     }
@@ -1107,6 +1115,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(resolved)
     if (resolved.phase === 'ai' && !resolved.pendingResponse && !resolved.winner) setTimeout(() => void get().runAI(), 120)
   },
+  choosePlunderCard: cardId => {
+    const state = get(), pending = state.pendingPlunder
+    if (!pending) return
+    const target = state.units[pending.target]
+    const available = [...target.hand, ...Object.values(target.equipment).filter((card): card is Card => !!card)]
+    if (!available.some(card => card.id === cardId)) return
+    const base = { ...state, pendingPlunder: null }
+    set({ ...base, ...takeTargetCard(base, pending.source, pending.target, pending.gain, cardId) })
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1255,7 +1272,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return

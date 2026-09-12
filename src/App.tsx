@@ -701,6 +701,27 @@ function FanjianWindow() {
   </section></div>
 }
 
+function PlunderWindow() {
+  const pending = useGameStore(s => s.pendingPlunder)
+  const choosePlunderCard = useGameStore(s => s.choosePlunderCard)
+  const target = useGameStore(s => pending ? s.units[pending.target] : null)
+  if (!pending || !target) return null
+  const equipment = Object.entries(target.equipment).filter((entry): entry is [string, Card] => !!entry[1])
+  const slotLabel: Record<string, string> = { weapon: '武器', armor: '防具', offensiveMount: '进攻坐骑', defensiveMount: '防御坐骑' }
+  return <div className="overlay response-overlay"><section className="response-panel plunder-panel panel">
+    <span className="eyebrow">{pending.gain ? '顺手牵羊' : '过河拆桥'}</span>
+    <h1>选择{pending.gain ? '获得' : '弃置'}{target.name}的一张牌</h1>
+    <p>手牌以牌背显示；装备区为公开信息，可直接选择指定装备。</p>
+    <div className="plunder-cards">
+      {target.hand.map((card, index) => <button key={card.id} className="hidden-card" onClick={() => choosePlunderCard(card.id)}><strong>战</strong><span>手牌 {index + 1}</span></button>)}
+      {equipment.map(([slot, card]) => <button key={card.id} className={`card ${card.kind}`} onClick={() => choosePlunderCard(card.id)}>
+        <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>{slotLabel[slot]}</small>
+      </button>)}
+    </div>
+  </section></div>
+}
+
 function BattleReport({ close }: { close: () => void }) {
   const state = useGameStore()
   return <div className="overlay report-overlay"><section className="battle-report panel">
@@ -797,6 +818,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
+    {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>
