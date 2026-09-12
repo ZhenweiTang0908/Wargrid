@@ -203,6 +203,25 @@ describe('standard card scenarios', () => {
     expect(state.jijiangSource).toBeNull()
   })
 
+  it('lets a Shu lord use Guan Yu red equipment through Jijiang', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const armor = card('silverLion', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [] },
+      north: { ...state.units.north, name: '关羽', skill: 'wusheng', skills: ['wusheng'], hp: 2, maxHp: 4, hand: [], equipment: { armor } },
+      east: { ...state.units.east, position: { x: 4, y: 2 }, hand: [] },
+    } }))
+    useGameStore.getState().activateJijiang()
+    expect(useGameStore.getState()).toMatchObject({ jijiangSource: 'north', selectedCardId: armor.id, selectedAsSlash: true })
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: armor.id, target: 'east', asSlash: true, lordAssist: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.equipment.armor).toBeUndefined()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.discard).toContainEqual(armor)
+  })
+
   it('does not grant Jijiang to a different Shu lord', () => {
     const offered = card('slash', 'diamond')
     useGameStore.setState(state => ({

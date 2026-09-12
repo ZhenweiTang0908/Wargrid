@@ -952,14 +952,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return
       }
       const assistant = action.lordAssist ? state.units[action.lordAssist] : undefined
-      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.skills.includes('jijiang') && assistant.identity === 'loyalist' && assistant.faction === 'shu'
-      const assistedCard = validJijiang ? responseCard(assistant, 'slash') : undefined
+      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.skills.includes('jijiang') && assistant.hp > 0 && assistant.identity === 'loyalist' && assistant.faction === 'shu'
+      const assistedCard = validJijiang ? slashResponses(assistant)[0] : undefined
       if (action.lordAssist && (!assistedCard || assistedCard.id !== action.cardId)) return
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
         ? unit.hand.filter(card => action.materialIds!.includes(card.id)) : []
       if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
       const equippedVirtual = equippedCards(unit).find(item => item.id === action.cardId && ((action.asGuose && unit.skills.includes('guose') && item.suit === 'diamond') || (action.asSlash && unit.skills.includes('wusheng') && isRed(item))))
-      const removed = equippedVirtual ? { card: equippedVirtual, hand: unit.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
+      const assistedEquipment = assistant && equippedCards(assistant).some(item => item.id === action.cardId) ? assistedCard : undefined
+      const removed = equippedVirtual ? { card: equippedVirtual, hand: unit.hand } : assistedEquipment ? { card: assistedEquipment, hand: assistant!.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
       if (action.recast) {
         if (card.kind !== 'ironChain' || assistant) return
@@ -989,6 +990,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? { ...state.units, [action.unit]: { ...unit, animation: 'cast' as const }, [assistant.id]: { ...assistant, hand: removed.hand, animation: 'cast' as const } }
         : { ...state.units, [action.unit]: { ...unit, hand: remainingHand, animation: 'cast' as const } }
       let playedDeck = state.deck, playedDiscard = [...state.discard, ...playedCards]
+      if (assistedEquipment && assistant) {
+        const equipment = Object.fromEntries(Object.entries(assistant.equipment).filter(([, item]) => item?.id !== assistedEquipment.id)) as Unit['equipment']
+        const loss = resolveEquipmentLoss(assistant, [assistedEquipment], playedDeck, playedDiscard)
+        unitsAfterPlay = { ...unitsAfterPlay, [assistant.id]: { ...unitsAfterPlay[assistant.id], hp: loss.hp, hand: [...assistant.hand, ...loss.drawn], equipment, animation: loss.healed ? 'heal' : 'cast' } }
+        playedDeck = loss.deck; playedDiscard = loss.discard
+      }
       if (equippedVirtual) {
         const equipment = Object.fromEntries(Object.entries(unit.equipment).filter(([, item]) => item?.id !== equippedVirtual.id)) as Unit['equipment']
         const loss = resolveEquipmentLoss(unit, [equippedVirtual], playedDeck, playedDiscard)
@@ -996,7 +1003,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playedDeck = loss.deck; playedDiscard = loss.discard
       }
       let base: GameState = { ...state, units: unitsAfterPlay, deck: playedDeck, discard: playedDiscard, selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
-      if (!equippedVirtual) base = triggerLianying(base, assistant?.id ?? action.unit)
+      if (!equippedVirtual && !assistedEquipment) base = triggerLianying(base, assistant?.id ?? action.unit)
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
         const insight = drawCards(base.deck, base.discard, 1), actor = base.units[action.unit]
@@ -1618,9 +1625,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateJijiang: () => {
     const state = get(), lord = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || lord.identity !== 'lord' || !lord.skills.includes('jijiang') || lord.attacksUsed >= slashLimit(lord)) return
-    const helper = Object.values(state.units).find(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && responseCard(unit, 'slash'))
+    const helper = Object.values(state.units).find(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && slashResponses(unit).length)
     if (!helper) { set({ message: '没有蜀势力忠臣可以响应【激将】' }); return }
-    const offered = responseCard(helper, 'slash')!
+    const offered = slashResponses(helper)[0]
     set({ selectedCardId: offered.id, selectedAsSlash: true, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: helper.id, message: `${helper.name}响应【激将】，请选择攻击范围内的敌将` })
   },
   activateQixi: () => {
