@@ -403,10 +403,48 @@ describe('standard card scenarios', () => {
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hp: 2, hand: [payment] } } }))
     useGameStore.getState().selectCard(payment.id)
     useGameStore.getState().activateQingnang()
+    expect(useGameStore.getState().qingnangMode).toBe(true)
+    useGameStore.getState().chooseQingnangTarget('player')
     const state = useGameStore.getState()
     expect(state.units.player.hp).toBe(3)
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.units.player.skillUsed).toBe(true)
+    expect(state.discard).toContainEqual(payment)
+  })
+
+  it('lets Hua Tuo choose any wounded character for Qingnang', () => {
+    useGameStore.getState().selectGeneral('qingnang')
+    const payment = card('slash')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hand: [payment] },
+      east: { ...state.units.east, hp: 2, identity: 'rebel' },
+    } }))
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().activateQingnang()
+    useGameStore.getState().chooseQingnangTarget('north')
+    expect(useGameStore.getState().qingnangMode).toBe(true)
+    expect(useGameStore.getState().units.player.hand).toContainEqual(payment)
+    useGameStore.getState().chooseQingnangTarget('east')
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.player.hp).toBe(state.units.player.maxHp)
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.qingnangMode).toBe(false)
+    expect(state.discard).toContainEqual(payment)
+  })
+
+  it('lets Hua Tuo discard Dodge as Qingnang payment', () => {
+    useGameStore.getState().selectGeneral('qingnang')
+    const payment = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hp: 2, hand: [payment] },
+    } }))
+    useGameStore.getState().selectCard(payment.id)
+    expect(useGameStore.getState().selectedCardId).toBe(payment.id)
+    useGameStore.getState().activateQingnang()
+    useGameStore.getState().chooseQingnangTarget('player')
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
     expect(state.discard).toContainEqual(payment)
   })
 

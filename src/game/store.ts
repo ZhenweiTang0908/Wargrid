@@ -33,6 +33,7 @@ interface GameStore extends GameState {
   activateQixi: () => void
   activateZhiheng: () => void
   activateQingnang: () => void
+  chooseQingnangTarget: (team: Team) => void
   activateFanjian: () => void
   activateJieyin: () => void
   activateRende: () => void
@@ -845,7 +846,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
   const drawText = tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : luoyiActive ? '发动【裸衣】摸一张牌' : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
   const roadText = movement > 3 ? ' · 官道疾行，移动力 +1' : ''
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}${roadText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}${roadText}`) }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, qingnangMode: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}${roadText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}${roadText}`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -1150,7 +1151,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       let turnState = state
       if (state.turnStage !== 'discard' && excess > 0 && !keji) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
-        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
+        set({ turnStage: 'discard', discardSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, qingnangMode: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], reachable: [], pathPreview: [], message, history: log(state, message) }); return
       }
       if (state.turnStage === 'discard') {
         if (state.discardSelection.length !== excess) return
@@ -1609,8 +1610,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword) return
-    if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
+    if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, qingnangMode: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode || state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
+    if (state.qingnangMode) { set({ selectedCardId: id, message: '【青囊】请选择一名受伤角色' }); return }
     if (state.zhihengMode) {
       const selected = state.zhihengSelection.includes(id)
       const zhihengSelection = selected ? state.zhihengSelection.filter(cardId => cardId !== id) : [...state.zhihengSelection, id]
@@ -1632,7 +1634,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (card.kind === 'dodge' && state.units.player.skill === 'longdan') {
       set({ selectedCardId: state.selectedCardId === id ? null : id, selectedAsSlash: state.selectedCardId !== id, message: '【龙胆】将【闪】当【杀】使用，请选择敌将' }); return
     }
-    if (card.kind === 'dodge' && !state.units.player.skills.includes('lijian') && !(state.units.player.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club'))) { set({ message: '【闪】在响应窗口中打出' }); return }
+    if (card.kind === 'dodge' && !state.units.player.skills.includes('lijian') && !state.units.player.skills.includes('qingnang') && !(state.units.player.skill === 'qixi' && (card.suit === 'spade' || card.suit === 'club'))) { set({ message: '【闪】在响应窗口中打出' }); return }
     const needsTarget = ['slash', 'fireSlash', 'thunderSlash', 'duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'fireAttack', 'ironChain'].includes(card.kind)
     if (!needsTarget && state.selectedCardId === id) { get().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: id }); return }
     const selecting = state.selectedCardId !== id
@@ -1683,14 +1685,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateQingnang: () => {
     const state = get(), healer = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || !healer.skills.includes('qingnang') || healer.skillUsed || !state.selectedCardId) return
+    if (!healer.hand.some(card => card.id === state.selectedCardId)) return
+    if (!Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp)) { set({ message: '没有受伤角色可发动【青囊】' }); return }
+    set({ qingnangMode: !state.qingnangMode, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, message: state.qingnangMode ? '已取消青囊' : '【青囊】请选择一名受伤角色' })
+  },
+  chooseQingnangTarget: team => {
+    const state = get(), healer = state.units.player, target = state.units[team]
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !state.qingnangMode || !healer.skills.includes('qingnang') || healer.skillUsed || target.hp <= 0 || target.hp >= target.maxHp) return
     const payment = healer.hand.find(card => card.id === state.selectedCardId); if (!payment) return
-    const candidates = Object.values(state.units).filter(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))
-    const target = candidates.sort((a, b) => (b.maxHp - b.hp) - (a.maxHp - a.hp))[0]
-    if (!target) { set({ message: '没有可由【青囊】治疗的友方角色' }); return }
     const updatedHealer = { ...healer, hand: healer.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' as const }
     const units = { ...state.units, player: updatedHealer, [target.id]: { ...(target.id === 'player' ? updatedHealer : target), hp: target.hp + 1, animation: 'heal' as const } }
     const message = `${healer.name}发动【青囊】，弃置【${CARD_LABEL[payment.kind]}】令${target.name}回复 1 点体力`
-    set({ units, discard: [...state.discard, payment], selectedCardId: null, message, history: log(state, message) })
+    set({ units, discard: [...state.discard, payment], selectedCardId: null, qingnangMode: false, message, history: log(state, message) })
   },
   activateFanjian: () => {
     const state = get(), player = state.units.player

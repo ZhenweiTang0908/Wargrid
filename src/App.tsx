@@ -267,17 +267,18 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   const color = pieceColors[unit.skill], darkColor = darkColors[unit.skill]
   const factionAccent: Record<Faction, string> = { wei: '#607fae', shu: '#59a66c', wu: '#d15b4f', qun: '#9a8a74' }
   const accent = factionAccent[unit.faction]
-  const selectedKind = selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
+  const selectedKind = state.qingnangMode ? undefined : selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const attackSource = selectedAsSlash && Object.values(state.units.player.equipment).some(card => card?.id === selectedCardId)
     ? { ...state.units.player, equipment: Object.fromEntries(Object.entries(state.units.player.equipment).filter(([, card]) => card?.id !== selectedCardId)) as Unit['equipment'] } : state.units.player
   const canLijianTarget = state.lijianMode && team !== 'player' && unit.hp > 0 && unit.gender === 'male' && !state.lijianTargets.includes(team)
+  const canQingnangTarget = state.qingnangMode && !!selectedCardId && unit.hp > 0 && unit.hp < unit.maxHp
   const lijianSelected = state.lijianTargets.includes(team)
   const canChainTarget = selectedKind === 'ironChain' && unit.hp > 0
   const chainSelected = state.chainTargets.includes(team)
   const borrowedWielder = state.borrowedSwordWielder
   const canBorrowedWielder = selectedKind === 'borrowedSword' && team !== 'player' && !borrowedWielder && !!unit.equipment.weapon && Object.values(state.units).some(victim => canBorrowedSwordTarget(state, unit, victim))
   const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
-  const canTarget = canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
+  const canTarget = canQingnangTarget || canLijianTarget || (team !== 'player' && unit.hp > 0 && !!selectedCardId && !!selectedKind && !(unit.skills.includes('qianxun') && (selectedKind === 'snatch' || selectedKind === 'indulgence')) && (
     (selectedKind === 'slash' && canSlash(state, attackSource, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && (unit.hand.length > 0 || Object.values(unit.equipment).some(Boolean))) ||
     canBorrowedWielder || canBorrowedVictim ||
@@ -311,7 +312,8 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
       position={worldPosition(unit.position)}
       onClick={previewUnit ? undefined : e => {
         e.stopPropagation()
-        if (canChainTarget) state.selectChainTarget(team)
+        if (canQingnangTarget) state.chooseQingnangTarget(team)
+        else if (canChainTarget) state.selectChainTarget(team)
         else if (canLijianTarget) state.selectLijianTarget(team)
         else if (canBorrowedWielder) state.selectBorrowedSwordWielder(team)
         else if (canBorrowedVictim && selectedCardId && borrowedWielder) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: borrowedWielder, targets: [borrowedWielder, team] })
@@ -819,7 +821,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'feedback', name: '司马懿', title: '狼顾之鬼', faction: '魏', portrait: '/heroes/sima-xuan.png', skillName: '反馈 · 鬼才', copy: '受伤后获得来源牌；判定时可选择一张手牌改判。' },
   { skill: 'jianxiong', name: '曹操', title: '魏武帝', faction: '魏', portrait: '/heroes/cao-cao.png', skillName: '奸雄 · 护驾', copy: '受到伤害后获得造成伤害的牌；魏势力忠臣可替你出闪。' },
   { skill: 'yiji', name: '郭嘉', title: '早终的先知', faction: '魏', portrait: '/heroes/guo-jia.png', skillName: '天妒 · 遗计', copy: '获得自己的判定牌；每受到一次伤害摸两张牌。' },
-  { skill: 'qingnang', name: '华佗', title: '神医', faction: '群', portrait: '/heroes/hua-tuo.png', skillName: '青囊 · 急救', copy: '每回合弃一张牌治疗友方；濒死响应时红牌可当【桃】。' },
+  { skill: 'qingnang', name: '华佗', title: '神医', faction: '群', portrait: '/heroes/hua-tuo.png', skillName: '青囊 · 急救', copy: '每回合弃一张手牌治疗任意受伤角色；回合外红牌可当【桃】。' },
   { skill: 'yingzi', name: '周瑜', title: '大都督', faction: '吴', portrait: '/heroes/zhou-yu.png', skillName: '英姿 · 反间', copy: '摸牌阶段摸三张；每回合赠出一张牌让目标猜花色。' },
   { skill: 'guanxing', name: '诸葛亮', title: '迟暮的丞相', faction: '蜀', portrait: '/heroes/zhuge-liang.png', skillName: '观星 · 空城', copy: '准备阶段观看牌堆顶并安排至牌堆顶或底；没有手牌时不能成为杀或决斗目标。' },
   { skill: 'tuxi', name: '张辽', title: '前将军', faction: '魏', portrait: '/heroes/zhang-liao.png', skillName: '突袭', copy: '摸牌阶段可选一至两名有手牌的其他角色，各获得一张暗置手牌，取代正常摸牌。' },
@@ -1182,7 +1184,7 @@ function App() {
   const canJijiang = state.units.player.identity === 'lord' && state.units.player.skills.includes('jijiang') && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => isSlashKind(card.kind)) || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge')) || (unit.skills.includes('wusheng') && [...unit.hand, ...Object.values(unit.equipment).filter((card): card is Card => !!card)].some(card => card.suit === 'heart' || card.suit === 'diamond'))))
   const canQixi = state.units.player.skill === 'qixi' && selectedCard && (selectedCard.suit === 'spade' || selectedCard.suit === 'club')
   const canZhiheng = state.units.player.skill === 'zhiheng' && !state.units.player.skillUsed
-  const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp && (unit.id === 'player' || unit.identity === 'loyalist'))
+  const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp)
   const canFanjian = state.units.player.skills.includes('fanjian') && !state.units.player.skillUsed && !!selectedCard
   const canJieyin = state.units.player.skills.includes('jieyin') && !state.units.player.skillUsed && state.units.player.hand.length >= 2 && Object.values(state.units).some(unit => unit.id !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male')
   const canRende = state.units.player.skills.includes('rende') && !!selectedCard
@@ -1233,7 +1235,7 @@ function App() {
         {state.turnStage === 'play' && canJijiang && <button className={`secondary skill-action ${state.jijiangSource ? 'active' : ''}`} onClick={() => state.activateJijiang()}><Swords />激将</button>}
         {state.turnStage === 'play' && canQixi && <button className={`secondary skill-action ${state.selectedAsDismantle ? 'active' : ''}`} onClick={() => state.activateQixi()}><Swords />奇袭</button>}
         {state.turnStage === 'play' && canZhiheng && <button className={`secondary skill-action ${state.zhihengMode ? 'active' : ''}`} onClick={() => state.activateZhiheng()}><Swords />{state.zhihengMode && state.zhihengSelection.length ? `制衡${state.zhihengSelection.length}` : '制衡'}</button>}
-        {state.turnStage === 'play' && canQingnang && <button className="secondary skill-action" onClick={() => state.activateQingnang()}><Swords />青囊</button>}
+        {state.turnStage === 'play' && canQingnang && <button className={`secondary skill-action ${state.qingnangMode ? 'active' : ''}`} onClick={() => state.activateQingnang()}><Swords />青囊</button>}
         {state.turnStage === 'play' && canFanjian && <button className={`secondary skill-action ${state.selectedAsFanjian ? 'active' : ''}`} onClick={() => state.activateFanjian()}><Swords />反间</button>}
         {state.turnStage === 'play' && canJieyin && <button className="secondary skill-action" onClick={() => state.activateJieyin()}><Swords />结姻</button>}
         {state.turnStage === 'play' && canRende && <button className={`secondary skill-action ${state.selectedAsRende ? 'active' : ''}`} onClick={() => state.activateRende()}><Swords />仁德</button>}
