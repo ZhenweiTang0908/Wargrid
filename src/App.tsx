@@ -946,7 +946,7 @@ function ResponseWindow() {
       </button>)}
       {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : `没有可用的【${requiredLabel}】`}</span>}
     </div>
-    {pending.effect === 'slash' && player.equipment.armor?.kind === 'bagua' && attackerWeapon !== 'qinggang' && !pending.armorChecked && <button className="decline-response" onClick={activateBagua}>发动【八卦阵】判定：红色视为打出【闪】</button>}
+    {((pending.effect === 'slash' && attackerWeapon !== 'qinggang') || pending.effect === 'arrows') && player.equipment.armor?.kind === 'bagua' && !pending.armorChecked && <button className="decline-response" onClick={activateBagua}>发动【八卦阵】判定：红色视为打出【闪】</button>}
     {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => respond(null)}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
   </section></div>
 }

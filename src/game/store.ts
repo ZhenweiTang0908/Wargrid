@@ -683,10 +683,16 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
   const orderedTargets = [...working.turnOrder.filter(id => id !== 'player'), 'player' as Team]
   for (const targetId of orderedTargets) {
     if (targetId === actorId || working.units[targetId].hp <= 0) continue
-    const target = working.units[targetId]
+    let target = working.units[targetId]
     if (targetId === 'player' && actorId !== 'player') {
       const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
       return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
+    }
+    if (kind === 'arrows' && target.equipment.armor?.kind === 'bagua') {
+      const judged = judgeBagua(working, targetId)
+      working = judged.state
+      if (judged.success) continue
+      target = working.units[targetId]
     }
     const response = responseKind === 'slash' ? slashResponses(target)[0] : responseCard(target, responseKind)
     const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
@@ -1473,7 +1479,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   activateBagua: () => {
     const state = get(), pending = state.pendingResponse
-    if (pending?.effect !== 'slash' || pending.target !== 'player' || pending.armorChecked || state.units.player.equipment.armor?.kind !== 'bagua' || state.units[pending.source].equipment.weapon?.kind === 'qinggang') return
+    if (!pending || (pending.effect !== 'slash' && pending.effect !== 'arrows') || pending.target !== 'player' || pending.armorChecked || state.units.player.equipment.armor?.kind !== 'bagua' || (pending.effect === 'slash' && state.units[pending.source].equipment.weapon?.kind === 'qinggang')) return
     const judged = judgeBagua(state, 'player')
     let next: GameState = judged.state
     if (!judged.success) {
@@ -1484,6 +1490,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if ((pending.requiredCount ?? 1) > 1) {
       const prompt = '【八卦阵】视为打出第一张【闪】；【无双】还需一张【闪】'
       set({ ...next, pendingResponse: { ...pending, armorChecked: true, requiredCount: (pending.requiredCount ?? 1) - 1, prompt }, message: prompt, history: log(next, prompt) })
+      return
+    }
+    if (pending.effect === 'arrows') {
+      set({ ...next, pendingResponse: null })
+      if (next.phase === 'ai' && !next.winner) setTimeout(() => void get().runAI(), 120)
       return
     }
     const attacker = next.units[pending.source]

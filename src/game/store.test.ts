@@ -2274,6 +2274,58 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(judgement)
   })
 
+  it('lets Bagua answer Arrows for the player without spending Dodge', () => {
+    const arrows = card('arrows'), bagua = card('bagua'), redJudge = card('peach', 'heart'), dodge = card('dodge')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [redJudge], discard: [], units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [arrows] },
+      player: { ...state.units.player, hand: [dodge], equipment: { armor: bagua } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'arrows', required: 'dodge' })
+    useGameStore.getState().activateBagua()
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toContainEqual(dodge)
+    expect(state.discard).toContainEqual(redJudge)
+  })
+
+  it('allows a Dodge after Bagua fails against Arrows', () => {
+    const arrows = card('arrows'), bagua = card('bagua'), blackJudge = card('slash', 'spade'), dodge = card('dodge')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [], units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [arrows] },
+      player: { ...state.units.player, hand: [dodge], equipment: { armor: bagua } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().activateBagua()
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'arrows', armorChecked: true })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).not.toContainEqual(dodge)
+    expect(state.discard).toEqual(expect.arrayContaining([blackJudge, dodge]))
+  })
+
+  it('lets AI Bagua negate its Arrows effect before spending a Dodge', () => {
+    const arrows = card('arrows'), bagua = card('bagua'), redJudge = card('peach', 'heart'), dodge = card('dodge')
+    useGameStore.setState(state => ({ deck: [redJudge], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [arrows] },
+      north: { ...state.units.north, hand: [dodge], equipment: { armor: bagua } },
+      east: { ...state.units.east, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toContainEqual(dodge)
+    expect(state.discard).toContainEqual(redJudge)
+  })
+
   it('opens the dodge response after a failed Bagua judgement', () => {
     const slash = card('slash', 'heart'), bagua = card('bagua', 'club'), judgement = card('duel', 'spade', 9), dodge = card('dodge', 'diamond')
     useGameStore.setState(state => ({
