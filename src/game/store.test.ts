@@ -1284,6 +1284,25 @@ describe('standard card scenarios', () => {
     expect(state.discard).toEqual(expect.arrayContaining([duel, first, second, counter]))
   })
 
+  it('lets a fellow rebel counter Nullify on an allied trick', () => {
+    const duel = card('duel', 'spade'), first = card('nullify', 'club'), second = card('nullify', 'diamond'), allyCounter = card('nullify', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [duel] },
+      west: { ...state.units.west, identity: 'rebel', hand: [allyCounter] },
+      player: { ...state.units.player, hand: [first, second] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(first.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'duel' })
+    expect(useGameStore.getState().units.west.hand).not.toContainEqual(allyCounter)
+    useGameStore.getState().respond(second.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.discard).toEqual(expect.arrayContaining([duel, first, allyCounter, second]))
+  })
+
   it('continues from nullify into the underlying duel when declined', () => {
     const duel = card('duel', 'club'), nullify = card('nullify', 'heart')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [duel] }, player: { ...state.units.player, hand: [nullify] } } }))

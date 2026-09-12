@@ -1316,10 +1316,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (card) {
         const player = base.units.player, message = `${player.name}打出【无懈可击】，抵消【${CARD_LABEL[pending.trick!]}】`
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
-        const source = base.units[pending.source], counter = source.hand.find(candidate => candidate.kind === 'nullify')
-        if (counter) {
+        const source = alliesFor(base, pending.source).find(candidate => candidate.id !== 'player' && candidate.hand.some(item => item.kind === 'nullify'))
+        const counter = source?.hand.find(candidate => candidate.kind === 'nullify')
+        if (source && counter) {
           const counterMessage = `${source.name}打出【无懈可击】，反制${player.name}的【无懈可击】`
-          base = { ...base, units: { ...base.units, [pending.source]: { ...source, hand: source.hand.filter(candidate => candidate.id !== counter.id), animation: 'cast' } }, discard: [...base.discard, counter], message: counterMessage, history: log(base, counterMessage) }
+          base = { ...base, units: { ...base.units, [source.id]: { ...source, hand: source.hand.filter(candidate => candidate.id !== counter.id), animation: 'cast' } }, discard: [...base.discard, counter], message: counterMessage, history: log(base, counterMessage) }
           const another = base.units.player.hand.some(candidate => candidate.kind === 'nullify')
           if (another) {
             const prompt = `${source.name}反制了你的【无懈可击】，是否再次打出【无懈可击】？`
