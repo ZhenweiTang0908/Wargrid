@@ -1377,6 +1377,22 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('麒麟弓')
   })
 
+  it('triggers Xiaoji when Qilin Bow removes a mount', () => {
+    const slash = card('slash', 'heart'), bow = card('qilinBow'), mount = card('dilu')
+    const first = card('dodge'), second = card('peach')
+    useGameStore.setState(state => ({ deck: [first, second], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [slash], equipment: { weapon: bow } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { defensiveMount: mount }, skill: 'jieyin', skills: ['jieyin', 'xiaoji'] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.defensiveMount).toBeUndefined()
+    expect(state.units.north.hand).toEqual([first, second])
+    expect(state.units.north.hp).toBe(3)
+    expect(state.message).toContain('枭姬')
+  })
+
   it('lets Serpent Spear convert two selected hand cards into slash', () => {
     const spear = card('spear'), materialA = card('peach', 'heart'), materialB = card('drawTwo', 'club')
     useGameStore.setState(state => ({
@@ -1479,6 +1495,23 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([first.id, second.id]))
     expect(state.message).toContain('寒冰剑')
+  })
+
+  it('heals Silver Lion and draws for Xiaoji when Ice Sword removes two equipment cards', () => {
+    const slash = card('slash'), sword = card('iceSword'), lion = card('silverLion'), mount = card('dilu')
+    const rewards = [card('dodge'), card('peach'), card('drawTwo'), card('slash', 'club')]
+    useGameStore.setState(state => ({ deck: rewards, discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon: sword } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 2, maxHp: 3, hand: [], equipment: { armor: lion, defensiveMount: mount }, skill: 'jieyin', skills: ['jieyin', 'xiaoji'] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.equipment).toEqual({})
+    expect(state.units.north.hand).toEqual(rewards)
+    expect(state.discard).toEqual(expect.arrayContaining([lion, mount]))
+    expect(state.message).toContain('枭姬')
   })
 
   it('caps high damage at one with Silver Lion', () => {
