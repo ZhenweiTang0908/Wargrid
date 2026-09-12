@@ -1213,6 +1213,21 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('反馈')
   })
 
+  it('triggers Xiaoji when Feedback takes Sun Shangxiang equipment', () => {
+    useGameStore.getState().selectGeneral('jieyin')
+    const attack = card('slash', 'heart'), weapon = card('qinggang'), first = card('dodge'), second = card('peach')
+    useGameStore.setState(state => ({ deck: [first, second], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 0, y: 3 }, hand: [attack], equipment: { weapon } },
+      west: { ...state.units.west, position: { x: 0, y: 4 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'west' })
+    const state = useGameStore.getState()
+    expect(state.units.west.hand).toContainEqual(weapon)
+    expect(state.units.player.equipment.weapon).toBeUndefined()
+    expect(state.units.player.hand).toEqual([first, second])
+  })
+
   it('lets player Sima Yi choose an attacker equipment through Feedback', () => {
     useGameStore.getState().selectGeneral('feedback')
     const attack = card('slash', 'heart'), hidden = card('peach', 'diamond'), weapon = card('qinggang', 'spade')
@@ -1914,6 +1929,25 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toContainEqual(forcedSlash)
     expect(state.units.east.hand).toContainEqual(weapon)
     expect(state.units.west.hp).toBe(4)
+  })
+
+  it('triggers Xiaoji when Borrowed Sword takes Sun Shangxiang weapon', () => {
+    useGameStore.getState().selectGeneral('jieyin')
+    const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash'), first = card('dodge'), second = card('peach')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [first, second], discard: [], units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [trick] },
+      player: { ...state.units.player, hand: [forcedSlash], equipment: { weapon } },
+      west: { ...state.units.west, position: { x: 4, y: 7 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toBeUndefined()
+    expect(state.units.player.hand).toEqual([forcedSlash, first, second])
+    expect(state.units.east.hand).toContainEqual(weapon)
+    expect(state.message).toContain('枭姬')
   })
 
   it('does not spend Borrowed Sword when the armed target has no legal victim', () => {

@@ -261,9 +261,8 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
         const prompt = `${target.name}发动【反馈】，请选择获得${attacker.name}的一张牌`
         return { units, deck, discard, pendingPlunder: { source: targetId, target: attackerId, gain: true, reason: 'feedback' }, message: prompt, history: log(state, `${finalMessage}${skillText}；${prompt}`) }
       }
-      const equipment = { ...attacker.equipment }
-      for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot]?.id === gained.id) delete equipment[slot]
-      units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.filter(card => card.id !== gained.id), equipment }, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
+      const taken = takeTargetCard({ ...state, units, deck, discard }, targetId, attackerId, true, gained.id, 'feedback')
+      units = taken.units ?? units; deck = taken.deck ?? deck; discard = taken.discard ?? discard
       skillText += `；${target.name}发动【反馈】获得一张牌`
     }
   }
@@ -388,11 +387,7 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
     const resolved = { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
     return { ...resolved, units: { ...resolved.units, [wielderId]: { ...resolved.units[wielderId], attacksUsed: wielder.attacksUsed } } }
   }
-  const message = `${wielder.name}未能出【杀】，${actor.name}获得其【${CARD_LABEL[weapon.kind]}】`
-  return {
-    units: { ...state.units, [wielderId]: { ...wielder, equipment: { ...wielder.equipment, weapon: undefined }, animation: 'hit' }, [actorId]: { ...actor, hand: [...actor.hand, weapon], animation: 'cast' } },
-    message, history: log(state, message),
-  }
+  return takeTargetCard(state, actorId, wielderId, true, weapon.id, 'borrowedSword')
 }
 
 function judgeBagua(state: GameState, targetId: Team) {
@@ -552,7 +547,7 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCa
   return working
 }
 
-function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: boolean, cardId?: string, reason?: 'feedback'): Partial<GameState> {
+function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: boolean, cardId?: string, reason?: 'feedback' | 'borrowedSword'): Partial<GameState> {
   const actor = state.units[actorId], target = state.units[targetId]
   const targetCards = [...target.hand, ...Object.values(target.equipment).filter((card): card is Card => !!card)]
   const chosen = cardId ? targetCards.find(card => card.id === cardId) : targetCards[0]
@@ -567,7 +562,8 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
   const xiaoji = lostEquipment && target.skills.includes('xiaoji')
   const nextDiscard = gain ? state.discard : [...state.discard, chosen]
   const insight = xiaoji ? drawCards(state.deck, nextDiscard, 2) : { drawn: [] as Card[], deck: state.deck, discard: nextDiscard }
-  const message = `${reason === 'feedback' ? `${actor.name}发动【反馈】` : `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】`}${gain ? '获得' : '弃置'}${target.name}的一张牌${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}${xiaoji ? '；枭姬摸两张牌' : ''}`
+  const actionText = reason === 'feedback' ? `${actor.name}发动【反馈】` : `${actor.name}使用【${gain ? '顺手牵羊' : '过河拆桥'}】`
+  const message = `${reason === 'borrowedSword' ? `${target.name}未能出【杀】，${actor.name}获得其【${CARD_LABEL[chosen.kind]}】` : `${actionText}${gain ? '获得' : '弃置'}${target.name}的一张牌`}${lionHeal ? '；白银狮子令其回复 1 点体力' : ''}${xiaoji ? '；枭姬摸两张牌' : ''}`
   const result: GameState = { ...state,
     units: { ...state.units, [targetId]: { ...target, hp: lionHeal ? target.hp + 1 : target.hp, hand: [...target.hand.filter(card => card.id !== chosen.id), ...insight.drawn], equipment, animation: lionHeal ? 'heal' : xiaoji ? 'cast' : 'hit' }, [actorId]: { ...actor, hand: gain ? [...actor.hand, chosen] : actor.hand } },
     deck: insight.deck, discard: insight.discard, message, history: log(state, message),
