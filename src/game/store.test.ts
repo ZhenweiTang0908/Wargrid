@@ -1213,6 +1213,29 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('反馈')
   })
 
+  it('lets player Sima Yi choose an attacker equipment through Feedback', () => {
+    useGameStore.getState().selectGeneral('feedback')
+    const attack = card('slash', 'heart'), hidden = card('peach', 'diamond'), weapon = card('qinggang', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 3, hand: [] },
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [attack, hidden], equipment: { weapon } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: attack.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ source: 'player', target: 'east', reason: 'feedback' })
+    useGameStore.getState().choosePlunderCard('missing')
+    expect(useGameStore.getState().pendingPlunder).not.toBeNull()
+    useGameStore.getState().choosePlunderCard(weapon.id)
+    const state = useGameStore.getState()
+    expect(state.pendingPlunder).toBeNull()
+    expect(state.units.player.hp).toBe(2)
+    expect(state.units.player.hand).toContainEqual(weapon)
+    expect(state.units.east.hand).toContainEqual(hidden)
+    expect(state.units.east.equipment.weapon).toBeUndefined()
+    expect(state.message).toContain('反馈')
+  })
+
   it('lets a loyalist provide dodge for the lord', () => {
     useGameStore.getState().selectGeneral('jianxiong')
     const slash = card('slash'), dodge = card('dodge', 'heart', 2)

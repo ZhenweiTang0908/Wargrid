@@ -786,7 +786,7 @@ function PlunderWindow() {
   const equipment = Object.entries(target.equipment).filter((entry): entry is [string, Card] => !!entry[1])
   const slotLabel: Record<string, string> = { weapon: '武器', armor: '防具', offensiveMount: '进攻坐骑', defensiveMount: '防御坐骑' }
   return <div className="overlay response-overlay"><section className="response-panel plunder-panel panel">
-    <span className="eyebrow">{pending.gain ? '顺手牵羊' : '过河拆桥'}</span>
+    <span className="eyebrow">{pending.reason === 'feedback' ? '反馈' : pending.gain ? '顺手牵羊' : '过河拆桥'}</span>
     <h1>选择{pending.gain ? '获得' : '弃置'}{target.name}的一张牌</h1>
     <p>手牌以牌背显示；装备区为公开信息，可直接选择指定装备。</p>
     <div className="plunder-cards">

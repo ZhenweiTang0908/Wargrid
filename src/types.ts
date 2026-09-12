@@ -83,6 +83,7 @@ export interface PendingPlunder {
   source: Team
   target: Team
   gain: boolean
+  reason?: 'feedback'
 }
 
 export interface GameState {
