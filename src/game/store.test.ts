@@ -9,6 +9,17 @@ const card = (kind: Card['kind'], suit: Card['suit'] = 'spade', rank = 7): Card 
 describe('standard card scenarios', () => {
   beforeEach(() => useGameStore.setState(createInitialState(Array.from({ length: 24 }, () => card('slash')))))
 
+  it('records each walkable waypoint for the 3D movement animation', () => {
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 2, y: 1 }, movement: 10 } } }))
+    useGameStore.getState().dispatch({ type: 'MOVE', unit: 'player', to: { x: 2, y: 3 } })
+    const moved = useGameStore.getState().units.player
+    expect(moved.position).toEqual({ x: 2, y: 3 })
+    expect(moved.movePath).toHaveLength(4)
+    const traveled = [{ x: 2, y: 1 }, ...moved.movePath!]
+    for (let index = 1; index < traveled.length; index++) expect(Math.abs(traveled[index].x - traveled[index - 1].x) + Math.abs(traveled[index].y - traveled[index - 1].y)).toBe(1)
+    expect(moved.movePath).not.toContainEqual({ x: 2, y: 2 })
+  })
+
   it('swaps the selected general into the player seat without changing identities', () => {
     const before = useGameStore.getState()
     const playerHand = before.units.player.hand, northHand = before.units.north.hand

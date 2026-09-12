@@ -268,6 +268,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   const dispatch = useGameStore(s => s.dispatch)
   const resetAnimation = useGameStore(s => s.resetAnimation)
   const group = useRef<THREE.Group>(null)
+  const moveQueue = useRef<THREE.Vector3[]>([])
   const target = useMemo(() => new THREE.Vector3(...(previewUnit ? [0, 0, 0] as [number, number, number] : worldPosition(unit.position))), [previewUnit, unit.position])
   const pieceColors: Record<GeneralSkill, string> = { qianxun: '#397b72', lianying: '#397b72', guose: '#c76a78', liuli: '#c76a78', luoshen: '#7776a7', qingguo: '#7776a7', keji: '#326e6c', kurou: '#9a3a2e', tieqi: '#d7dde0', mashu: '#d7dde0', rende: '#477b4b', jijiang: '#477b4b', wusheng: '#2f8a68', longdan: '#b6cbd0', ganglie: '#a84635', feedback: '#78528d', guicai: '#78528d', jianxiong: '#8c342d', hujia: '#8c342d', yiji: '#667fa4', tiandu: '#667fa4', qingnang: '#79936c', jijiu: '#79936c', yingzi: '#b64c43', fanjian: '#b64c43', guanxing: '#d7d5c5', kongcheng: '#d7d5c5', tuxi: '#49747c', luoyi: '#8b633d', jieyin: '#b94e58', xiaoji: '#b94e58', paoxiao: '#8f3529', jizhi: '#c59b43', qicai: '#c59b43', qixi: '#2a8c91', biyue: '#a94f79', lijian: '#a94f79', zhiheng: '#3c9291', jiuyuan: '#3c9291', wushuang: '#9d3028' }
   const darkColors: Record<GeneralSkill, string> = { qianxun: '#183c38', lianying: '#183c38', guose: '#542d39', liuli: '#542d39', luoshen: '#292a50', qingguo: '#292a50', keji: '#183a3a', kurou: '#3f201c', tieqi: '#34475a', mashu: '#34475a', rende: '#244629', jijiang: '#244629', wusheng: '#174d3a', longdan: '#526f78', ganglie: '#61251e', feedback: '#3d294b', guicai: '#3d294b', jianxiong: '#271b23', hujia: '#271b23', yiji: '#25324c', tiandu: '#25324c', qingnang: '#34442f', jijiu: '#34442f', yingzi: '#54231f', fanjian: '#54231f', guanxing: '#31565e', kongcheng: '#31565e', tuxi: '#1c3438', luoyi: '#38271d', jieyin: '#4f2630', xiaoji: '#4f2630', paoxiao: '#381713', jizhi: '#385f59', qicai: '#385f59', qixi: '#17464b', biyue: '#51233b', lijian: '#51233b', zhiheng: '#193f42', jiuyuan: '#193f42', wushuang: '#351311' }
@@ -295,14 +296,25 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   ))
 
   useEffect(() => {
+    if (previewUnit) return
+    if (unit.movePath) moveQueue.current.push(...unit.movePath.map(position => new THREE.Vector3(...worldPosition(position))))
+    else { moveQueue.current = []; if (group.current) group.current.position.copy(target) }
+  }, [previewUnit, unit.movePath, target])
+
+  useEffect(() => {
     if (previewUnit || unit.animation === 'idle') return
-    const timer = window.setTimeout(() => resetAnimation(team), unit.animation === 'move' ? 700 : 480)
+    const timer = window.setTimeout(() => resetAnimation(team), unit.animation === 'move' ? Math.max(700, (unit.movePath?.length ?? 1) * 220) : 480)
     return () => window.clearTimeout(timer)
   }, [previewUnit, unit.animation, resetAnimation, team])
 
   useFrame(({ clock }, delta) => {
     if (!group.current) return
-    group.current.position.lerp(target, Math.min(1, delta * 7))
+    const waypoint = moveQueue.current[0] ?? target
+    const distance = Math.hypot(waypoint.x - group.current.position.x, waypoint.z - group.current.position.z)
+    const fraction = distance ? Math.min(1, delta * 5 / distance) : 1
+    group.current.position.x += (waypoint.x - group.current.position.x) * fraction
+    group.current.position.z += (waypoint.z - group.current.position.z) * fraction
+    if (distance < .025 || fraction === 1) moveQueue.current.shift()
     const idle = Math.sin(clock.elapsedTime * 2.2 + (team === 'player' ? 0 : team === 'north' ? 1 : team === 'east' ? 2 : 3)) * .035
     group.current.position.y = idle + (unit.animation === 'heal' ? Math.abs(Math.sin(clock.elapsedTime * 10)) * .12 : 0)
     if (previewUnit) { group.current.rotation.y = Math.sin(clock.elapsedTime * .45) * .38; return }

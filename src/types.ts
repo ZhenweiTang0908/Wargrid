@@ -53,6 +53,7 @@ export interface Unit {
   chained: boolean
   skillUsed: boolean
   animation: AnimationKind
+  movePath?: Position[]
 }
 
 export interface PendingResponse {

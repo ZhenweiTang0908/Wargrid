@@ -906,7 +906,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
       const path = findPath(state, unit.position, action.to, unit.id), cost = pathCost(state, path)
       if (!path.length || cost > unit.movement) return
-      const updated = { ...unit, position: action.to, movement: unit.movement - cost, animation: 'move' as const }
+      const updated = { ...unit, position: action.to, movement: unit.movement - cost, animation: 'move' as const, movePath: path }
       const units = { ...state.units, [action.unit]: updated }, message = `${unit.name}移动 ${cost} 点（${path.length} 格）`
       set({ units, reachable: action.unit === 'player' ? reachableCells({ ...state, units }, updated) : [], pathPreview: [], message, history: log(state, message) }); return
     }
