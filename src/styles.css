@@ -103,6 +103,11 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .general-select-overlay { z-index: 70; }
 .general-select { width: min(880px, 96vw); padding: 22px; }
 .general-select h1 { margin-bottom: 16px; }
+.map-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 13px; }
+.map-options button { min-height: 48px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 7px 11px; border: 1px solid #405b61; color: #adbec0; background: #0c1a1e; text-align: left; cursor: pointer; }
+.map-options button.active { border-color: var(--gold); color: #f3dfb0; background: #3b3021; }
+.map-options strong { font: 700 14px serif; }
+.map-options span { font-size: 10px; }
 .general-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .general-option { position: relative; min-width: 0; padding: 0; overflow: hidden; border: 1px solid #405b61; color: #ecf3ef; background: #0b181d; text-align: left; cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s; }
 .general-option:hover, .general-option:focus-visible { transform: translateY(-5px); border-color: var(--gold); box-shadow: 0 12px 28px #000b, 0 0 18px #d6aa4d33; }
@@ -164,6 +169,10 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .primary { min-height: 34px; margin-top: 10px; }
   .general-select { padding: 10px 14px; }
   .general-select h1 { margin-bottom: 8px; }
+  .map-options { margin-bottom: 6px; }
+  .map-options button { min-height: 34px; padding: 3px 8px; }
+  .map-options strong { font-size: 12px; }
+  .map-options span { font-size: 8px; }
   .general-option img { height: 92px; }
   .general-grid { grid-template-columns: repeat(5, 1fr); }
   .general-option img { height: 68px; }

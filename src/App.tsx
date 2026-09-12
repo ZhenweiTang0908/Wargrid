@@ -85,7 +85,7 @@ function Tile({ position }: { position: Position }) {
   const attackPreview = previewingSlash && !samePosition(state.units.player.position, position) && pathDistance(state, state.units.player.position, position, 'player') <= effectiveAttackRange(state, state.units.player)
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
-  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
+  const terrainColor = terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : state.mapId === 'siege' ? ((position.x + position.y) % 2 ? '#283a3a' : '#304144') : ((position.x + position.y) % 2 ? '#132c32' : '#17363d')
   const controlColors: Record<Team, string> = { player: '#235e79', north: '#763a32', east: '#5c4177', west: '#76502c' }
   const color = obstacle ? '#453f36' : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
 
@@ -171,7 +171,12 @@ function Tile({ position }: { position: Position }) {
         <mesh position={[0, .98, 0]}><cylinderGeometry args={[.018, .018, .38, 6]} /><meshStandardMaterial color="#d0a95e" metalness={.5} /></mesh>
         <Sparkles count={7} scale={.8} size={1.4} speed={.18} color="#ffda83" position-y={.66} />
       </group>}
-      {obstacle && <group position-y={.82}>
+      {obstacle && state.mapId === 'siege' && <group position-y={.82}>
+        <mesh position-y={.14} castShadow><boxGeometry args={[.88, .82, .88]} /><meshStandardMaterial color="#706b5d" roughness={.96} /></mesh>
+        {[-.32, 0, .32].map(x => <mesh key={x} position={[x, .65, -.31]} castShadow><boxGeometry args={[.2, .2, .2]} /><meshStandardMaterial color="#898273" roughness={.92} /></mesh>)}
+        {[-.32, .32].map(x => <mesh key={x} position={[x, .65, .31]} castShadow><boxGeometry args={[.2, .2, .2]} /><meshStandardMaterial color="#898273" roughness={.92} /></mesh>)}
+      </group>}
+      {obstacle && state.mapId !== 'siege' && <group position-y={.82}>
         <mesh position-y={.18} rotation-y={Math.PI / 4}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#6a6254" roughness={.92} /></mesh>
         <mesh position={[.12, .42, -.08]} rotation={[.15, .1, -.2]}><dodecahedronGeometry args={[.22, 0]} /><meshStandardMaterial color="#817765" roughness={1} /></mesh>
         <Sparkles count={5} scale={.7} size={1.3} speed={.08} color="#b4aa90" />
@@ -594,7 +599,7 @@ function Tutorial({ close }: { close: () => void }) {
     <h1>逐鹿中原，决胜九宫</h1>
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
-      <div><b>02</b><strong>战棋</strong><p>在官道开始回合获得 4 点移动力；横贯战场的河道涉水耗 2 点，中央桥梁只耗 1 点；森林提供掩护但火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
+      <div><b>02</b><strong>战棋</strong><p>选将前可选择双河或围城战场。每回合获得 4 点移动力；双河地图涉水耗 2 点，桥梁只耗 1 点；围城地图的城墙不可进入，需争夺入口。森林提供掩护但火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
       <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
@@ -631,9 +636,15 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
 
 function GeneralSelect() {
   const selectGeneral = useGameStore(s => s.selectGeneral)
+  const selectMap = useGameStore(s => s.selectMap)
+  const mapId = useGameStore(s => s.mapId)
   return <div className="overlay general-select-overlay"><section className="general-select panel">
     <span className="eyebrow">主公选将</span>
     <h1>选择本局武将</h1>
+    <div className="map-options" aria-label="选择战场">
+      <button className={mapId === 'river' ? 'active' : ''} onClick={() => selectMap('river')}><strong>双河争渡</strong><span>涉水耗力，中央桥梁是交通要道</span></button>
+      <button className={mapId === 'siege' ? 'active' : ''} onClick={() => selectMap('siege')}><strong>围城夺旗</strong><span>城墙阻路，四道入口与瞭望台决定攻防</span></button>
+    </div>
     <div className="general-grid">
       {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}`} onClick={() => selectGeneral(option.skill)}>
         <img src={option.portrait} alt={`${option.name}武将原画`} />
@@ -770,7 +781,7 @@ function App() {
 
   return <main className="game-shell">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>第 {state.turn} 回合</small></div></div>
+      <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{state.mapId === 'siege' ? '围城夺旗' : '双河争渡'} · 第 {state.turn} 回合</small></div></div>
       <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
         <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>

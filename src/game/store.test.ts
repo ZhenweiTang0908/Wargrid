@@ -30,6 +30,18 @@ describe('standard card scenarios', () => {
     expect(state.units.north.name).toBe('赵云')
   })
 
+  it('switches maps before selection and keeps the map on restart', () => {
+    useGameStore.getState().selectMap('siege')
+    expect(useGameStore.getState().mapId).toBe('siege')
+    expect(useGameStore.getState().obstacles).toContainEqual({ x: 3, y: 2 })
+    useGameStore.getState().selectGeneral('wusheng')
+    useGameStore.getState().selectMap('river')
+    expect(useGameStore.getState().mapId).toBe('siege')
+    useGameStore.getState().dispatch({ type: 'RESTART' })
+    expect(useGameStore.getState().mapId).toBe('siege')
+    expect(useGameStore.getState().generalSelected).toBe(false)
+  })
+
   it('does not let lord-side AI see unrevealed identities', () => {
     const state = useGameStore.getState()
     const hidden = { ...state, units: {

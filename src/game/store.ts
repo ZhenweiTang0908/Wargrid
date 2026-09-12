@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import { CARD_LABEL, SUIT_GLYPH, type Card, type GameAction, type GameState, type GeneralSkill, type Position, type Team, type Unit } from '../types'
+import { CARD_LABEL, SUIT_GLYPH, type Card, type GameAction, type GameState, type GeneralSkill, type MapId, type Position, type Team, type Unit } from '../types'
 import { attackRange, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 interface GameStore extends GameState {
   dispatch: (action: GameAction) => void
   selectGeneral: (skill: GeneralSkill) => void
+  selectMap: (mapId: MapId) => void
   respond: (cardId: string | null) => void
   chooseHarvest: (cardId: string) => void
   chooseFanjianSuit: (suit: Card['suit']) => void
@@ -673,6 +674,10 @@ export function beginTurn(state: GameState, team: Team): GameState {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(undefined, true),
+  selectMap: mapId => {
+    if (get().generalSelected) return
+    set({ ...createInitialState(undefined, true, Math.random, mapId) })
+  },
   selectGeneral: skill => {
     const state = get(), sourceId = state.turnOrder.find(id => state.units[id].skill === skill)
     if (sourceId === 'player') { set({ generalSelected: true, message: `已选择${state.units.player.name}，准备开战` }); return }
@@ -695,7 +700,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })
   },
   dispatch: action => {
-    if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true) }); return }
+    if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId) }); return }
     const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]

@@ -10,6 +10,16 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 }))
 
 describe('board rules', () => {
+  it('builds a siege map with wall chokepoints and reachable central entrances', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'siege')
+    expect(state.mapId).toBe('siege')
+    expect(state.obstacles).toContainEqual({ x: 3, y: 2 })
+    expect(state.obstacles).not.toContainEqual({ x: 4, y: 2 })
+    expect(terrainAt(state, { x: 3, y: 3 })).toBe('watchtower')
+    expect(findPath(state, state.units.player.position, state.controlPoint, 'player').length).toBeGreaterThan(0)
+    expect(findPath(state, state.units.east.position, state.controlPoint, 'east').length).toBeGreaterThan(0)
+    expect(state.mapObjects.every(object => !state.obstacles.some(wall => wall.x === object.position.x && wall.y === object.position.y))).toBe(true)
+  })
   it('finds an orthogonal route and avoids obstacles', () => {
     const state = createInitialState(fixedDeck())
     const path = findPath(state, { x: 4, y: 8 }, { x: 4, y: 6 }, 'player')
