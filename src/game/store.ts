@@ -108,6 +108,7 @@ const alliesFor = (state: GameState, team: Team) => {
     (actor.identity === 'rebel' && unit.identity === 'rebel')
   ))
 }
+const knownAlliesFor = (state: GameState, team: Team) => alliesFor(state, team).filter(unit => unit.id === team || unit.revealed)
 const isRed = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
 const equippedCards = (unit: Unit) => Object.values(unit.equipment).filter((card): card is Card => !!card)
 const rescueCard = (state: GameState, unit: Unit) => unit.hand.find(card => card.kind === 'peach')
@@ -252,7 +253,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       message += `；${target.name}${selfAid.kind === 'peach' ? '使用【桃】自救' : selfAid.kind === 'wine' ? '使用【酒】自救' : '发动【急救】自救'}`
       continue
     }
-    const helper = alliesFor({ ...state, units: rescuedUnits }, targetId).find(unit => unit.id !== targetId && unit.id !== 'player' && rescueCard(state, unit))
+    const helper = target.revealed ? alliesFor({ ...state, units: rescuedUnits }, targetId).find(unit => unit.id !== targetId && unit.id !== 'player' && rescueCard(state, unit)) : undefined
     const aid = helper ? rescueCard(state, helper) : undefined
     if (!helper || !aid) break
     const paid = payRescueCard({ ...state, units: rescuedUnits, deck: rescuedDeck, discard }, helper.id, aid)
@@ -1316,7 +1317,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (card) {
         const player = base.units.player, message = `${player.name}打出【无懈可击】，抵消【${CARD_LABEL[pending.trick!]}】`
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
-        const source = alliesFor(base, pending.source).find(candidate => candidate.id !== 'player' && (candidate.id === pending.source || (base.units[pending.source].revealed && candidate.revealed)) && candidate.hand.some(item => item.kind === 'nullify'))
+        const source = knownAlliesFor(base, pending.source).find(candidate => candidate.id !== 'player' && candidate.hand.some(item => item.kind === 'nullify'))
         const counter = source?.hand.find(candidate => candidate.kind === 'nullify')
         if (source && counter) {
           const counterMessage = `${source.name}打出【无懈可击】，反制${player.name}的【无懈可击】`
@@ -1865,7 +1866,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
     if (ai.skills.includes('rende') && ai.hand.length) {
-      const companion = alliesFor(state, aiId).filter(unit => unit.id !== aiId).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+      const companion = knownAlliesFor(state, aiId).filter(unit => unit.id !== aiId).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
       const gifts = [...ai.hand].sort(card => card.kind === 'peach' ? 1 : card.kind === 'dodge' ? 0 : -1).slice(0, 2)
       if (companion) for (const gift of gifts) {
         get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: gift.id, target: companion.id, asRende: true })
@@ -1885,7 +1886,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
     if (ai.skills.includes('qingnang') && !ai.skillUsed && ai.hand.length) {
-      const patient = alliesFor(state, aiId).filter(unit => unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+      const patient = knownAlliesFor(state, aiId).filter(unit => unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
       const payment = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]
       if (patient && payment) {
         const message = `${ai.name}发动【青囊】，弃置【${CARD_LABEL[payment.kind]}】令${patient.name}回复 1 点体力`
@@ -1913,7 +1914,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
     if (ai.skills.includes('jieyin') && !ai.skillUsed && ai.hand.length >= 2) {
-      const companion = alliesFor(state, aiId).filter(unit => unit.id !== aiId && unit.gender === 'male' && unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+      const companion = knownAlliesFor(state, aiId).filter(unit => unit.id !== aiId && unit.gender === 'male' && unit.hp < unit.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
       if (companion) {
         const paid = [...ai.hand].sort(card => card.kind === 'peach' ? 1 : card.kind === 'dodge' ? 0 : -1).slice(0, 2), paidIds = new Set(paid.map(card => card.id))
         const message = `${ai.name}发动【结姻】，弃置两张牌令${companion.name}回复 1 点体力${ai.hp < ai.maxHp ? `，${ai.name}也回复 1 点体力` : ''}`

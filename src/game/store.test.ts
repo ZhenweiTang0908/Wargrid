@@ -1407,7 +1407,7 @@ describe('standard card scenarios', () => {
       units: {
         ...state.units,
         player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], drunk: true },
-        north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [] },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 1, hand: [], revealed: true },
         west: { ...state.units.west, identity: 'loyalist', hand: [peach, secondPeach] },
       },
     }))
@@ -3268,6 +3268,19 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hp).toBe(3)
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.history.some(entry => entry.includes('青囊'))).toBe(true)
+  })
+
+  it('does not let AI Qingnang identify an unrevealed loyalist as an ally', async () => {
+    const payment = card('nullify')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'qingnang', skills: ['qingnang', 'jijiu'], position: state.controlPoint, hp: 4, hand: [payment] },
+      east: { ...state.units.east, identity: 'loyalist', revealed: false, hp: 1 },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(1)
+    expect(state.history.some(entry => entry.includes('青囊'))).toBe(false)
   })
 
   it('lets AI Sun Quan exchange an unhelpful card through Zhiheng', async () => {
