@@ -137,7 +137,9 @@ function advanceHarvest(state: GameState, pool: Card[], order: Team[]): GameStat
   }
   if (waiting.length && waiting[0] === 'player' && working.units.player.hp > 0 && available.length) {
     const message = `【五谷丰登】轮到你选择一张牌（剩余 ${available.length} 张）`
-    return { ...working, pendingHarvest: { source: state.currentUnit, pool: available, order: waiting }, message, history: log(working, message) }
+    const askNullify = state.currentUnit !== 'player'
+    const prompt = '【五谷丰登】即将轮到你取牌，是否打出【无懈可击】抵消自己的取牌效果？'
+    return { ...working, pendingHarvest: { source: state.currentUnit, pool: available, order: waiting }, pendingResponse: askNullify ? { effect: 'nullify', source: state.currentUnit, target: 'player', required: 'nullify', trick: 'harvest', prompt } : null, message: askNullify ? prompt : message, history: log(working, askNullify ? prompt : message) }
   }
   const message = '【五谷丰登】选择完毕'
   return { ...working, discard: [...working.discard, ...available], pendingHarvest: null, message, history: log(working, message) }
@@ -1044,7 +1046,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             const prompt = `${source.name}反制了你的【无懈可击】，是否再次打出【无懈可击】？`
             base = { ...base, pendingResponse: { ...pending, prompt }, message: prompt, history: log(base, prompt) }
           } else base = applyUnderlying(base)
-        }
+        } else if (pending.trick === 'harvest' && base.pendingHarvest) base = advanceHarvest(base, base.pendingHarvest.pool, base.pendingHarvest.order.slice(1))
       } else base = applyUnderlying(base)
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
@@ -1103,7 +1105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   chooseHarvest: cardId => {
     const state = get(), pending = state.pendingHarvest
-    if (!pending || pending.order[0] !== 'player') return
+    if (!pending || state.pendingResponse || pending.order[0] !== 'player') return
     const chosen = pending.pool.find(card => card.id === cardId)
     if (!chosen) return
     const player = state.units.player

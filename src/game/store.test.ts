@@ -1906,9 +1906,48 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().units.north.hand).toHaveLength(1)
     expect(useGameStore.getState().units.east.hand).toHaveLength(1)
     expect(useGameStore.getState().units.west.hand).toHaveLength(1)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'harvest' })
+    useGameStore.getState().respond(null)
     useGameStore.getState().chooseHarvest(pending!.pool[0].id)
     expect(useGameStore.getState().pendingHarvest).toBeNull()
     expect(useGameStore.getState().units.player.hand).toHaveLength(1)
+  })
+
+  it('lets a player nullify their Harvest pick without denying later seats', () => {
+    const harvest = card('harvest'), nullify = card('nullify'), pool = [card('peach'), card('dodge'), card('slash'), card('qinggang')]
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai', turnStage: 'play', deck: pool, discard: [],
+      units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hand: id === 'east' ? [harvest] : id === 'player' ? [nullify] : [] }])) as typeof state.units,
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: harvest.id })
+    const before = useGameStore.getState()
+    expect(before.pendingResponse).toMatchObject({ effect: 'nullify', trick: 'harvest' })
+    expect(before.pendingHarvest?.order).toEqual(['player', 'north'])
+    useGameStore.getState().chooseHarvest(before.pendingHarvest!.pool[0].id)
+    expect(useGameStore.getState().units.player.hand).toEqual([nullify])
+    useGameStore.getState().respond(nullify.id)
+    const after = useGameStore.getState()
+    expect(after.pendingHarvest).toBeNull()
+    expect(after.units.player.hand).toHaveLength(0)
+    expect(after.units.north.hand).toHaveLength(1)
+    expect(after.discard).toContainEqual(nullify)
+  })
+
+  it('keeps the Harvest pick available when the source counters nullify', () => {
+    const harvest = card('harvest'), nullify = card('nullify'), counter = card('nullify', 'club')
+    const pool = [card('peach'), card('dodge'), card('slash'), card('qinggang')]
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai', turnStage: 'play', deck: pool, discard: [],
+      units: Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hand: id === 'north' ? [harvest, counter] : id === 'player' ? [nullify] : [] }])) as typeof state.units,
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: harvest.id })
+    useGameStore.getState().respond(nullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.pendingHarvest?.order).toEqual(['player'])
+    useGameStore.getState().chooseHarvest(state.pendingHarvest!.pool[0].id)
+    expect(useGameStore.getState().units.player.hand).toHaveLength(1)
+    expect(useGameStore.getState().discard).toEqual(expect.arrayContaining([nullify, counter]))
   })
 
   it('never reshuffles the resolving Harvest card into its own pool', () => {

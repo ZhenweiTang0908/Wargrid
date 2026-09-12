@@ -844,7 +844,7 @@ function App() {
     {!state.generalSelected && <GeneralSelect />}
     {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
-    {state.generalSelected && !tutorial && state.pendingHarvest && <HarvestWindow />}
+    {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}

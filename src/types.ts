@@ -61,7 +61,7 @@ export interface PendingResponse {
   target: Team
   required: 'dodge' | 'slash' | 'peach' | 'nullify'
   prompt: string
-  trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'indulgence' | 'arrows' | 'barbarians' | 'peachGarden' | 'fireAttack' | 'ironChain'
+  trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'indulgence' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   originCardId?: string
   armorChecked?: boolean
   requiredCount?: number
