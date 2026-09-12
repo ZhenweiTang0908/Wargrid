@@ -42,6 +42,15 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().generalSelected).toBe(false)
   })
 
+  it('keeps the highland battlefield when restarting after general selection', () => {
+    useGameStore.getState().selectMap('highland')
+    expect(useGameStore.getState().mapId).toBe('highland')
+    useGameStore.getState().selectGeneral('wusheng')
+    useGameStore.getState().dispatch({ type: 'RESTART' })
+    expect(useGameStore.getState().mapId).toBe('highland')
+    expect(useGameStore.getState().obstacles).toContainEqual({ x: 3, y: 2 })
+  })
+
   it('switches between standard and expanded card pools before selection and preserves the choice', () => {
     useGameStore.getState().selectDeckMode('expanded')
     let state = useGameStore.getState()

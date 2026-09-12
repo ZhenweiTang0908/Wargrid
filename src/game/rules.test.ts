@@ -10,6 +10,16 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 }))
 
 describe('board rules', () => {
+  it('builds a highland map with four traversable routes and tactical side lanes', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'highland')
+    expect(state.mapId).toBe('highland')
+    expect(state.obstacles).toContainEqual({ x: 3, y: 2 })
+    expect(terrainAt(state, { x: 4, y: 2 })).toBe('marsh')
+    expect(terrainAt(state, { x: 1, y: 4 })).toBe('watchtower')
+    for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
+    expect(state.mapObjects.every(object => !state.obstacles.some(wall => wall.x === object.position.x && wall.y === object.position.y))).toBe(true)
+  })
+
   it('builds a siege map with wall chokepoints and reachable central entrances', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'siege')
     expect(state.mapId).toBe('siege')
