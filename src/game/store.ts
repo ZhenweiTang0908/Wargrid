@@ -15,6 +15,7 @@ interface GameStore extends GameState {
   choosePlunderCard: (cardId: string) => void
   chooseJudgementCard: (cardId: string | null) => void
   activateBagua: () => void
+  chooseLuoshen: (continueJudging: boolean) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -621,6 +622,10 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
     working = { ...working, mapObjects: working.mapObjects.map(object => ({ ...object, claimed: false })), message, history: log(working, message) }
   }
   if (!resume && unit.skills.includes('luoshen')) {
+    if (team === 'player') {
+      const message = `${unit.name}准备阶段：是否发动【洛神】进行判定？`
+      return { ...working, pendingLuoshen: { gained: 0 }, message, history: log(working, message) }
+    }
     const gained: Card[] = []
     while (working.deck.length || working.discard.length) {
       const judged = drawCards(working.deck, working.discard, 1), judge = judged.drawn[0]
@@ -773,7 +778,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -1304,6 +1309,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(next)
     if (next.phase === 'ai' && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
   },
+  chooseLuoshen: continueJudging => {
+    const state = get(), pending = state.pendingLuoshen
+    if (!pending || !state.units.player.skills.includes('luoshen') || state.winner) return
+    if (!continueJudging) {
+      const message = pending.gained ? `${state.units.player.name}停止【洛神】，共获得 ${pending.gained} 张黑色判定牌` : `${state.units.player.name}选择不发动【洛神】`
+      set(beginTurn({ ...state, pendingLuoshen: null, message, history: log(state, message) }, 'player', true))
+      return
+    }
+    const drawn = drawCards(state.deck, state.discard, 1), judge = drawn.drawn[0]
+    if (!judge) { set(beginTurn({ ...state, pendingLuoshen: null }, 'player', true)); return }
+    const black = judge.suit === 'spade' || judge.suit === 'club'
+    if (black) {
+      const player = state.units.player
+      const gained = pending.gained + 1
+      const message = `${player.name}发动【洛神】，判定${judge.suit}${judge.rank}为黑色，获得此牌；是否继续？`
+      set({ ...state, deck: drawn.deck, discard: drawn.discard, units: { ...state.units, player: { ...player, hand: [...player.hand, judge], animation: 'cast' } }, pendingLuoshen: { gained }, message, history: log(state, message) })
+      return
+    }
+    const message = `${state.units.player.name}发动【洛神】，判定${judge.suit}${judge.rank}为红色，结束判定；共获得 ${pending.gained} 张牌`
+    set(beginTurn({ ...state, deck: drawn.deck, discard: [...drawn.discard, judge], pendingLuoshen: null, message, history: log(state, message) }, 'player', true))
+  },
   selectCard: id => {
     const state = get(); if (state.phase !== 'player' || state.pendingResponse) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
@@ -1452,7 +1478,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return

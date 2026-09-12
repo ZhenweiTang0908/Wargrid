@@ -693,7 +693,7 @@ function Tutorial({ close }: { close: () => void }) {
 const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; faction: string; portrait: string; skillName: string; copy: string }[] = [
   { skill: 'qianxun', name: '陆逊', title: '儒生雄才', faction: '吴', portrait: '/heroes/lu-xun.png', skillName: '谦逊 · 连营', copy: '不能成为顺手牵羊和乐不思蜀的目标；失去最后一张手牌后摸一张牌。' },
   { skill: 'guose', name: '大乔', title: '矜持之花', faction: '吴', portrait: '/heroes/da-qiao.png', skillName: '国色 · 流离', copy: '方片牌可当【乐不思蜀】；成为杀目标时弃牌，将杀转移给攻击范围内其他角色。' },
-  { skill: 'luoshen', name: '甄姬', title: '薄幸的美人', faction: '魏', portrait: '/heroes/zhen-ji.png', skillName: '洛神 · 倾国', copy: '回合开始连续获得黑色判定牌直到出现红色；黑色手牌可以当【闪】。' },
+  { skill: 'luoshen', name: '甄姬', title: '薄幸的美人', faction: '魏', portrait: '/heroes/zhen-ji.png', skillName: '洛神 · 倾国', copy: '准备阶段可反复判定：黑色牌收入手牌，之后自行决定是否继续；黑色手牌可以当【闪】。' },
   { skill: 'keji', name: '吕蒙', title: '白衣渡江', faction: '吴', portrait: '/heroes/lu-meng.png', skillName: '克己', copy: '若本回合没有使用【杀】，结束出牌时跳过弃牌阶段。' },
   { skill: 'kurou', name: '黄盖', title: '轻身为国', faction: '吴', portrait: '/heroes/huang-gai.png', skillName: '苦肉', copy: '出牌阶段可失去 1 点体力并摸两张牌，且可以连续发动。' },
   { skill: 'tieqi', name: '马超', title: '一骑当千', faction: '蜀', portrait: '/heroes/ma-chao.png', skillName: '马术 · 铁骑', copy: '与其他角色的距离始终 -1；使用杀时红色判定令目标不能使用闪。' },
@@ -791,6 +791,21 @@ function JudgementWindow() {
       </button>)}
     </div>
     <button className="decline-response" onClick={() => chooseJudgementCard(null)}>保留原判定</button>
+  </section></div>
+}
+
+function LuoshenWindow() {
+  const pending = useGameStore(s => s.pendingLuoshen)
+  const chooseLuoshen = useGameStore(s => s.chooseLuoshen)
+  if (!pending) return null
+  return <div className="overlay response-overlay"><section className="response-panel panel">
+    <span className="eyebrow">准备阶段 · 洛神</span>
+    <h1>{pending.gained ? `已获得 ${pending.gained} 张黑色判定牌` : '是否发动【洛神】？'}</h1>
+    <p>每次判定为黑色便获得该牌，并可决定是否继续；判定为红色时结束【洛神】。结束后正常进入摸牌阶段。</p>
+    <div className="suit-choices">
+      <button onClick={() => chooseLuoshen(true)}><strong>判</strong><span>{pending.gained ? '继续判定' : '发动洛神'}</span></button>
+      <button onClick={() => chooseLuoshen(false)}><strong>止</strong><span>{pending.gained ? '收手' : '跳过洛神'}</span></button>
+    </div>
   </section></div>
 }
 
@@ -946,6 +961,7 @@ function App() {
     {state.generalSelected && tutorial && <Tutorial close={closeTutorial} />}
     {state.generalSelected && !tutorial && state.pendingResponse && <ResponseWindow />}
     {state.generalSelected && !tutorial && state.pendingJudgement && <JudgementWindow />}
+    {state.generalSelected && !tutorial && state.pendingLuoshen && <LuoshenWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}

@@ -2158,14 +2158,48 @@ describe('standard card scenarios', () => {
     state.deck = [blackA, blackB, redStop, drawA, drawB]
     state.discard = []
     state.units.player = { ...state.units.player, hand: [] }
-    const result = beginTurn(state, 'player')
+    useGameStore.setState(state)
+    expect(useGameStore.getState().pendingLuoshen).toEqual({ gained: 0 })
+    useGameStore.getState().chooseLuoshen(true)
+    expect(useGameStore.getState().pendingLuoshen).toEqual({ gained: 1 })
+    useGameStore.getState().chooseLuoshen(true)
+    expect(useGameStore.getState().pendingLuoshen).toEqual({ gained: 2 })
+    useGameStore.getState().chooseLuoshen(true)
+    const result = useGameStore.getState()
     expect(result.units.player.hand).toEqual([blackA, blackB, drawA, drawB])
     expect(result.discard).toContainEqual(redStop)
-    expect(result.history.some(entry => entry.includes('洛神') && entry.includes('2 张'))).toBe(true)
+    expect(result.pendingLuoshen).toBeNull()
+    expect(result.turnStage).toBe('play')
+    expect(result.history.some(entry => entry.includes('洛神') && entry.includes('2 张牌'))).toBe(true)
+  })
+
+  it('lets Zhen Ji stop Luoshen after a black judgement and keep the next card for the draw phase', () => {
+    useGameStore.getState().selectGeneral('luoshen')
+    const black = card('duel', 'spade'), nextCard = card('peach', 'heart'), drawB = card('slash', 'club')
+    useGameStore.setState(state => ({ deck: [black, nextCard, drawB], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [] } } }))
+    useGameStore.getState().chooseLuoshen(true)
+    expect(useGameStore.getState().units.player.hand).toEqual([black])
+    useGameStore.getState().chooseLuoshen(false)
+    const result = useGameStore.getState()
+    expect(result.units.player.hand).toEqual([black, nextCard, drawB])
+    expect(result.discard).not.toContainEqual(nextCard)
+    expect(result.pendingLuoshen).toBeNull()
+  })
+
+  it('lets Zhen Ji skip Luoshen before revealing a judgement card', () => {
+    useGameStore.getState().selectGeneral('luoshen')
+    const first = card('duel', 'spade'), second = card('slash', 'club')
+    useGameStore.setState({ deck: [first, second], discard: [] })
+    useGameStore.getState().chooseLuoshen(false)
+    const result = useGameStore.getState()
+    expect(result.pendingLuoshen).toBeNull()
+    expect(result.units.player.hand).toEqual(expect.arrayContaining([first, second]))
+    expect(result.discard).not.toContainEqual(first)
   })
 
   it('lets Zhen Ji use a black hand card as dodge through Qingguo', () => {
     useGameStore.getState().selectGeneral('luoshen')
+    useGameStore.getState().chooseLuoshen(false)
     const slash = card('slash', 'heart'), blackCard = card('duel', 'club')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [blackCard] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
