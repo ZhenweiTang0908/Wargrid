@@ -31,3 +31,5 @@ pnpm android:apk
 应用包名为 `com.wargrid.game`，启动后固定使用横屏。调试版由 Android 默认调试证书签名，仅用于开发试玩；发布到应用商店前需生成正式签名包。
 
 当前版本包含四人身份局、十一张 9×9 战场（含据点偏置的枫林旧寨、雪岭烽道和云岭梯田）、移动与寻路、基础牌/锦囊/装备、身份胜负和 AI 座次轮转。选将前可选择标准牌池（108 张，含 EX 牌）或扩展牌池（116 张，加入军争牌）；牌面配置参考[标准包牌表](https://wiki.biligame.com/sgs/标准包卡牌)。原创武将 3D 制作规范见 [docs/3d-art-direction.md](docs/3d-art-direction.md)。
+
+出牌、闪避、治疗和胜负有中文语音与战斗音效，首次点按游戏后即可播放；右上角可静音。语音是项目自制的离线音频，已随网页和 Android 项目资源打包。需要重新生成语音素材时，可在装有 macOS 中文系统语音和 ffmpeg 的电脑上运行 `bash scripts/generate-card-voices.sh`。

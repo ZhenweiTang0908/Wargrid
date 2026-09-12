@@ -1373,15 +1373,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'slash' && card && (pending.requiredCount ?? 1) > 1) {
       const player = base.units.player, remaining = (pending.requiredCount ?? 1) - 1
       const prompt = `【无双】还需打出 ${remaining} 张【闪】，或放弃并承受伤害`
-      base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, `${player.name}为【无双】打出第一张【闪】`) }
-      base = triggerLianying(base, 'player', [card, ...base.discard.filter(item => item.id === pending.originCardId)])
+      base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, resolvingResponseIds: [...(pending.resolvingResponseIds ?? []), card.id], prompt }, message: prompt, history: log(base, `${player.name}为【无双】打出第一张【闪】`) }
+      base = triggerLianying(base, 'player', base.discard.filter(item => item.id === pending.originCardId || item.id === card.id || pending.resolvingResponseIds?.includes(item.id)))
       set(base); return
     }
     if (card) {
       const player = base.units.player
       const response = pending.required === 'slash' || pending.required === 'dodge' ? responseText(player, card, pending.required) : `打出【${CARD_LABEL[card.kind]}】`
       const message = `${player.name}${response}响应【${CARD_LABEL[pending.effect]}】`
-      base = payRescueCard(base, 'player', card, base.discard.filter(item => item.id === pending.originCardId))
+      base = payRescueCard(base, 'player', card, base.discard.filter(item => item.id === pending.originCardId || pending.resolvingResponseIds?.includes(item.id)))
       base = { ...base, message, history: log(base, message) }
       if (pending.effect === 'slash') {
         const attackCard = base.discard.find(candidate => candidate.id === pending.originCardId)

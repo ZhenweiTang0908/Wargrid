@@ -985,6 +985,24 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hand).toHaveLength(0)
   })
 
+  it('does not redraw the first Wushuang Dodge through Lianying after the second Dodge', () => {
+    const slash = card('slash'), first = card('dodge'), second = card('dodge', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [second], discard: [], units: {
+      ...state.units,
+      east: { ...state.units.east, skill: 'wushuang', position: { x: 4, y: 7 }, hand: [slash] },
+      player: { ...state.units.player, name: '陆逊', skill: 'qianxun', skills: ['qianxun', 'lianying'], position: { x: 4, y: 8 }, hand: [first] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(first.id)
+    expect(useGameStore.getState().units.player.hand).toEqual([second])
+    expect(useGameStore.getState().pendingResponse?.resolvingResponseIds).toEqual([first.id])
+    useGameStore.getState().respond(second.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([slash, first, second]))
+  })
+
   it('lets AI Zhen Ji use a black hand card as Dodge through Qingguo', () => {
     const slash = card('slash', 'heart'), black = card('peach', 'club')
     useGameStore.setState(state => ({ units: {

@@ -6,6 +6,8 @@ import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
+import { audioEvents } from './game/audioEvents'
+import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -1235,7 +1237,7 @@ function BattleReport({ close }: { close: () => void }) {
 function App() {
   const state = useGameStore()
   const dispatch = useGameStore(s => s.dispatch)
-  const [sound, setSound] = useState(true)
+  const [sound, setSound] = useState(() => localStorage.getItem('wargrid-sound') !== 'off')
   const [showHistory, setShowHistory] = useState(false)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
@@ -1262,6 +1264,18 @@ function App() {
     return () => document.removeEventListener('touchmove', prevent)
   }, [])
 
+  useEffect(() => {
+    if (!sound) setAudioEnabled(false)
+    document.addEventListener('pointerdown', unlockAudio, { once: true, capture: true })
+    document.addEventListener('keydown', unlockAudio, { once: true, capture: true })
+    return () => {
+      document.removeEventListener('pointerdown', unlockAudio, true)
+      document.removeEventListener('keydown', unlockAudio, true)
+    }
+  }, [])
+
+  useEffect(() => useGameStore.subscribe((next, previous) => playAudioEvents(audioEvents(previous, next))), [])
+
   return <main className="game-shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{MAP_DEFINITIONS[state.mapId].name} · {state.deckMode === 'standard' ? '标准' : '扩展'} · 第 {state.turn} 回合</small></div></div>
@@ -1269,7 +1283,7 @@ function App() {
       <div className="header-actions">
         <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>
         <button className="icon-button" onClick={() => setTutorial(true)} aria-label="查看规则"><CircleHelp /></button>
-        <button className="icon-button" onClick={() => setSound(v => !v)} aria-label="切换音效">{sound ? <Volume2 /> : <VolumeX />}</button>
+        <button className="icon-button" onClick={() => setSound(value => { const next = !value; localStorage.setItem('wargrid-sound', next ? 'on' : 'off'); setAudioEnabled(next); return next })} aria-label={sound ? '关闭音效' : '开启音效'} aria-pressed={sound}>{sound ? <Volume2 /> : <VolumeX />}</button>
         <button className="icon-button" onClick={() => dispatch({ type: 'RESTART' })} aria-label="重新开始"><RotateCcw /></button>
       </div>
     </header>

@@ -64,6 +64,7 @@ export interface PendingResponse {
   prompt: string
   trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'drawTwo' | 'indulgence' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   originCardId?: string
+  resolvingResponseIds?: string[]
   armorChecked?: boolean
   requiredCount?: number
   forcedSlashAttacksUsed?: number
