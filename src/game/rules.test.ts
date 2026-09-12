@@ -11,7 +11,7 @@ const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
 
 describe('board rules', () => {
   it('keeps every selectable battlefield definition playable', () => {
-    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass'])
+    expect(MAP_IDS).toEqual(['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard'])
     for (const id of MAP_IDS) {
       const map = MAP_DEFINITIONS[id]
       const state = createInitialState(fixedDeck(), false, Math.random, id)
@@ -21,6 +21,14 @@ describe('board rules', () => {
       expect(state.obstacles).toBe(map.obstacles)
       for (const unit of Object.values(state.units)) expect(findPath(state, unit.position, state.controlPoint, unit.id).length).toBeGreaterThan(0)
     }
+  })
+  it('uses dry gangways to cross the dockyard water lanes', () => {
+    const state = createInitialState(fixedDeck(), false, Math.random, 'dockyard')
+    expect(terrainAt(state, { x: 4, y: 3 })).toBe('road')
+    expect(terrainAt(state, { x: 2, y: 3 })).toBe('bridge')
+    expect(movementCost(state, { x: 1, y: 3 })).toBe(2)
+    expect(state.obstacles).toContainEqual({ x: 3, y: 4 })
+    expect(state.mapObjects.every(object => !state.obstacles.some(block => block.x === object.position.x && block.y === object.position.y))).toBe(true)
   })
   it('builds a canyon pass with a narrow central route and ranged flank towers', () => {
     const state = createInitialState(fixedDeck(), false, Math.random, 'pass')

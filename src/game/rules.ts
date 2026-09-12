@@ -113,6 +113,25 @@ export const PASS_TERRAIN: Terrain[] = [
   ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
   ...terrainLine('village', [{ x: 0, y: 7 }, { x: 8, y: 1 }]),
 ]
+export const DOCKYARD_OBSTACLES: Position[] = [
+  { x: 1, y: 2 }, { x: 2, y: 2 }, { x: 6, y: 2 }, { x: 7, y: 2 },
+  { x: 1, y: 6 }, { x: 2, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 },
+  { x: 3, y: 4 }, { x: 5, y: 4 },
+]
+export const DOCKYARD_TERRAIN: Terrain[] = [
+  ...terrainLine('water', [
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 3 })),
+    ...Array.from({ length: 9 }, (_, x) => ({ x, y: 5 })),
+    { x: 0, y: 4 }, { x: 8, y: 4 },
+  ]),
+  ...terrainLine('bridge', [{ x: 2, y: 3 }, { x: 4, y: 3 }, { x: 6, y: 3 }, { x: 2, y: 5 }, { x: 4, y: 5 }, { x: 6, y: 5 }]),
+  ...terrainLine('road', [...Array.from({ length: 9 }, (_, y) => ({ x: 4, y })), { x: 3, y: 3 }, { x: 5, y: 3 }, { x: 3, y: 5 }, { x: 5, y: 5 }]),
+  ...terrainLine('ridge', [{ x: 2, y: 4 }, { x: 6, y: 4 }]),
+  ...terrainLine('watchtower', [{ x: 0, y: 2 }, { x: 8, y: 6 }]),
+  ...terrainLine('forest', [{ x: 0, y: 1 }, { x: 8, y: 1 }, { x: 0, y: 7 }, { x: 8, y: 7 }]),
+  ...terrainLine('camp', [{ x: 4, y: 0 }, { x: 4, y: 8 }]),
+  ...terrainLine('village', [{ x: 3, y: 0 }, { x: 5, y: 8 }]),
+]
 const riverObjects: MapObject[] = [
   { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
   { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
@@ -161,8 +180,16 @@ const passObjects: MapObject[] = [
   { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
   { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
 ]
+const dockyardObjects: MapObject[] = [
+  { id: 'south-cache', position: { x: 3, y: 7 }, kind: 'supplyCache', claimed: false },
+  { id: 'north-cache', position: { x: 5, y: 1 }, kind: 'supplyCache', claimed: false },
+  { id: 'west-shrine', position: { x: 0, y: 4 }, kind: 'healingShrine', claimed: false },
+  { id: 'east-drum', position: { x: 8, y: 4 }, kind: 'warDrum', claimed: false },
+  { id: 'west-beacon', position: { x: 0, y: 7 }, kind: 'scoutBeacon', claimed: false },
+  { id: 'east-beacon', position: { x: 8, y: 1 }, kind: 'scoutBeacon', claimed: false },
+]
 
-export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass']
+export const MAP_IDS: MapId[] = ['river', 'siege', 'highland', 'wetland', 'bamboo', 'pass', 'dockyard']
 export const MAP_DEFINITIONS: Record<MapId, {
   name: string
   description: string
@@ -178,6 +205,7 @@ export const MAP_DEFINITIONS: Record<MapId, {
   wetland: { name: '泽国遗城', description: '中央涉水或侧翼过桥，废墟与水道改变路线', obstacles: WETLAND_OBSTACLES, terrain: WETLAND_TERRAIN, objects: wetlandObjects, groundColors: ['#273a35', '#30443a'], obstacleColor: '#453f36' },
   bamboo: { name: '竹林古道', description: '竹林掩护两翼，碎石断道迫使短兵相接', obstacles: BAMBOO_OBSTACLES, terrain: BAMBOO_TERRAIN, objects: bambooObjects, groundColors: ['#263d30', '#2d4935'], obstacleColor: '#4c5541' },
   pass: { name: '栈道峡关', description: '峡壁收窄中央通路，两侧瞭望台可远程支援', obstacles: PASS_OBSTACLES, terrain: PASS_TERRAIN, objects: passObjects, groundColors: ['#493c30', '#534435'], obstacleColor: '#7c6550' },
+  dockyard: { name: '赤壁船坞', description: '两道水路分隔战场，多处栈桥连接中央码头', obstacles: DOCKYARD_OBSTACLES, terrain: DOCKYARD_TERRAIN, objects: dockyardObjects, groundColors: ['#193b40', '#21505a'], obstacleColor: '#64584c' },
 }
 
 export const samePosition = (a: Position, b: Position) => a.x === b.x && a.y === b.y

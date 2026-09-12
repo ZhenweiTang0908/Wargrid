@@ -206,6 +206,12 @@ function Tile({ position }: { position: Position }) {
         <mesh position={[-.24, .22, .21]} rotation-z={-.18}><dodecahedronGeometry args={[.23, 0]} /><meshStandardMaterial color="#695a4d" roughness={1} flatShading /></mesh>
         {[.13, .43, .71].map(y => <mesh key={y} position={[0, y, .29]} rotation-z={.09}><boxGeometry args={[.44, .025, .025]} /><meshStandardMaterial color="#695a4b" roughness={1} /></mesh>)}
       </group>}
+      {obstacle && state.mapId === 'dockyard' && <group position-y={.82} rotation-y={(position.x + position.y) % 2 * Math.PI / 2}>
+        <mesh position-y={.12} castShadow><boxGeometry args={[.84, .42, .72]} /><meshStandardMaterial color="#77513b" roughness={.94} /></mesh>
+        <mesh position-y={.37} castShadow><boxGeometry args={[.68, .13, .58]} /><meshStandardMaterial color="#9a7450" roughness={.9} /></mesh>
+        {[-.25, .25].map(x => <mesh key={x} position={[x, .13, .37]}><boxGeometry args={[.055, .4, .035]} /><meshStandardMaterial color="#453a35" metalness={.55} /></mesh>)}
+        <mesh position={[0, .44, 0]}><boxGeometry args={[.05, .1, .48]} /><meshStandardMaterial color="#503d32" roughness={.9} /></mesh>
+      </group>}
       {obstacle && state.mapId === 'river' && <group position-y={.82}>
         <mesh position-y={.18} rotation-y={Math.PI / 4}><dodecahedronGeometry args={[.36, 0]} /><meshStandardMaterial color="#6a6254" roughness={.92} /></mesh>
         <mesh position={[.12, .42, -.08]} rotation={[.15, .1, -.2]}><dodecahedronGeometry args={[.22, 0]} /><meshStandardMaterial color="#817765" roughness={1} /></mesh>
@@ -623,6 +629,14 @@ function Battlefield() {
 
 function WorldScenery() {
   const mapId = useGameStore(s => s.mapId)
+  if (mapId === 'dockyard') return <group position-y={-.15}>
+    {[-1, 1].flatMap(side => [-4, -1.6, 1.6, 4].map((z, index) => <group key={`${side}-${index}`} position={[side * 5.45, 0, z]}>
+      <mesh position-y={.28} castShadow><boxGeometry args={[.8, .55, .75]} /><meshStandardMaterial color={index % 2 ? '#705340' : '#866043'} roughness={.92} /></mesh>
+      <mesh position-y={.6}><boxGeometry args={[.62, .1, .57]} /><meshStandardMaterial color="#aa8054" roughness={.88} /></mesh>
+      <mesh position={[side * .44, .65, 0]}><cylinderGeometry args={[.035, .04, 1.3, 6]} /><meshStandardMaterial color="#4d3428" roughness={.9} /></mesh>
+      <mesh position={[side * .58, 1.02, 0]} rotation-z={side * .18}><boxGeometry args={[.36, .55, .045]} /><meshStandardMaterial color="#a74531" roughness={.82} side={THREE.DoubleSide} /></mesh>
+    </group>))}
+  </group>
   if (mapId === 'pass') return <group position-y={-.15}>
     {[-1, 1].flatMap(side => [-4.7, -2.5, 0, 2.5, 4.7].map((z, index) => <group key={`${side}-${index}`} position={[side * (5.3 + index % 2 * .2), 0, z]} rotation-y={index * .31}>
       <mesh position-y={.72} castShadow><cylinderGeometry args={[.47, .72, 1.6, 5]} /><meshStandardMaterial color={index % 2 ? '#80664f' : '#6e5c4e'} roughness={1} flatShading /></mesh>
