@@ -1718,11 +1718,60 @@ describe('standard card scenarios', () => {
     const slash = card('slash'), weapon = card('iceSword'), first = card('peach'), second = card('drawTwo')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [first, second] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingIceSword).toMatchObject({ target: 'north', amount: 1 })
+    useGameStore.getState().chooseIceSword([first.id, second.id])
     const state = useGameStore.getState()
+    expect(state.pendingIceSword).toBeNull()
     expect(state.units.north.hp).toBe(4)
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([first.id, second.id]))
     expect(state.message).toContain('寒冰剑')
+  })
+
+  it('lets the player keep Slash damage instead of activating Ice Sword', () => {
+    const slash = card('slash'), weapon = card('iceSword'), held = card('peach')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [held] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseIceSword(null)
+    const state = useGameStore.getState()
+    expect(state.pendingIceSword).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.hand).toEqual([held])
+  })
+
+  it('lets Ice Sword discard chosen equipment instead of a hidden hand card', () => {
+    const slash = card('slash', 'heart'), sword = card('iceSword'), held = card('peach'), shield = card('shield'), mount = card('dilu')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon: sword } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [held], equipment: { armor: shield, defensiveMount: mount } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseIceSword([shield.id, mount.id])
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([held])
+    expect(state.units.north.equipment).toEqual({})
+    expect(state.discard).toEqual(expect.arrayContaining([shield, mount]))
+  })
+
+  it('lets AI deal lethal Slash damage instead of automatically using Ice Sword', () => {
+    const slash = card('slash', 'heart'), sword = card('iceSword'), held = card('drawTwo')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash], equipment: { weapon: sword } },
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [held] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(0)
+    expect(state.pendingIceSword).toBeNull()
+    expect(state.discard).toContainEqual(held)
   })
 
   it('heals Silver Lion and draws for Xiaoji when Ice Sword removes two equipment cards', () => {
@@ -1734,6 +1783,7 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, position: { x: 4, y: 0 }, hp: 2, maxHp: 3, hand: [], equipment: { armor: lion, defensiveMount: mount }, skill: 'jieyin', skills: ['jieyin', 'xiaoji'] },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseIceSword([lion.id, mount.id])
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(3)
     expect(state.units.north.equipment).toEqual({})

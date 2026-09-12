@@ -977,6 +977,27 @@ function AxeWindow() {
   </section></div>
 }
 
+function IceSwordWindow() {
+  const pending = useGameStore(s => s.pendingIceSword)
+  const target = useGameStore(s => pending ? s.units[pending.target] : null)
+  const choose = useGameStore(s => s.chooseIceSword)
+  const [selected, setSelected] = useState<string[]>([])
+  if (!pending || !target) return null
+  const equipment = Object.values(target.equipment).filter((card): card is Card => !!card)
+  const count = Math.min(2, target.hand.length + equipment.length)
+  const toggle = (id: string) => setSelected(current => current.includes(id) ? current.filter(item => item !== id) : current.length < count ? [...current, id] : current)
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">造成伤害前 · 寒冰剑</span>
+    <h1>改为弃置{target.name}的牌？</h1>
+    <p>发动后本次【杀】不造成伤害，改为弃置 {count} 张牌。手牌保持暗置，装备牌可辨认；也可以直接造成 {pending.amount} 点伤害。</p>
+    <div className="response-cards">
+      {target.hand.map((card, index) => <button key={card.id} className={`hidden-card ${selected.includes(card.id) ? 'selected' : ''}`} onClick={() => toggle(card.id)}><strong>暗</strong><span>手牌 {index + 1}{selected.includes(card.id) ? ' · 已选' : ''}</span></button>)}
+      {equipment.map(card => <button key={card.id} className={`card ${card.kind} ${selected.includes(card.id) ? 'selected' : ''}`} onClick={() => toggle(card.id)}><span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span><strong>{CARD_LABEL[card.kind]}</strong><small>装备 · {selected.includes(card.id) ? '已选' : '弃置'}</small></button>)}
+    </div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => choose(null)}>不发动 · 造成伤害</button><button className="primary" disabled={selected.length !== count} onClick={() => choose(selected)}>发动寒冰剑 {selected.length}/{count}</button></div>
+  </section></div>
+}
+
 function HarvestWindow() {
   const pending = useGameStore(s => s.pendingHarvest)
   const chooseHarvest = useGameStore(s => s.chooseHarvest)
@@ -1136,6 +1157,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
     {state.generalSelected && !tutorial && state.pendingLiuli && <LiuliWindow />}
     {state.generalSelected && !tutorial && state.pendingAxe && <AxeWindow />}
+    {state.generalSelected && !tutorial && state.pendingIceSword && <IceSwordWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
