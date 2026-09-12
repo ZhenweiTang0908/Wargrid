@@ -530,7 +530,7 @@ function Battlefield() {
   const size = useGameStore(s => s.size)
   const cells = useMemo(() => Array.from({ length: size * size }, (_, i) => ({ x: i % size, y: Math.floor(i / size) })), [size])
   return (
-    <Canvas shadows dpr={[1, 1.65]} camera={{ position: [9.7, 11.5, 10.7], fov: 40 }} gl={{ antialias: true }}>
+    <Canvas shadows dpr={[1, 1.65]} camera={{ position: [8.5, 10.1, 9.2], fov: 40 }} gl={{ antialias: true }}>
       <color attach="background" args={['#0b1b22']} />
       <fog attach="fog" args={['#0b1b22', 12, 21]} />
       <BattleLighting />

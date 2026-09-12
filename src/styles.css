@@ -160,6 +160,20 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .portrait-warning { display: none; }
 
 @media (max-height: 500px) and (orientation: landscape) {
+  .battlefield { inset: 44px 0 94px; }
+  .status-left, .status-right, .ai-roster { top: 54px; }
+  .status { width: 160px; padding: 5px; gap: 6px; }
+  .status .avatar { width: 34px; height: 34px; font-size: 13px; }
+  .ai-roster { gap: 3px; }
+  .ai-roster .status { width: 105px; padding: 5px; gap: 4px; }
+  .ai-roster .avatar { width: 28px; height: 28px; }
+  .name-row strong { font-size: 12px; }
+  .name-row span, .status-meta, .equipment-line, .skill-line { display: none; }
+  .hearts { gap: 1px; margin: 2px 0; font-size: 9px; }
+  .message-bar { bottom: 94px; padding: 4px 10px; }
+  .command-deck { height: 94px; grid-template-columns: 100px minmax(0, 1fr) 150px; gap: 6px; padding-top: 5px; padding-bottom: 5px; }
+  .card { width: 61px; height: 75px; padding: 5px; }
+  .card small { display: none; }
   .panel { max-height: calc(100dvh - 12px); padding: 14px 20px; overflow-y: auto; }
   .panel h1 { margin: 3px 0 10px; font-size: 22px; }
   .panel .close { right: 9px; top: 9px; }
@@ -199,7 +213,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .ai-roster { gap: 3px; }
   .ai-roster .status { width: 108px; padding: 5px; gap: 4px; }
   .ai-roster .avatar { width: 28px; height: 28px; font-size: 11px; }
-  .ai-roster .hearts, .ai-roster .skill-line { display: none; }
+  .ai-roster .skill-line { display: none; }
   .avatar { width: 37px; height: 37px; font-size: 15px; }
   .status-meta { display: none; }
   .message-bar { bottom: 91px; padding: 4px 10px; min-width: 260px; font-size: 10px; }
