@@ -304,7 +304,8 @@ export function createDeck(): Card[] {
 }
 
 // Standard package: two cards per rank and suit, plus four EX cards.
-// Source: https://wiki.biligame.com/sgs/标准包卡牌
+// Checked against noname's standard package list:
+// https://github.com/libnoname/noname/blob/main/apps/core/card/standard.js
 const STANDARD_ROWS: Record<Suit, [CardKind, CardKind][]> = {
   heart: [
     ['peachGarden', 'arrows'], ['dodge', 'dodge'], ['peach', 'harvest'], ['peach', 'harvest'],
