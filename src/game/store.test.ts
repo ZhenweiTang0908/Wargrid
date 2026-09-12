@@ -368,6 +368,21 @@ describe('standard card scenarios', () => {
     expect(state.discard).not.toContainEqual(lightning)
   })
 
+  it('lets Gan Ning use a black card as Dismantle on a delayed trick', () => {
+    useGameStore.getState().selectGeneral('qixi')
+    const payment = card('dodge', 'club'), indulgence = card('indulgence', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hand: [payment] },
+      north: { ...state.units.north, hand: [], equipment: {}, judgement: [indulgence] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: payment.id, target: 'north', asDismantle: true })
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ target: 'north', gain: false })
+    useGameStore.getState().choosePlunderCard(indulgence.id)
+    const state = useGameStore.getState()
+    expect(state.units.north.judgement).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([payment, indulgence]))
+  })
+
   it('lets Sima Yi replace an unfavorable judgement through Guicai', () => {
     const state = createInitialState([])
     const indulgence = card('indulgence'), badJudge = card('slash', 'spade'), replacement = card('peach', 'heart'), drawA = card('slash'), drawB = card('dodge')
