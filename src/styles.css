@@ -101,7 +101,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .result h1 { margin-bottom: 8px; }
 .result p { color: #869da2; font-size: 13px; }
 .general-select-overlay { z-index: 70; }
-.general-select { width: min(880px, 96vw); padding: 22px; }
+.general-select { width: min(880px, 96vw); max-height: calc(100dvh - 24px); padding: 22px; overflow-y: auto; }
 .general-select h1 { margin-bottom: 16px; }
 .map-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 13px; }
 .map-options button { min-height: 48px; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 7px 11px; border: 1px solid #405b61; color: #adbec0; background: #0c1a1e; text-align: left; cursor: pointer; }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
+import { attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, createStandardDeck, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -47,6 +47,19 @@ describe('board rules', () => {
 })
 
 describe('card and victory rules', () => {
+  it('uses the 108-card standard package with its printed suits and ranks', () => {
+    const deck = createStandardDeck(() => .5)
+    expect(deck).toHaveLength(108)
+    expect(new Set(deck.map(card => card.id)).size).toBe(108)
+    for (const suit of ['spade', 'heart', 'club', 'diamond']) expect(deck.filter(card => card.suit === suit)).toHaveLength(27)
+    for (const [kind, count] of [['slash', 30], ['dodge', 15], ['peach', 8]] as const) expect(deck.filter(card => card.kind === kind)).toHaveLength(count)
+    expect(deck).toContainEqual(expect.objectContaining({ kind: 'peachGarden', suit: 'heart', rank: 1 }))
+    expect(deck).toContainEqual(expect.objectContaining({ kind: 'iceSword', suit: 'spade', rank: 2 }))
+    expect(deck).toContainEqual(expect.objectContaining({ kind: 'nullify', suit: 'diamond', rank: 12 }))
+    expect(deck).toContainEqual(expect.objectContaining({ kind: 'shield', suit: 'club', rank: 2 }))
+    expect(deck.some(card => ['fireSlash', 'thunderSlash', 'wine', 'fireAttack', 'ironChain'].includes(card.kind))).toBe(false)
+  })
+
   it('builds a varied standard-inspired deck with suits and ranks', () => {
     const deck = createDeck()
     expect(deck.length).toBe(116)

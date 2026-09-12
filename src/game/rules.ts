@@ -1,4 +1,4 @@
-import type { Card, CardKind, GameState, Identity, MapId, MapObject, Position, Suit, Team, Terrain, TerrainKind, Unit } from '../types'
+import type { Card, CardKind, DeckMode, GameState, Identity, MapId, MapObject, Position, Suit, Team, Terrain, TerrainKind, Unit } from '../types'
 
 export const BOARD_SIZE = 9
 export const CONTROL_POINT: Position = { x: 4, y: 4 }
@@ -93,6 +93,45 @@ export function createDeck(): Card[] {
     for (let n = 0; n < count; n++) cards.push({ id: `card-${++index}`, kind, suit: availableSuits[n % availableSuits.length], rank: (index % 13) + 1 })
   }
   return shuffle(cards)
+}
+
+// Standard package: two cards per rank and suit, plus four EX cards.
+// Source: https://wiki.biligame.com/sgs/标准包卡牌
+const STANDARD_ROWS: Record<Suit, [CardKind, CardKind][]> = {
+  heart: [
+    ['peachGarden', 'arrows'], ['dodge', 'dodge'], ['peach', 'harvest'], ['peach', 'harvest'],
+    ['qilinBow', 'redHare'], ['peach', 'indulgence'], ['peach', 'drawTwo'], ['peach', 'drawTwo'],
+    ['peach', 'drawTwo'], ['slash', 'slash'], ['slash', 'drawTwo'], ['peach', 'dismantle'], ['dodge', 'zhaohuang'],
+  ],
+  spade: [
+    ['duel', 'lightning'], ['doubleSword', 'bagua'], ['dismantle', 'snatch'], ['dismantle', 'snatch'],
+    ['greenDragon', 'jueying'], ['indulgence', 'qinggang'], ['slash', 'barbarians'], ['slash', 'slash'],
+    ['slash', 'slash'], ['slash', 'slash'], ['snatch', 'nullify'], ['dismantle', 'spear'], ['barbarians', 'dayuan'],
+  ],
+  diamond: [
+    ['crossbow', 'duel'], ['dodge', 'dodge'], ['dodge', 'snatch'], ['dodge', 'snatch'],
+    ['dodge', 'axe'], ['slash', 'dodge'], ['slash', 'dodge'], ['slash', 'dodge'],
+    ['slash', 'dodge'], ['slash', 'dodge'], ['dodge', 'dodge'], ['peach', 'halberd'], ['slash', 'zixing'],
+  ],
+  club: [
+    ['duel', 'crossbow'], ['slash', 'bagua'], ['slash', 'dismantle'], ['slash', 'dismantle'],
+    ['slash', 'dilu'], ['slash', 'indulgence'], ['slash', 'barbarians'], ['slash', 'slash'],
+    ['slash', 'slash'], ['slash', 'slash'], ['slash', 'slash'], ['borrowedSword', 'nullify'], ['borrowedSword', 'nullify'],
+  ],
+}
+const STANDARD_EX: [Suit, number, CardKind][] = [
+  ['heart', 12, 'lightning'], ['spade', 2, 'iceSword'], ['diamond', 12, 'nullify'], ['club', 2, 'shield'],
+]
+
+export function createStandardDeck(random = Math.random): Card[] {
+  const cards: Card[] = []
+  for (const suit of ['heart', 'spade', 'diamond', 'club'] as Suit[]) {
+    STANDARD_ROWS[suit].forEach((pair, index) => pair.forEach((kind, copy) => {
+      cards.push({ id: `standard-${suit}-${index + 1}-${copy}`, kind, suit, rank: index + 1 })
+    }))
+  }
+  STANDARD_EX.forEach(([suit, rank, kind]) => cards.push({ id: `standard-ex-${suit}`, kind, suit, rank }))
+  return shuffle(cards, random)
 }
 
 export function shuffle<T>(items: T[], random = Math.random): T[] {
@@ -225,18 +264,19 @@ export function determineWinner(units: Record<Team, Unit>): Team | null {
   return null
 }
 
-export function createInitialState(deck = createDeck(), randomizeIdentities = false, random = Math.random, mapId: MapId = 'river'): GameState {
+export function createInitialState(deck?: Card[], randomizeIdentities = false, random = Math.random, mapId: MapId = 'river', deckMode: DeckMode = 'standard'): GameState {
+  const initialDeck = deck ?? (deckMode === 'standard' ? createStandardDeck(random) : createDeck())
   const hiddenIdentities: Identity[] = randomizeIdentities ? shuffle<Identity>(['loyalist', 'rebel', 'renegade'], random) : ['loyalist', 'rebel', 'renegade']
   const state: GameState = {
-    mapId, size: BOARD_SIZE, terrain: mapId === 'siege' ? SIEGE_TERRAIN : TERRAIN, obstacles: mapId === 'siege' ? SIEGE_OBSTACLES : OBSTACLES, controlPoint: CONTROL_POINT,
+    mapId, deckMode, size: BOARD_SIZE, terrain: mapId === 'siege' ? SIEGE_TERRAIN : TERRAIN, obstacles: mapId === 'siege' ? SIEGE_OBSTACLES : OBSTACLES, controlPoint: CONTROL_POINT,
     mapObjects: (mapId === 'siege' ? siegeObjects : riverObjects).map(object => ({ ...object, position: { ...object.position } })),
     units: {
-      player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: deck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
-      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: hiddenIdentities[0], faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: deck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
-      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: hiddenIdentities[1], faction: 'wei', gender: 'male', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', skills: ['ganglie'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
-      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: hiddenIdentities[2], faction: 'wei', gender: 'male', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: deck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      player: { id: 'player', name: '关羽', title: '美髯公', team: 'player', identity: 'lord', faction: 'shu', gender: 'male', revealed: true, position: { x: 4, y: 8 }, hp: 5, maxHp: 5, hand: initialDeck.slice(0, 4), equipment: {}, judgement: [], skill: 'wusheng', skills: ['wusheng'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      north: { id: 'north', name: '赵云', title: '少年将军', team: 'north', identity: hiddenIdentities[0], faction: 'shu', gender: 'male', revealed: false, position: { x: 4, y: 0 }, hp: 4, maxHp: 4, hand: initialDeck.slice(4, 8), equipment: {}, judgement: [], skill: 'longdan', skills: ['longdan'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      east: { id: 'east', name: '夏侯惇', title: '独眼的罗刹', team: 'east', identity: hiddenIdentities[1], faction: 'wei', gender: 'male', revealed: false, position: { x: 8, y: 4 }, hp: 4, maxHp: 4, hand: initialDeck.slice(8, 12), equipment: {}, judgement: [], skill: 'ganglie', skills: ['ganglie'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
+      west: { id: 'west', name: '司马懿', title: '狼顾之鬼', team: 'west', identity: hiddenIdentities[2], faction: 'wei', gender: 'male', revealed: false, position: { x: 0, y: 4 }, hp: 4, maxHp: 4, hand: initialDeck.slice(12, 16), equipment: {}, judgement: [], skill: 'feedback', skills: ['feedback', 'guicai'], movement: 3, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive: false, rendeGiven: 0, chained: false, skillUsed: false, animation: 'idle' },
     },
-    deck: deck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
+    deck: initialDeck.slice(16), discard: [], phase: 'player', turnStage: 'play', turn: 1,
     scores: { player: 0, north: 0, east: 0, west: 0 }, turnOrder: ['player', 'north', 'east', 'west'], currentUnit: 'player', generalSelected: false, selectedUnit: 'player', selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], discardSelection: [],
     chainTargets: [], reachable: [], pathPreview: [], pendingResponse: null, pendingHarvest: null, pendingFanjian: null, pendingPlunder: null, winner: null, message: '出牌阶段 · 移动或使用手牌', history: ['战局开始'],
   }

@@ -30,4 +30,4 @@ pnpm android:apk
 
 应用包名为 `com.wargrid.game`，启动后固定使用横屏。调试版由 Android 默认调试证书签名，仅用于开发试玩；发布到应用商店前需生成正式签名包。
 
-当前版本包含四人身份局、9×9 地形战场、移动与寻路、基础牌/锦囊/装备、身份胜负和 AI 座次轮转。原创武将 3D 制作规范见 [docs/3d-art-direction.md](docs/3d-art-direction.md)。
+当前版本包含四人身份局、两张 9×9 战场、移动与寻路、基础牌/锦囊/装备、身份胜负和 AI 座次轮转。选将前可选择标准牌池（108 张，含 EX 牌）或扩展牌池（116 张，加入军争牌）；牌面配置参考[标准包牌表](https://wiki.biligame.com/sgs/标准包卡牌)。原创武将 3D 制作规范见 [docs/3d-art-direction.md](docs/3d-art-direction.md)。

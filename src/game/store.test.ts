@@ -42,6 +42,23 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().generalSelected).toBe(false)
   })
 
+  it('switches between standard and expanded card pools before selection and preserves the choice', () => {
+    useGameStore.getState().selectDeckMode('expanded')
+    let state = useGameStore.getState()
+    expect(state.deckMode).toBe('expanded')
+    expect(state.deck.length + Object.values(state.units).reduce((total, unit) => total + unit.hand.length, 0)).toBe(116)
+    useGameStore.getState().selectGeneral('wusheng')
+    useGameStore.getState().selectDeckMode('standard')
+    expect(useGameStore.getState().deckMode).toBe('expanded')
+    useGameStore.getState().dispatch({ type: 'RESTART' })
+    state = useGameStore.getState()
+    expect(state.deckMode).toBe('expanded')
+    useGameStore.getState().selectDeckMode('standard')
+    state = useGameStore.getState()
+    expect(state.deckMode).toBe('standard')
+    expect(state.deck.length + Object.values(state.units).reduce((total, unit) => total + unit.hand.length, 0)).toBe(108)
+  })
+
   it('does not let lord-side AI see unrevealed identities', () => {
     const state = useGameStore.getState()
     const hidden = { ...state, units: {
