@@ -197,6 +197,12 @@ function beginHarvest(state: GameState, source: Team, harvestCard: Card): GameSt
   return advanceHarvest({ ...state, deck: draw.deck, discard: [...draw.discard, harvestCard] }, draw.drawn, order)
 }
 
+function resolveDrawTwo(state: GameState, source: Team, card: Card): GameState {
+  const draw = drawCards(state.deck, state.discard.filter(item => item.id !== card.id), 2)
+  const actor = state.units[source], message = `${actor.name}使用【无中生有】，摸两张牌`
+  return { ...state, units: { ...state.units, [source]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], message, history: log(state, message) }
+}
+
 function rescueDyingPlayer(state: GameState, startingHp: number) {
   let working = state, hp = startingHp
   const helpers: string[] = []
@@ -1040,6 +1046,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const skillMessage = `${unit.name}发动【集智】，摸一张牌`
         base = { ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...insight.drawn] } }, deck: insight.deck, discard: [...insight.discard, card], message: skillMessage, history: log(base, skillMessage) }
       }
+      if (kind === 'drawTwo') {
+        if (action.unit !== 'player' && base.units.player.hp > 0 && base.units.player.hand.some(candidate => candidate.kind === 'nullify')) {
+          const prompt = `${unit.name}使用【无中生有】，是否打出【无懈可击】阻止其摸牌？`
+          set({ ...base, pendingResponse: { effect: 'nullify', source: action.unit, target: action.unit, required: 'nullify', trick: 'drawTwo', originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
+        }
+        if (action.unit === 'player') {
+          const defender = Object.values(base.units).find(candidate => candidate.id !== 'player' && candidate.hp > 0 && candidate.hand.some(item => item.kind === 'nullify') && targetsFor(base, candidate.id).some(target => target.id === 'player'))
+          const nullify = defender?.hand.find(candidate => candidate.kind === 'nullify')
+          if (defender && nullify) {
+            const message = `${defender.name}打出【无懈可击】，抵消${unit.name}的【无中生有】`
+            const countered = { ...base, units: { ...base.units, [defender.id]: { ...defender, hand: defender.hand.filter(item => item.id !== nullify.id), animation: 'cast' as const } }, discard: [...base.discard, nullify], message, history: log(base, message) }
+            const ready = triggerLianying(countered, defender.id)
+            if (ready.units.player.hand.some(item => item.kind === 'nullify')) {
+              const prompt = `${defender.name}抵消了你的【无中生有】，是否打出【无懈可击】反制？`
+              set({ ...ready, pendingResponse: { effect: 'nullify', source: 'player', target: 'player', required: 'nullify', trick: 'drawTwo', originCardId: card.id, counteredBy: defender.id, prompt }, message: prompt, history: log(ready, prompt) })
+            } else set(ready)
+            return
+          }
+        }
+        set(resolveDrawTwo(base, action.unit, card)); return
+      }
       const nullifiable = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'fireAttack', 'ironChain'].includes(kind)
       if (kind === 'borrowedSword' && !target.equipment.weapon) return
       if (kind === 'snatch' && !unit.skills.includes('qicai') && combatDistance(state, unit, target) > 1) return
@@ -1063,10 +1090,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (unit.wineUsed) return
         const message = `${unit.name}饮【酒】，下一张【杀】伤害 +1`
         set({ units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, wineUsed: true, drunk: true, animation: 'heal' } }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
-      }
-      if (kind === 'drawTwo') {
-        const draw = drawCards(base.deck, base.discard.filter(item => item.id !== card.id), 2), actor = base.units[action.unit], message = `${unit.name}使用【无中生有】，摸两张牌`
-        set({ ...base, units: { ...base.units, [action.unit]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], message, history: log(base, message) }); return
       }
       if (kind === 'peachGarden') {
         const playerCanRespond = action.unit !== 'player' && base.units.player.hp > 0 && base.units.player.hp < base.units.player.maxHp
@@ -1239,7 +1262,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
     if (pending.effect === 'nullify') {
+      if (pending.counteredBy) {
+        if (!card) {
+          const message = `${base.units.player.name}放弃反制，【无中生有】被抵消`
+          set({ ...base, message, history: log(base, message) }); return
+        }
+        const player = base.units.player
+        const reply = `${player.name}打出【无懈可击】，反制对【无中生有】的抵消`
+        base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(item => item.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message: reply, history: log(base, reply) }
+        const defender = base.units[pending.counteredBy], nextCounter = defender.hand.find(item => item.kind === 'nullify')
+        if (nextCounter) {
+          const message = `${defender.name}再次打出【无懈可击】，抵消${player.name}的反制`
+          base = { ...base, units: { ...base.units, [defender.id]: { ...defender, hand: defender.hand.filter(item => item.id !== nextCounter.id), animation: 'cast' } }, discard: [...base.discard, nextCounter], message, history: log(base, message) }
+          if (base.units.player.hand.some(item => item.kind === 'nullify')) {
+            const prompt = `${defender.name}再次抵消了你的【无中生有】，是否继续反制？`
+            base = { ...base, pendingResponse: { ...pending, prompt }, message: prompt, history: log(base, prompt) }
+          }
+        } else {
+          const resolving = base.discard.find(item => item.id === pending.originCardId)
+          if (resolving) base = resolveDrawTwo(base, 'player', resolving)
+        }
+        set(base); return
+      }
       const applyUnderlying = (working: GameState): GameState => {
+        if (pending.trick === 'drawTwo') {
+          const resolving = working.discard.find(candidate => candidate.id === pending.originCardId)
+          return resolving ? resolveDrawTwo(working, pending.source, resolving) : working
+        }
         if (pending.trick === 'peachGarden') {
           const player = working.units.player
           const message = `${player.name}受到【桃园结义】效果，回复 1 点体力`

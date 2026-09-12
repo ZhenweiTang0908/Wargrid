@@ -260,6 +260,59 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(trick)
   })
 
+  it('lets the player nullify an AI Draw Two before cards are drawn', () => {
+    const trick = card('drawTwo'), nullify = card('nullify'), rewardA = card('slash'), rewardB = card('dodge')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [rewardA, rewardB], discard: [], units: { ...state.units,
+      east: { ...state.units.east, hand: [trick] }, player: { ...state.units.player, hand: [nullify] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'drawTwo' })
+    useGameStore.getState().respond(nullify.id)
+    const state = useGameStore.getState()
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.deck).toEqual([rewardA, rewardB])
+    expect(state.discard).toEqual(expect.arrayContaining([trick, nullify]))
+  })
+
+  it('resolves an AI Draw Two if the player declines to nullify it', () => {
+    const trick = card('drawTwo'), nullify = card('nullify'), rewardA = card('slash'), rewardB = card('dodge')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [rewardA, rewardB], discard: [], units: { ...state.units,
+      east: { ...state.units.east, hand: [trick] }, player: { ...state.units.player, hand: [nullify] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.east.hand).toEqual([rewardA, rewardB])
+    expect(state.units.player.hand).toContainEqual(nullify)
+  })
+
+  it('lets a hostile AI nullify the player Draw Two', () => {
+    const trick = card('drawTwo'), nullify = card('nullify'), rewardA = card('slash'), rewardB = card('dodge')
+    useGameStore.setState(state => ({ deck: [rewardA, rewardB], discard: [], units: { ...state.units,
+      player: { ...state.units.player, hand: [trick] }, east: { ...state.units.east, hand: [nullify], identity: 'rebel' },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.deck).toEqual([rewardA, rewardB])
+    expect(state.discard).toEqual(expect.arrayContaining([trick, nullify]))
+  })
+
+  it('lets the player counter a hostile nullify on Draw Two', () => {
+    const trick = card('drawTwo'), playerNullify = card('nullify', 'heart'), enemyNullify = card('nullify'), rewardA = card('slash'), rewardB = card('dodge')
+    useGameStore.setState(state => ({ deck: [rewardA, rewardB], discard: [], units: { ...state.units,
+      player: { ...state.units.player, hand: [trick, playerNullify] }, east: { ...state.units.east, hand: [enemyNullify], identity: 'rebel' },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'drawTwo', counteredBy: 'east' })
+    useGameStore.getState().respond(playerNullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hand).toEqual([rewardA, rewardB])
+    expect(state.discard).toEqual(expect.arrayContaining([trick, playerNullify, enemyNullify]))
+  })
+
   it('lets Huang Yueying ignore Snatch distance through Qicai', () => {
     useGameStore.getState().selectGeneral('jizhi')
     const snatch = card('snatch'), prize = card('peach')
