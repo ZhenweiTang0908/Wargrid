@@ -1,15 +1,16 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { ContactShadows, OrbitControls, RoundedBox, Sparkles } from '@react-three/drei'
+import { ContactShadows, OrbitControls, Sparkles } from '@react-three/drei'
 import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
-import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type Position, type Team, type Unit } from './types'
+import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type Unit } from './types'
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
 import { setMusicScene } from './music'
+import { BattlefieldGround } from './BattlefieldGround'
 
 const TILE_GAP = 1.06
 const worldPosition = (p: Position): [number, number, number] => [(p.x - 4) * TILE_GAP, 0, (p.y - 4) * TILE_GAP]
@@ -50,25 +51,25 @@ function BattleLighting() {
 
 function ControlBeacon({ owner }: { owner: Team | null }) {
   const ring = useRef<THREE.Mesh>(null)
-  const beam = useRef<THREE.Mesh>(null)
   const colors: Record<Team, string> = { player: '#55c7ff', north: '#ef5350', east: '#ae72e8', west: '#ef9b43' }
   const color = owner ? colors[owner] : '#f2c66d'
   useFrame(({ clock }) => {
     const pulse = 1 + Math.sin(clock.elapsedTime * 2.25) * .09
     if (ring.current) ring.current.scale.setScalar(pulse)
-    if (beam.current) beam.current.scale.y = .82 + Math.sin(clock.elapsedTime * 1.7) * .18
   })
-  return <group position-y={.12}>
-    <mesh ref={ring} rotation-x={-Math.PI / 2}>
-      <torusGeometry args={[.3, .042, 8, 32]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.45} />
+  return <group position-y={.015}>
+    <mesh position-y={.08} castShadow receiveShadow><cylinderGeometry args={[.34, .4, .15, 8]} /><meshStandardMaterial color="#7f7764" roughness={.95} /></mesh>
+    <mesh position-y={.175} castShadow><cylinderGeometry args={[.29, .34, .055, 8]} /><meshStandardMaterial color="#b9a47b" roughness={.78} /></mesh>
+    <mesh ref={ring} position-y={.215} rotation-x={-Math.PI / 2}>
+      <torusGeometry args={[.25, .017, 6, 32]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={.65} />
     </mesh>
-    <mesh ref={beam} position-y={.36}>
-      <cylinderGeometry args={[.12, .24, .72, 18, 1, true]} />
-      <meshBasicMaterial color={color} transparent opacity={owner ? .18 : .09} depthWrite={false} side={THREE.DoubleSide} />
-    </mesh>
-    <pointLight position-y={.3} color={color} intensity={owner ? 2.2 : 1.1} distance={2.2} />
-    <Sparkles count={owner ? 20 : 12} scale={.82} size={2.2} speed={owner ? .48 : .3} color={color} />
+    <mesh position={[.2, .48, -.17]}><cylinderGeometry args={[.018, .023, .7, 7]} /><meshStandardMaterial color="#66503a" roughness={.9} /></mesh>
+    <mesh position={[.3, .68, -.17]} rotation-z={-.18}><planeGeometry args={[.2, .29]} /><meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={.82} /></mesh>
+    <mesh position-y={.24}><cylinderGeometry args={[.12, .16, .11, 8]} /><meshStandardMaterial color="#614b36" roughness={.8} /></mesh>
+    <mesh position-y={.34}><coneGeometry args={[.085, .22, 7]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.2} transparent opacity={.82} /></mesh>
+    <pointLight position-y={.35} color={color} intensity={owner ? 1.3 : .7} distance={1.6} />
+    <Sparkles count={owner ? 10 : 6} scale={.65} size={1.5} speed={.32} color={color} />
   </group>
 }
 
@@ -90,30 +91,27 @@ function Tile({ position }: { position: Position }) {
   const canInteract = !!mapObject && !mapObject.claimed && !!selectedCard && state.phase === 'player' && state.currentUnit === 'player' && state.turnStage === 'play' && Math.abs(state.units.player.position.x - position.x) + Math.abs(state.units.player.position.y - position.y) <= 1
   const [hovered, setHovered] = useState(false)
   const map = MAP_DEFINITIONS[state.mapId]
-  const terrainColor = state.mapId === 'desert'
-    ? terrain === 'water' ? '#317b87' : terrain === 'marsh' ? '#96876a' : terrain === 'ridge' ? '#9a7454' : terrain === 'road' ? '#bd9964' : terrain === 'camp' ? '#8f694e' : terrain === 'village' ? '#a9845a' : terrain === 'watchtower' ? '#9c7956' : map.groundColors[(position.x + position.y) % 2]
-    : state.mapId === 'winter'
-      ? terrain === 'forest' ? '#739598' : terrain === 'snow' ? '#d9e4dc' : terrain === 'road' ? '#829ba5' : terrain === 'ridge' ? '#8ca3aa' : terrain === 'watchtower' ? '#697f8d' : terrain === 'village' ? '#859aa0' : terrain === 'camp' ? '#748b99' : map.groundColors[(position.x + position.y) % 2]
-    : state.mapId === 'terraces'
-      ? terrain === 'forest' ? '#315242' : terrain === 'marsh' ? '#596045' : terrain === 'road' ? '#8a7753' : terrain === 'ridge' ? '#6b7554' : terrain === 'watchtower' ? '#7a7552' : terrain === 'village' ? '#8b7858' : terrain === 'camp' ? '#6e6048' : map.groundColors[(position.x + position.y) % 2]
-    : state.mapId === 'maple'
-      ? terrain === 'forest' ? '#70412d' : terrain === 'road' ? '#695442' : terrain === 'ridge' ? '#624639' : terrain === 'watchtower' ? '#816247' : terrain === 'village' ? '#775a3f' : terrain === 'camp' ? '#664231' : map.groundColors[(position.x + position.y) % 2]
-    : terrain === 'water' ? '#173e51' : terrain === 'bridge' ? '#554631' : terrain === 'marsh' ? '#313f2b' : terrain === 'forest' ? '#193b2d' : terrain === 'ridge' ? '#3c3831' : terrain === 'road' ? '#3b352b' : terrain === 'camp' ? '#493328' : terrain === 'village' ? '#544231' : terrain === 'watchtower' ? '#4c402c' : map.groundColors[(position.x + position.y) % 2]
-  const controlColors: Record<Team, string> = { player: '#235e79', north: '#763a32', east: '#5c4177', west: '#76502c' }
-  const color = obstacle ? map.obstacleColor : control ? occupant ? controlColors[occupant.team] : '#8c652c' : inPath ? '#53bfd1' : attackPreview ? '#633b35' : reachable ? '#234e5c' : terrainColor
-
   return (
     <group position={worldPosition(position)}>
       <mesh
-        position-y={obstacle ? .42 : 0}
+        position-y={obstacle ? .42 : .028}
+        rotation-x={obstacle ? 0 : -Math.PI / 2}
         scale={hovered && reachable ? 1.04 : 1}
         onPointerEnter={e => { e.stopPropagation(); setHovered(true); hoverCell(position); document.body.style.cursor = reachable || canInteract ? 'pointer' : 'default' }}
         onPointerLeave={() => { setHovered(false); hoverCell(null); document.body.style.cursor = 'default' }}
         onClick={e => { e.stopPropagation(); if (canInteract && mapObject && selectedCard) dispatch({ type: 'INTERACT', unit: 'player', objectId: mapObject.id, cardId: selectedCard.id }); else if (reachable && !occupied) dispatch({ type: 'MOVE', unit: 'player', to: position }) }}
       >
-        <boxGeometry args={[.98, obstacle ? .82 : .12, .98]} />
-        <meshStandardMaterial color={color} roughness={.72} metalness={control ? .25 : .05} emissive={inPath ? '#147a89' : control ? '#3d2207' : '#000'} emissiveIntensity={.55} />
+        {obstacle ? <boxGeometry args={[.98, .82, .98]} /> : <planeGeometry args={[TILE_GAP, TILE_GAP]} />}
+        {obstacle ? <meshStandardMaterial color={map.obstacleColor} roughness={.92} /> : <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />}
       </mesh>
+      {!obstacle && (reachable || inPath) && <mesh position-y={.018} rotation-x={-Math.PI / 2}>
+        <planeGeometry args={[.98, .98]} />
+        <meshBasicMaterial color={inPath ? '#6de2e3' : '#5dc5d5'} transparent opacity={inPath ? .45 : .23} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>}
+      {!obstacle && reachable && <mesh position-y={.026} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[.31, .335, 32]} />
+        <meshBasicMaterial color="#b9f4eb" transparent opacity={.74} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>}
       {control && !obstacle && <ControlBeacon owner={occupant?.team ?? null} />}
       {attackPreview && !obstacle && <mesh position-y={.085} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[.34, .43, 24]} />
@@ -156,23 +154,23 @@ function Tile({ position }: { position: Position }) {
           <mesh position={[-.1, height * .93, .03]} rotation-z={.56}><coneGeometry args={[.08, .28, 5]} /><meshStandardMaterial color="#52805a" roughness={.9} flatShading /></mesh>
         </group>)}
       </group> : <group position={[-.16, .13, .08]}><mesh position-y={.23}><cylinderGeometry args={[.05, .08, .4, 6]} /><meshStandardMaterial color="#5f4530" /></mesh><mesh position-y={.54}><coneGeometry args={[.25, .56, 7]} /><meshStandardMaterial color="#28553a" /></mesh></group>)}
-      {terrain === 'road' && !control && <group position-y={.09}>
+      {terrain === 'road' && !control && <group position-y={.018}>
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.46, .92]} /><meshStandardMaterial color="#65543d" roughness={1} /></mesh>
         {[-.25, .02, .28].map((z, i) => <mesh key={i} position={[i % 2 ? .11 : -.09, .012, z]} rotation-x={-Math.PI / 2}><boxGeometry args={[.22, .012, .06]} /><meshStandardMaterial color="#8a7658" roughness={1} /></mesh>)}
       </group>}
-      {terrain === 'water' && <group position-y={.09}>
+      {terrain === 'water' && <group position-y={.018}>
         <WaterSurface seed={position.x + position.y * 9} />
         {[-.2, .08, .27].map((z, i) => <mesh key={i} position={[i % 2 ? .14 : -.13, .018, z]} rotation-x={-Math.PI / 2}><torusGeometry args={[.12, .012, 4, 16, Math.PI]} /><meshBasicMaterial color="#78bdd0" transparent opacity={.5} /></mesh>)}
       </group>}
-      {terrain === 'bridge' && <group position-y={.11}>
+      {terrain === 'bridge' && <group position-y={.018}>
         {[-.34, -.17, 0, .17, .34].map((x, index) => <mesh key={x} position={[x, .025, 0]}><boxGeometry args={[.14, .07, .9]} /><meshStandardMaterial color={index % 2 ? '#8a6740' : '#9b7549'} roughness={.88} /></mesh>)}
         {[-.38, .38].map(x => <mesh key={x} position={[x, .08, 0]}><boxGeometry args={[.05, .08, .96]} /><meshStandardMaterial color="#5c4028" roughness={.78} /></mesh>)}
       </group>}
-      {terrain === 'marsh' && <group position-y={.09}>
+      {terrain === 'marsh' && <group position-y={.018}>
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.82, .82]} /><meshStandardMaterial color="#56633b" transparent opacity={.55} roughness={.8} /></mesh>
         {[[-.24, -.16], [.18, .12], [-.05, .3]].map(([x, z], i) => <group key={i} position={[x, .04, z]}><mesh position-y={.12}><cylinderGeometry args={[.012, .02, .24, 5]} /><meshStandardMaterial color="#829457" /></mesh><mesh position={[.045, .2, 0]} rotation-z={-.45}><coneGeometry args={[.04, .16, 5]} /><meshStandardMaterial color="#a1ad69" /></mesh></group>)}
       </group>}
-      {terrain === 'snow' && <group position-y={.09}>
+      {terrain === 'snow' && <group position-y={.018}>
         <mesh rotation-x={-Math.PI / 2}><planeGeometry args={[.84, .84]} /><meshStandardMaterial color="#e0e9e5" roughness={.96} /></mesh>
         <mesh position={[-.2, .09, .13]} scale={[1, .42, .75]}><sphereGeometry args={[.26, 8, 6]} /><meshStandardMaterial color="#f3f5ed" roughness={1} flatShading /></mesh>
         <mesh position={[.23, .065, -.2]} scale={[.8, .35, 1]}><sphereGeometry args={[.2, 8, 6]} /><meshStandardMaterial color="#cad9d8" roughness={1} flatShading /></mesh>
@@ -631,6 +629,7 @@ function Battlefield() {
       <pointLight position={[5, 3, 4]} intensity={17} distance={10} color="#b2503e" />
       <Suspense fallback={null}>
         <group position-y={-.05}>
+          <BattlefieldGround />
           {cells.map(p => <Tile key={`${p.x}-${p.y}`} position={p} />)}
           <UnitPiece team="player" />
           <UnitPiece team="north" />
@@ -638,9 +637,6 @@ function Battlefield() {
           <UnitPiece team="west" />
         </group>
         <WorldScenery />
-        <RoundedBox args={[10.4, .35, 10.4]} radius={.12} smoothness={2} position-y={-.28} receiveShadow>
-          <meshStandardMaterial color="#091c21" roughness={.9} metalness={.12} />
-        </RoundedBox>
         <ContactShadows opacity={.65} scale={11} blur={2.4} far={5} color="#000000" />
       </Suspense>
       <OrbitControls makeDefault target={[0, .1, 0]} minDistance={13} maxDistance={18} minPolarAngle={.55} maxPolarAngle={1.12} minAzimuthAngle={-.8} maxAzimuthAngle={.8} enablePan={false} />
@@ -859,6 +855,20 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'wushuang', name: '吕布', title: '武的化身', faction: '群', portrait: '/heroes/lu-bu.png', skillName: '无双', copy: '杀与决斗要求对方连续打出两张响应牌。' },
 ]
 
+const MAP_LORE: Record<MapId, string> = {
+  river: '秋汛未退，两军留下的断旗仍挂在桥头。谁先守住渡口，谁就能截断对岸粮道。',
+  siege: '城门烧毁后，守军退上残垣。夜里还听得见更鼓，却已分不清来自哪一方。',
+  highland: '斥候的马铃在山谷中忽然断了声。雾散之前，伏兵与援军都在寻找同一条小路。',
+  wetland: '旧城沉入芦苇与浅水，只有残桥记得商旅来往的方向。军令要在涨潮前送到。',
+  bamboo: '竹叶掩住马蹄印，驿卒的书信却散在古道旁。密报还在，只是不知落入谁手。',
+  pass: '栈道下是深谷，上面只容一骑通行。烽烟已越过关头，守关的人却尚未撤走。',
+  dockyard: '战船烧剩半截龙骨，江风仍把焦木味吹向岸边。船坞中藏着最后一批军资。',
+  desert: '沙驿的水囊挂在空马槽旁。穿过盐沼的队伍都说看见了绿洲，却少有人回来。',
+  maple: '旧寨的红枫被火烤成了黑色，旗杆却还立着。有人相信山中的援军终会到来。',
+  winter: '雪埋住了烽道，巡卒沿着半截车辙寻找哨塔。山口那盏灯已三夜未熄。',
+  terraces: '云岭田埂层层向上，谷仓的钥匙失踪于战前一夜。两军都想先登上望台。',
+}
+
 function GeneralSelect() {
   const selectGeneral = useGameStore(s => s.selectGeneral)
   const selectMap = useGameStore(s => s.selectMap)
@@ -889,6 +899,7 @@ function GeneralSelect() {
     <div className="map-options battlefield-options" aria-label="选择战场">
       {MAP_IDS.map(id => <button key={id} className={mapId === id ? 'active' : ''} onClick={() => selectMap(id)}><strong>{MAP_DEFINITIONS[id].name}</strong><span>{MAP_DEFINITIONS[id].description}</span></button>)}
     </div>
+    <p className="battlefield-lore">{MAP_LORE[mapId]}</p>
     <div className="map-options" aria-label="选择牌池">
       <button className={deckMode === 'standard' ? 'active' : ''} onClick={() => selectDeckMode('standard')}><strong>标准牌池 · 108 张</strong><span>标准包与 EX 牌的花色、点数及数量</span></button>
       <button className={deckMode === 'expanded' ? 'active' : ''} onClick={() => selectDeckMode('expanded')}><strong>扩展牌池 · 116 张</strong><span>加入火杀、雷杀、酒与军争锦囊</span></button>
