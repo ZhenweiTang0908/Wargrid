@@ -261,6 +261,52 @@ function Tile({ position }: { position: Position }) {
   )
 }
 
+function MountFigure({ card, offset, total }: { card: Card; offset: number; total: number }) {
+  const palette: Record<string, { body: string; mane: string; saddle: string }> = {
+    redHare: { body: '#8f3029', mane: '#2a1717', saddle: '#d1a44f' },
+    dayuan: { body: '#4f5962', mane: '#171d22', saddle: '#c69d4e' },
+    zixing: { body: '#735b89', mane: '#211b2b', saddle: '#d2b05e' },
+    dilu: { body: '#d6d6ca', mane: '#3e4a4a', saddle: '#71979a' },
+    jueying: { body: '#20252b', mane: '#0c1115', saddle: '#a76a42' },
+    zhaohuang: { body: '#c89545', mane: '#3b2418', saddle: '#b74c36' },
+  }
+  const colors = palette[card.kind] ?? palette.dayuan
+  const x = (offset - (total - 1) / 2) * .34
+  return <group position={[x, .05, -.43]} scale={.62}>
+    <mesh position={[0, .26, 0]} rotation-z={Math.PI / 2} castShadow>
+      <capsuleGeometry args={[.16, .3, 6, 10]} />
+      <meshStandardMaterial color={colors.body} roughness={.78} />
+    </mesh>
+    <mesh position={[.03, .48, .08]} rotation-z={-.27} castShadow>
+      <capsuleGeometry args={[.095, .28, 5, 9]} />
+      <meshStandardMaterial color={colors.body} roughness={.76} />
+    </mesh>
+    <mesh position={[.03, .66, .14]} castShadow>
+      <sphereGeometry args={[.12, 10, 8]} />
+      <meshStandardMaterial color={colors.body} roughness={.76} />
+    </mesh>
+    {[-1, 1].map(side => <group key={`ear-${side}`} position={[.02 + side * .07, .77, .14]} rotation-z={side * .18}>
+      <mesh><coneGeometry args={[.035, .13, 5]} /><meshStandardMaterial color={colors.mane} roughness={.9} /></mesh>
+    </group>)}
+    <mesh position={[-.17, .48, -.03]} rotation-z={-.4}>
+      <capsuleGeometry args={[.035, .2, 4, 7]} />
+      <meshStandardMaterial color={colors.mane} roughness={.92} />
+    </mesh>
+    <mesh position={[.02, .37, .02]} rotation-x={Math.PI / 2}>
+      <torusGeometry args={[.16, .025, 6, 16]} />
+      <meshStandardMaterial color={colors.saddle} metalness={.38} roughness={.5} />
+    </mesh>
+    {[-1, 1].flatMap(side => [-1, 1].map(front => <mesh key={`leg-${side}-${front}`} position={[front * .1, .1, side * .095]} rotation-z={front * -.08} castShadow>
+      <capsuleGeometry args={[.035, .22, 4, 7]} />
+      <meshStandardMaterial color={colors.body} roughness={.8} />
+    </mesh>))}
+    <mesh position={[-.18, .25, -.02]} rotation-z={-.52}>
+      <capsuleGeometry args={[.025, .24, 4, 7]} />
+      <meshStandardMaterial color={colors.mane} roughness={.9} />
+    </mesh>
+  </group>
+}
+
 function EquippedGear({ unit }: { unit: Unit }) {
   const weapon = unit.equipment.weapon?.kind
   const longWeapon = weapon && ['greenDragon', 'spear', 'halberd'].includes(weapon)
@@ -275,7 +321,7 @@ function EquippedGear({ unit }: { unit: Unit }) {
       {[-.34, .34].map(side => <mesh key={side} position={[side, .98, 0]} rotation-z={side < 0 ? -.2 : .2}><sphereGeometry args={[.16, 8, 6]} /><meshStandardMaterial color={unit.equipment.armor?.kind === 'bagua' ? '#b69245' : '#737d87'} metalness={.7} roughness={.34} /></mesh>)}
       {unit.equipment.armor.kind === 'bagua' && <mesh position={[0, .74, .315]} rotation-z={Math.PI / 8}><cylinderGeometry args={[.16, .16, .045, 8]} /><meshStandardMaterial color="#d0aa4f" metalness={.65} roughness={.34} /></mesh>}
     </>}
-    {(unit.equipment.offensiveMount || unit.equipment.defensiveMount) && <mesh position={[0, .08, -.38]} rotation-x={Math.PI / 2}><torusGeometry args={[.26, .045, 8, 18, Math.PI * 1.55]} /><meshStandardMaterial color="#d1b36c" metalness={.8} roughness={.28} /></mesh>}
+    {[unit.equipment.offensiveMount, unit.equipment.defensiveMount].filter((card): card is Card => !!card).map((card, index, mounts) => <MountFigure key={card.id} card={card} offset={index} total={mounts.length} />)}
   </>
 }
 
