@@ -527,11 +527,12 @@ export function resolveEndTurnTerrain(state: GameState, team: Team): GameState {
 export function determineWinner(units: Record<Team, Unit>): Team | null {
   const alive = Object.values(units).filter(unit => unit.hp > 0)
   const lordAlive = alive.some(unit => unit.identity === 'lord')
-  const rebelsAlive = alive.some(unit => unit.identity === 'rebel')
+  const survivingRebel = alive.find(unit => unit.identity === 'rebel')
+  const rebelsAlive = !!survivingRebel
   const renegadeAlive = alive.some(unit => unit.identity === 'renegade')
   if (!lordAlive) {
     if (alive.length === 1 && alive[0].identity === 'renegade') return alive[0].id
-    return Object.values(units).find(unit => unit.identity === 'rebel')?.id ?? 'east'
+    return survivingRebel?.id ?? null
   }
   if (!rebelsAlive && !renegadeAlive) return Object.values(units).find(unit => unit.identity === 'lord')?.id ?? 'player'
   return null

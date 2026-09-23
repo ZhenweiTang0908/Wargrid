@@ -329,4 +329,16 @@ describe('identity victory rules', () => {
     const units = Object.fromEntries(Object.entries(state.units).map(([id, unit]) => [id, { ...unit, hp: id === 'west' ? 1 : 0 }])) as typeof state.units
     expect(determineWinner(units)).toBe('west')
   })
+
+  it('does not award a dead rebel after the lord falls', () => {
+    const state = createInitialState(fixedDeck())
+    const units = {
+      ...state.units,
+      player: { ...state.units.player, hp: 0 },
+      east: { ...state.units.east, hp: 0 },
+      north: { ...state.units.north, hp: 1 },
+      west: { ...state.units.west, hp: 1 },
+    }
+    expect(determineWinner(units)).toBeNull()
+  })
 })
