@@ -682,16 +682,21 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
   return lostLastHandCard ? triggerLianying(result, targetId) : result
 }
 
-function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians', sourceCard?: Card): Partial<GameState> {
+function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians', sourceCard?: Card, resolvedTargets: Team[] = []): Partial<GameState> {
   let working = state
   const responseKind = kind === 'arrows' ? 'dodge' : 'slash'
-  const orderedTargets = [...working.turnOrder.filter(id => id !== 'player'), 'player' as Team]
+  const actorIndex = working.turnOrder.indexOf(actorId)
+  const orderedTargets = actorIndex < 0
+    ? working.turnOrder
+    : working.turnOrder.map((_, offset) => working.turnOrder[(actorIndex + offset + 1) % working.turnOrder.length])
+  const alreadyResolved = new Set(resolvedTargets)
   for (const targetId of orderedTargets) {
+    if (alreadyResolved.has(targetId)) continue
     if (targetId === actorId || working.units[targetId].hp <= 0) continue
     let target = working.units[targetId]
     if (targetId === 'player' && actorId !== 'player') {
       const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
-      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
+      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, groupResolvedTargets: [...resolvedTargets], prompt }, message: prompt, history: log(working, prompt) }
     }
     if (kind === 'arrows' && target.equipment.armor?.kind === 'bagua') {
       const judged = judgeBagua(working, targetId, sourceCard)
@@ -1261,6 +1266,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           base = { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true) }
         }
       }
+      if (pending.groupContinuation && base.pendingResponse?.effect === 'dying') {
+        base = { ...base, pendingResponse: { ...base.pendingResponse, groupContinuation: pending.groupContinuation } }
+      }
       if (base.pendingTurnStart && !base.pendingResponse) {
         const { team, skipPlay } = base.pendingTurnStart
         const ready = { ...base, pendingTurnStart: null }
@@ -1268,6 +1276,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const survivor = ready.units[team].hp > 0 ? team : nextSeat(ready, team)
           base = beginTurn(ready, survivor, survivor === team, survivor === team && skipPlay)
         } else base = ready
+      }
+      if (pending.groupContinuation && !base.pendingResponse && !base.winner) {
+        const continuation = pending.groupContinuation
+        const resolving = base.discard.find(candidate => candidate.id === continuation.originCardId)
+        base = { ...base, ...resolveGroupTrick(base, continuation.source, continuation.kind, resolving, continuation.resolvedTargets) }
       }
       set(base)
       if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
@@ -1309,7 +1322,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
           const required = pending.trick === 'arrows' ? 'dodge' : 'slash'
           const prompt = `${working.units[pending.source].name}使用【${CARD_LABEL[pending.trick]}】，请打出【${CARD_LABEL[required]}】响应`
-          return { ...working, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, originCardId: pending.originCardId, prompt }, message: prompt, history: log(working, prompt) }
+          return { ...working, pendingResponse: { effect: pending.trick, source: pending.source, target: 'player', required, originCardId: pending.originCardId, groupResolvedTargets: [...(pending.groupResolvedTargets ?? [])], prompt }, message: prompt, history: log(working, prompt) }
         }
         if (pending.trick === 'duel') return { ...working, ...continueDuel(working, 'player', pending.source, working.discard.find(card => card.id === pending.originCardId)) }
         if (pending.trick === 'indulgence') {
@@ -1338,6 +1351,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
             const prompt = `${source.name}反制了你的【无懈可击】，是否再次打出【无懈可击】？`
             base = { ...base, pendingResponse: { ...pending, prompt }, message: prompt, history: log(base, prompt) }
           } else base = applyUnderlying(base)
+        } else if (pending.trick === 'arrows' || pending.trick === 'barbarians') {
+          const resolving = base.discard.find(candidate => candidate.id === pending.originCardId)
+          const resolvedTargets = [...(pending.groupResolvedTargets ?? []), 'player' as Team]
+          base = { ...base, ...resolveGroupTrick(base, pending.source, pending.trick, resolving, resolvedTargets) }
         } else if (pending.trick === 'harvest' && base.pendingHarvest) base = advanceHarvest(base, base.pendingHarvest.pool, base.pendingHarvest.order.slice(1))
       } else base = applyUnderlying(base)
       set(base)
@@ -1402,6 +1419,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'slash' && pending.forcedSlashAttacksUsed !== undefined) {
       const attacker = base.units[pending.source]
       base = { ...base, units: { ...base.units, [pending.source]: { ...attacker, attacksUsed: pending.forcedSlashAttacksUsed } } }
+    }
+    if (pending.effect === 'arrows' || pending.effect === 'barbarians') {
+      const resolvedTargets = [...(pending.groupResolvedTargets ?? []), 'player' as Team]
+      const resolving = base.discard.find(candidate => candidate.id === pending.originCardId)
+      if (base.pendingResponse?.effect === 'dying') {
+        base = { ...base, pendingResponse: { ...base.pendingResponse, groupContinuation: { kind: pending.effect, source: pending.source, originCardId: pending.originCardId, resolvedTargets } } }
+      } else {
+        base = { ...base, ...resolveGroupTrick(base, pending.source, pending.effect, resolving, resolvedTargets) }
+      }
     }
     set(base)
     if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)

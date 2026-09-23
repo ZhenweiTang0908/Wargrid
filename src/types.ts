@@ -69,6 +69,8 @@ export interface PendingResponse {
   requiredCount?: number
   forcedSlashAttacksUsed?: number
   counteredBy?: Team
+  groupResolvedTargets?: Team[]
+  groupContinuation?: { kind: 'arrows' | 'barbarians'; source: Team; originCardId?: string; resolvedTargets: Team[] }
 }
 
 export interface PendingHarvest {

@@ -1572,6 +1572,38 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['arrows', 'dodge']))
   })
 
+  it('resolves group tricks from the next living seat after the source', () => {
+    const arrows = card('arrows'), northDodge = card('dodge', 'diamond', 2)
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units,
+      east: { ...state.units.east, hand: [arrows] },
+      north: { ...state.units.north, hand: [northDodge] },
+      west: { ...state.units.west, hand: [] },
+      player: { ...state.units.player, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'nullify', target: 'player', trick: 'arrows' })
+    expect(state.units.west.hp).toBe(3)
+    expect(state.units.north.hand).toEqual([northDodge])
+  })
+
+  it('lets a player nullify only their own group trick response and continues the seat order', () => {
+    const arrows = card('arrows', 'heart'), nullify = card('nullify'), northDodge = card('dodge', 'diamond', 2)
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units,
+      east: { ...state.units.east, hand: [arrows] },
+      west: { ...state.units.west, hp: 0, hand: [] },
+      north: { ...state.units.north, hand: [northDodge] },
+      player: { ...state.units.player, hand: [nullify] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id })
+    useGameStore.getState().respond(nullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([arrows, nullify, northDodge]))
+  })
+
   it('keeps AI Nullify when a basic card can answer a group trick', () => {
     for (const [trickKind, answerKind] of [['arrows', 'dodge'], ['barbarians', 'slash']] as const) {
       const trick = card(trickKind), answer = card(answerKind), nullify = card('nullify')
@@ -1709,6 +1741,8 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, skill: 'wusheng', skills: ['wusheng'], hp: 2, hand: [], equipment: { armor } },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().respond(null)
     const state = useGameStore.getState()
     expect(state.units.north.equipment.armor).toBeUndefined()
     expect(state.units.north.hp).toBe(3)
