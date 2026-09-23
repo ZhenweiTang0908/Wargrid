@@ -1146,6 +1146,31 @@ function QilinWindow() {
   </section></div>
 }
 
+function YijiWindow() {
+  const pending = useGameStore(s => s.pendingYiji)
+  const units = useGameStore(s => s.units)
+  const turnOrder = useGameStore(s => s.turnOrder)
+  const choose = useGameStore(s => s.chooseYijiRecipient)
+  const [selected, setSelected] = useState<string | null>(null)
+  useEffect(() => {
+    if (selected && !pending?.cards.some(card => card.id === selected)) setSelected(null)
+  }, [pending, selected])
+  if (!pending) return null
+  const targets = turnOrder.map(team => units[team]).filter(unit => unit.hp > 0)
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">受伤后 · 遗计</span>
+    <h1>分配遗计牌</h1>
+    <p>选择一张牌，再选择任意存活角色交给他。剩余 {pending.cards.length} 张。</p>
+    <div className="response-cards">{pending.cards.map(card => <button key={card.id} className={`card ${card.kind} ${selected === card.id ? 'selected' : ''}`} onClick={() => setSelected(current => current === card.id ? null : card.id)}>
+      <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+      <strong>{CARD_LABEL[card.kind]}</strong><small>{selected === card.id ? '已选择 · 点击角色分配' : '选择此牌'}</small>
+    </button>)}</div>
+    <div className="tuxi-options">{targets.map(unit => <button key={unit.id} disabled={!selected} onClick={() => { if (selected) { choose(selected, unit.id); setSelected(null) } }}>
+      <strong>{unit.name}</strong><span>体力 {unit.hp}/{unit.maxHp} · 手牌 {unit.hand.length}</span><small>{selected ? '交给此角色' : '先选择一张牌'}</small>
+    </button>)}</div>
+  </section></div>
+}
+
 function LuoyiWindow() {
   const pending = useGameStore(s => s.pendingLuoyi)
   const choose = useGameStore(s => s.chooseLuoyi)
@@ -1427,6 +1452,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
     {state.generalSelected && !tutorial && state.pendingHalberd && <HalberdWindow />}
     {state.generalSelected && !tutorial && state.pendingQilin && <QilinWindow />}
+    {state.generalSelected && !tutorial && state.pendingYiji && <YijiWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
     {state.generalSelected && !tutorial && state.pendingLiuli && <LiuliWindow />}

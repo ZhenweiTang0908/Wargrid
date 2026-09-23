@@ -117,6 +117,11 @@ export interface PendingQilin {
   nature: 'fire' | 'thunder' | null
 }
 
+export interface PendingYiji {
+  source: Team
+  cards: Card[]
+}
+
 export interface GameState {
   mapId: MapId
   deckMode: DeckMode
@@ -172,6 +177,7 @@ export interface GameState {
   pendingIceSword: { target: Team; originCardId: string; amount: number; nature: 'fire' | 'thunder' | null } | null
   pendingHalberd: PendingHalberd | null
   pendingQilin: PendingQilin | null
+  pendingYiji: PendingYiji | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string
