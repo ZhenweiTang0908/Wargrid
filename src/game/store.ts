@@ -28,6 +28,7 @@ interface GameStore extends GameState {
   selectHalberdTarget: (team: Team) => void
   confirmHalberd: () => void
   cancelHalberd: () => void
+  chooseQilinMount: (slot: 'offensiveMount' | 'defensiveMount' | null) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
   activateWusheng: () => void
@@ -611,8 +612,17 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     return shieldBlocks ? defendedState : greenDragonChase(defendedState, attackerId, targetId) ?? defendedState
   }
   let units = { ...state.units, [attackerId]: updatedAttacker }, discard = state.discard, deck = state.deck
+  const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
+  const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus + (attacker.luoyiActive ? 1 : 0)
+  const nature = slashCard?.kind === 'thunderSlash' ? 'thunder' : slashCard?.kind === 'fireSlash' || attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
   let weaponText = ''
   if (attacker.equipment.weapon?.kind === 'qilinBow') {
+    const mounts = [target.equipment.offensiveMount, target.equipment.defensiveMount].filter((card): card is Card => !!card)
+    if (attackerId === 'player' && mounts.length > 1 && slashCard) {
+      const pendingBase: GameState = { ...state, units, deck, discard }
+      const message = `${attacker.name}发动【麒麟弓】，请选择要弃置${target.name}的哪一匹坐骑`
+      return { ...pendingBase, pendingQilin: { target: targetId, originCardId: slashCard.id, amount, nature }, message, history: log(pendingBase, message) }
+    }
     const slot = target.equipment.defensiveMount ? 'defensiveMount' : target.equipment.offensiveMount ? 'offensiveMount' : null
     if (slot) {
       const mount = target.equipment[slot]!
@@ -622,9 +632,6 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
   }
   const base: GameState = { ...state, units, deck, discard }
-  const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
-  const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus + (attacker.luoyiActive ? 1 : 0)
-  const nature = slashCard?.kind === 'thunderSlash' ? 'thunder' : slashCard?.kind === 'fireSlash' || attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
   if (attacker.equipment.weapon?.kind === 'iceSword') {
     const available = [...target.hand, ...Object.values(target.equipment).filter((card): card is Card => !!card)]
     if (available.length) {
@@ -873,7 +880,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
   const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
   const drawText = tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : luoyiActive ? '发动【裸衣】摸一张牌' : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
   const roadText = movement > 3 ? ' · 官道疾行，移动力 +1' : ''
-  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, qingnangMode: false, jieyinMode: false, jieyinSelection: [], lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], pendingHalberd: null, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}${roadText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}${roadText}`) }
+  const next: GameState = { ...working, units: { ...working.units, [team]: refreshed }, deck: draw.deck, discard: draw.discard, currentUnit: team, phase: team === 'player' ? 'player' : 'ai', turnStage: skipPlay ? 'finish' : 'play', selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, qingnangMode: false, jieyinMode: false, jieyinSelection: [], lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], pendingHalberd: null, pendingQilin: null, discardSelection: [], pathPreview: [], reachable: [], message: skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}${roadText}`, history: log(working, skipPlay ? `${refreshed.name}跳过出牌阶段` : `${refreshed.name}${drawText}${roadText}`) }
   next.reachable = team === 'player' ? reachableCells(next, refreshed) : []
   return next
 }
@@ -920,7 +927,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -1715,6 +1722,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (state.phase === 'ai' && !get().pendingResponse && !get().pendingIceSword && !get().winner) setTimeout(() => void get().runAI(), 120)
   },
+  chooseQilinMount: slot => {
+    const state = get(), pending = state.pendingQilin, attacker = state.units.player
+    if (!pending || state.winner || attacker.hp <= 0 || attacker.equipment.weapon?.kind !== 'qilinBow') return
+    const target = state.units[pending.target], mount = slot ? target.equipment[slot] : undefined
+    if (slot && !mount) return
+    let working: GameState = { ...state, pendingQilin: null }, weaponText = ''
+    if (mount) {
+      const removed = takeTargetCard(working, 'player', pending.target, false, mount.id)
+      working = { ...working, ...removed }
+      weaponText = `；【麒麟弓】弃置${target.name}的【${CARD_LABEL[mount.kind]}】${target.skills.includes('xiaoji') ? '，触发【枭姬】摸两张牌' : ''}`
+    }
+    const slash = working.discard.find(card => card.id === pending.originCardId)
+    const targetAfter = working.units[pending.target]
+    const effectText = `${targetAfter.name}受到 ${pending.amount} 点${pending.nature === 'fire' ? '火焰' : pending.nature === 'thunder' ? '雷电' : ''}伤害${weaponText}`
+    const result = pending.nature
+      ? elementalDamage(working, 'player', pending.target, pending.amount, pending.nature, slash)
+      : damage(working, 'player', pending.target, pending.amount, effectText, false, slash)
+    const settled: GameState = { ...working, ...result, pendingQilin: null }
+    const message = pending.nature && weaponText ? `${settled.message}${weaponText}` : settled.message
+    set({ ...settled, message, history: log(settled, message) })
+  },
   selectHalberdTarget: team => {
     const state = get(), pending = state.pendingHalberd, player = state.units.player, target = state.units[team]
     if (!pending || state.phase !== 'player' || state.turnStage !== 'play' || team === 'player' || target.hp <= 0 || player.equipment.weapon?.kind !== 'halberd') return
@@ -1737,7 +1765,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ pendingHalberd: null, selectedCardId: null, selectedAsSlash: false, message: '已取消【方天画戟】目标选择' })
   },
   selectCard: id => {
-    const state = get(); if (state.phase !== 'player' || state.pendingResponse || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd) return
+    const state = get(); if (state.phase !== 'player' || state.pendingResponse || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin) return
     if (!id) { set({ selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsRende: false, selectedAsGuose: false, qingnangMode: false, jieyinMode: false, jieyinSelection: [], lijianMode: false, lijianTargets: [], spearMode: false, spearSelection: [], jijiangSource: null, zhihengMode: false, zhihengSelection: [], chainTargets: [], message: '已取消选牌' }); return }
     const card = state.units.player.hand.find(c => c.id === id) ?? (state.zhihengMode || state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? equippedCards(state.units.player).find(c => c.id === id) : undefined); if (!card) return
     if (state.jieyinMode) {
@@ -1914,7 +1942,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return
@@ -2048,7 +2076,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'slash' && !canSlash(state, equippedCards(ai).some(item => item.id === card.id) ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== card.id)) as Unit['equipment'] } : ai, target)) continue
       if (kind === 'snatch' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle' }); await wait(420); state = get(); ai = state.units[aiId]
-      if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd) return
+      if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin) return
       if (state.phase === 'finished') return
     }
     // 连弩和咆哮没有每回合一次的出杀限制，继续使用可命中的【杀】。
@@ -2064,7 +2092,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!victim) break
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, asSlash: !isSlashKind(slash.kind) })
       await wait(420)
-      if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().pendingHalberd || get().winner) return
+      if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().pendingHalberd || get().pendingQilin || get().winner) return
     }
     state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = resolveEndSkill(next, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
     if (next.winner) { set(next); return }

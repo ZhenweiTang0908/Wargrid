@@ -1125,6 +1125,27 @@ function HalberdWindow() {
   </section></div>
 }
 
+function QilinWindow() {
+  const pending = useGameStore(s => s.pendingQilin)
+  const target = useGameStore(s => pending ? s.units[pending.target] : null)
+  const choose = useGameStore(s => s.chooseQilinMount)
+  if (!pending || !target) return null
+  const choices: { slot: 'offensiveMount' | 'defensiveMount'; label: string; card: Card }[] = [
+    target.equipment.offensiveMount ? { slot: 'offensiveMount', label: '进攻坐骑', card: target.equipment.offensiveMount } : null,
+    target.equipment.defensiveMount ? { slot: 'defensiveMount', label: '防御坐骑', card: target.equipment.defensiveMount } : null,
+  ].filter((choice): choice is { slot: 'offensiveMount' | 'defensiveMount'; label: string; card: Card } => !!choice)
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">武器技能 · 麒麟弓</span>
+    <h1>选择弃置{target.name}的坐骑</h1>
+    <p>【麒麟弓】命中后可以弃置目标的一匹坐骑；若两匹坐骑同时存在，请选择其中一匹。</p>
+    <div className="response-cards">{choices.map(choice => <button key={choice.slot} className={`card ${choice.card.kind}`} onClick={() => choose(choice.slot)}>
+      <span className={`card-suit ${choice.card.suit === 'heart' || choice.card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[choice.card.suit]} {choice.card.rank}</span>
+      <strong>{CARD_LABEL[choice.card.kind]}</strong><small>{choice.label} · 弃置并结算伤害</small>
+    </button>)}</div>
+    <button className="decline-response" onClick={() => choose(null)}>不弃置坐骑</button>
+  </section></div>
+}
+
 function LuoyiWindow() {
   const pending = useGameStore(s => s.pendingLuoyi)
   const choose = useGameStore(s => s.chooseLuoyi)
@@ -1405,6 +1426,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingGuanxing && <GuanxingWindow />}
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
     {state.generalSelected && !tutorial && state.pendingHalberd && <HalberdWindow />}
+    {state.generalSelected && !tutorial && state.pendingQilin && <QilinWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
     {state.generalSelected && !tutorial && state.pendingLiuli && <LiuliWindow />}

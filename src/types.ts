@@ -110,6 +110,13 @@ export interface PendingHalberd {
   targets: Team[]
 }
 
+export interface PendingQilin {
+  target: Team
+  originCardId: string
+  amount: number
+  nature: 'fire' | 'thunder' | null
+}
+
 export interface GameState {
   mapId: MapId
   deckMode: DeckMode
@@ -164,6 +171,7 @@ export interface GameState {
   pendingAxe: { target: Team; originCardId: string; amount: number } | null
   pendingIceSword: { target: Team; originCardId: string; amount: number; nature: 'fire' | 'thunder' | null } | null
   pendingHalberd: PendingHalberd | null
+  pendingQilin: PendingQilin | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string

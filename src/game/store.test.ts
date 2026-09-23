@@ -2102,6 +2102,24 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('麒麟弓')
   })
 
+  it('lets the player choose which mount Qilin Bow removes', () => {
+    const slash = card('slash', 'heart'), bow = card('qilinBow'), offensive = card('redHare'), defensive = card('dilu')
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [slash], equipment: { weapon: bow } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { offensiveMount: offensive, defensiveMount: defensive } } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    let state = useGameStore.getState()
+    expect(state.pendingQilin).toMatchObject({ target: 'north', originCardId: slash.id, amount: 1, nature: null })
+    expect(state.discard).toContainEqual(slash)
+    useGameStore.getState().chooseQilinMount('offensiveMount')
+    state = useGameStore.getState()
+    expect(state.pendingQilin).toBeNull()
+    expect(state.units.north.equipment.offensiveMount).toBeUndefined()
+    expect(state.units.north.equipment.defensiveMount).toEqual(defensive)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(offensive)
+  })
+
   it('triggers Xiaoji when Qilin Bow removes a mount', () => {
     const slash = card('slash', 'heart'), bow = card('qilinBow'), mount = card('dilu')
     const first = card('dodge'), second = card('peach')
