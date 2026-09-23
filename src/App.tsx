@@ -637,6 +637,7 @@ function Battlefield() {
           <UnitPiece team="west" />
         </group>
         <WorldScenery />
+        <MapAtmosphere />
         <ContactShadows opacity={.65} scale={11} blur={2.4} far={5} color="#000000" />
       </Suspense>
       <OrbitControls makeDefault target={[0, .1, 0]} minDistance={13} maxDistance={18} minPolarAngle={.55} maxPolarAngle={1.12} minAzimuthAngle={-.8} maxAzimuthAngle={.8} enablePan={false} />
@@ -771,29 +772,89 @@ function WorldScenery() {
   </group>
 }
 
+function MapAtmosphere() {
+  const mapId = useGameStore(s => s.mapId)
+  const presets: Record<MapId, { color: string; count: number; size: number; speed: number; scale: [number, number, number]; y: number }> = {
+    river: { color: '#83d6e4', count: 34, size: 1.8, speed: .28, scale: [10, 1.6, 10], y: .55 },
+    siege: { color: '#e5a06d', count: 20, size: 1.5, speed: .2, scale: [9, 2.8, 9], y: 1.5 },
+    highland: { color: '#bfd7c0', count: 18, size: 1.4, speed: .12, scale: [11, 2.2, 11], y: 1.2 },
+    wetland: { color: '#9ad6bd', count: 30, size: 1.5, speed: .2, scale: [10, 1.8, 10], y: .7 },
+    bamboo: { color: '#d4ea9b', count: 28, size: 1.6, speed: .3, scale: [10, 2.5, 10], y: 1.1 },
+    pass: { color: '#efb67a', count: 16, size: 1.4, speed: .16, scale: [10, 2.4, 10], y: 1.3 },
+    dockyard: { color: '#9fd4df', count: 32, size: 1.7, speed: .18, scale: [10, 1.7, 10], y: .8 },
+    desert: { color: '#f0c98b', count: 26, size: 1.6, speed: .46, scale: [12, 1.5, 12], y: .55 },
+    maple: { color: '#e98743', count: 24, size: 1.9, speed: .42, scale: [10, 2.6, 10], y: 1.2 },
+    winter: { color: '#edf8ff', count: 54, size: 2, speed: .34, scale: [11, 4, 11], y: 2.8 },
+    terraces: { color: '#f1db8f', count: 20, size: 1.5, speed: .18, scale: [10, 2.2, 10], y: 1.5 },
+  }
+  const preset = presets[mapId]
+  return <group position-y={preset.y}><Sparkles count={preset.count} size={preset.size} speed={preset.speed} scale={preset.scale} color={preset.color} noise={.7} /></group>
+}
+
 function Hearts({ hp, max }: { hp: number; max: number }) {
   return <div className="hearts" aria-label={`${hp}/${max} 体力`}>{Array.from({ length: max }, (_, i) => <span key={i} className={i < hp ? 'full' : ''}>◆</span>)}</div>
 }
 
-function PlayerStatus({ team }: { team: Team }) {
+function PlayerStatus({ team, onInspect }: { team: Team; onInspect: (team: Team, portrait: string, skillText: string) => void }) {
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
   const portraits: Record<GeneralSkill, string> = { qianxun: '/heroes/lu-xun.png', lianying: '/heroes/lu-xun.png', guose: '/heroes/da-qiao.png', liuli: '/heroes/da-qiao.png', luoshen: '/heroes/zhen-ji.png', qingguo: '/heroes/zhen-ji.png', keji: '/heroes/lu-meng.png', kurou: '/heroes/huang-gai.png', tieqi: '/heroes/ma-chao.png', mashu: '/heroes/ma-chao.png', rende: '/heroes/liu-bei.png', jijiang: '/heroes/liu-bei.png', wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', hujia: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', qingnang: '/heroes/hua-tuo.png', jijiu: '/heroes/hua-tuo.png', yingzi: '/heroes/zhou-yu.png', fanjian: '/heroes/zhou-yu.png', guanxing: '/heroes/zhuge-liang.png', kongcheng: '/heroes/zhuge-liang.png', tuxi: '/heroes/zhang-liao.png', luoyi: '/heroes/xu-chu.png', jieyin: '/heroes/sun-shangxiang.png', xiaoji: '/heroes/sun-shangxiang.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', lijian: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', jiuyuan: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
   const skillCopy = { rende: '仁德/激将 · 赠牌回血/蜀将代杀', jijiang: '激将 · 蜀势力忠臣代出杀', hujia: '护驾 · 魏势力忠臣代出闪', wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄/护驾 · 受伤获牌/魏将代闪', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', qingnang: '青囊/急救 · 弃牌治疗/红牌救人', jijiu: '急救 · 红牌可当桃', yingzi: '英姿/反间 · 摸三张/猜花色', fanjian: '反间 · 赠牌猜花色', guanxing: '观星/空城 · 调牌堆/免杀与决斗', kongcheng: '空城 · 无手牌免杀与决斗', tuxi: '突袭 · 从两名角色处获得手牌', luoyi: '裸衣 · 少摸一张并强化杀/决斗', jieyin: '结姻/枭姬 · 双疗/失装备摸牌', xiaoji: '枭姬 · 失去装备摸两张', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '离间/闭月 · 男性决斗/结束摸牌', lijian: '离间 · 弃牌令两名男性决斗', zhiheng: '制衡/救援 · 换牌/吴将桃强化', jiuyuan: '救援 · 吴将桃额外回复一点', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
   const factionLabel: Record<Faction, string> = { wei: '魏', shu: '蜀', wu: '吴', qun: '群' }
   const lordSkill = unit.identity === 'lord' ? unit.skills.includes('jijiang') ? ' · 激将' : unit.skills.includes('hujia') ? ' · 护驾' : '' : ''
+  const skillText = unit.skill === 'qianxun' ? '谦逊/连营 · 免顺手乐/空手摸牌' : unit.skill === 'lianying' ? '连营 · 失最后手牌摸一张' : unit.skill === 'guose' ? '国色/流离 · 方片乐/转移杀' : unit.skill === 'liuli' ? '流离 · 弃牌转移杀' : unit.skill === 'luoshen' ? '洛神/倾国 · 黑判获牌/黑牌作闪' : unit.skill === 'qingguo' ? '倾国 · 黑色手牌可当闪' : unit.skill === 'keji' ? '克己 · 未出杀则跳过弃牌' : unit.skill === 'kurou' ? '苦肉 · 失去体力并摸两张' : unit.skill === 'tieqi' ? '马术/铁骑 · 距离-1/红判禁闪' : unit.skill === 'mashu' ? '马术 · 计算距离时始终-1' : skillCopy[unit.skill]
+  const inspect = () => onInspect(team, portraits[unit.skill], `${skillText}${lordSkill}`)
   return (
-    <section className={`status ${team}`}>
+    <section className={`status ${team}`} role="button" tabIndex={0} aria-label={`查看${unit.name}的立绘、装备与状态`} onClick={inspect} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); inspect() } }}>
       <div className="avatar"><img src={portraits[unit.skill]} alt="" /><span>{team === 'player' ? '主' : unit.revealed ? IDENTITY_LABEL[unit.identity].slice(0, 1) : '?'}</span></div>
       <div className="status-copy">
         <div className="name-row"><strong>{unit.name}</strong><span>{factionLabel[unit.faction]} · {team === 'player' || unit.revealed ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span></div>
         <Hearts hp={unit.hp} max={unit.maxHp} />
         <div className="status-meta"><span>手牌 {unit.hand.length}</span><span>据点 {score}/3</span>{unit.chained && <span>⛓ 连环</span>}</div>
-        <div className="equipment-line">{unit.equipment.weapon ? CARD_LABEL[unit.equipment.weapon.kind] : '无武器'} · {unit.equipment.armor ? CARD_LABEL[unit.equipment.armor.kind] : '无防具'}{unit.equipment.offensiveMount ? ` · ${CARD_LABEL[unit.equipment.offensiveMount.kind]}` : ''}{unit.equipment.defensiveMount ? ` · ${CARD_LABEL[unit.equipment.defensiveMount.kind]}` : ''}{unit.judgement.length ? ` · 判定 ${unit.judgement.map(c => CARD_LABEL[c.kind]).join('/')}` : ''}</div>
-        <div className="skill-line">{unit.skill === 'qianxun' ? '谦逊/连营 · 免顺手乐/空手摸牌' : unit.skill === 'lianying' ? '连营 · 失最后手牌摸一张' : unit.skill === 'guose' ? '国色/流离 · 方片乐/转移杀' : unit.skill === 'liuli' ? '流离 · 弃牌转移杀' : unit.skill === 'luoshen' ? '洛神/倾国 · 黑判获牌/黑牌作闪' : unit.skill === 'qingguo' ? '倾国 · 黑色手牌可当闪' : unit.skill === 'keji' ? '克己 · 未出杀则跳过弃牌' : unit.skill === 'kurou' ? '苦肉 · 失去体力并摸两张' : unit.skill === 'tieqi' ? '马术/铁骑 · 距离-1/红判禁闪' : unit.skill === 'mashu' ? '马术 · 计算距离时始终-1' : skillCopy[unit.skill]}{lordSkill}</div>
+        <div className="equipment-line">装备 {Object.values(unit.equipment).filter(Boolean).length}/4 · 判定 {unit.judgement.length} · 点击详情</div>
+        <div className="skill-line">{skillText}{lordSkill}</div>
       </div>
     </section>
   )
+}
+
+function UnitDetails({ team, portrait, skillText, close }: { team: Team; portrait: string; skillText: string; close: () => void }) {
+  const state = useGameStore()
+  const unit = state.units[team]
+  const slots = [
+    { key: 'weapon', name: '武器', empty: '未装备武器' },
+    { key: 'armor', name: '防具', empty: '未装备防具' },
+    { key: 'offensiveMount', name: '进攻坐骑', empty: '未装备进攻坐骑' },
+    { key: 'defensiveMount', name: '防御坐骑', empty: '未装备防御坐骑' },
+  ] as const
+  const states = [
+    unit.chained && '铁索连环', unit.drunk && '酒劲：下一次杀伤害增加', unit.luoyiActive && '裸衣：杀与决斗伤害增加',
+    unit.hp <= 1 && unit.hp > 0 && '濒危', unit.hp <= 0 && '阵亡',
+  ].filter(Boolean)
+  return <div className="overlay unit-detail-overlay" onClick={close}><section className={`unit-detail panel ${team}`} onClick={event => event.stopPropagation()} aria-label={`${unit.name}武将详情`}>
+    <button className="icon-button close" onClick={close} aria-label="关闭武将详情"><X /></button>
+    <div className="unit-detail-art">
+      <img src={portrait} alt={`${unit.name}原画参考`} />
+      <Canvas className="unit-detail-canvas" shadows dpr={[1, 1.5]} camera={{ position: [0, 1.25, 4.3], fov: 34 }} gl={{ antialias: true, alpha: true }}>
+        <ambientLight intensity={2.1} />
+        <directionalLight position={[2.5, 4, 3]} intensity={3.8} color="#fff0cf" />
+        <pointLight position={[-2, 1.4, -2]} intensity={8} distance={7} color={team === 'east' ? '#db5a45' : '#55b6c6'} />
+        <OrbitControls target={[0, .82, 0]} enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.5} maxPolarAngle={Math.PI / 2.1} />
+        <UnitPiece team={team} previewUnit={unit} />
+      </Canvas>
+      <div><span>{unit.title}</span><strong>{unit.name}</strong></div>
+    </div>
+    <div className="unit-detail-info">
+      <span className="eyebrow">武将档案 · {unit.revealed || team === 'player' ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span>
+      <h1>{unit.name}</h1>
+      <div className="detail-vitals"><div><b>{unit.hp}/{unit.maxHp}</b><span>体力</span></div><div><b>{unit.hand.length}</b><span>手牌</span></div><div><b>{unit.movement}</b><span>移动力</span></div><div><b>{state.scores[team]}/3</b><span>据点</span></div></div>
+      <div className="detail-section-title">装备栏 <small>攻击范围 {effectiveAttackRange(state, unit)} · 已出杀 {unit.attacksUsed}{Number.isFinite(slashLimit(unit)) ? `/${slashLimit(unit)}` : '/∞'}</small></div>
+      <div className="detail-equipment">{slots.map(slot => { const card = unit.equipment[slot.key]; return <div className={card ? 'filled' : ''} key={slot.key}><span>{slot.name}</span><strong>{card ? CARD_LABEL[card.kind] : slot.empty}</strong><small>{card ? `${SUIT_GLYPH[card.suit]} ${card.rank} · ${CARD_COPY[card.kind]}` : '空槽位'}</small></div> })}</div>
+      <div className="detail-section-title">状态与判定</div>
+      <div className="detail-tags">{states.length ? states.map(value => <span key={String(value)}>{value}</span>) : <span>无异常状态</span>}{unit.judgement.map(card => <span key={card.id}>判定 · {CARD_LABEL[card.kind]} {SUIT_GLYPH[card.suit]}{card.rank}</span>)}</div>
+      <div className="detail-section-title">武将技</div><p className="detail-skills">{skillText}</p>
+    </div>
+  </section></div>
 }
 
 function CardView({ card, selected, equipped = false }: { card: Card; selected: boolean; equipped?: boolean }) {
@@ -1216,6 +1277,7 @@ function App() {
   const dispatch = useGameStore(s => s.dispatch)
   const [sound, setSound] = useState(() => localStorage.getItem('wargrid-sound') !== 'off')
   const [showHistory, setShowHistory] = useState(false)
+  const [inspectedUnit, setInspectedUnit] = useState<{ team: Team; portrait: string; skillText: string } | null>(null)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
   const canWusheng = state.units.player.skills.includes('wusheng') && state.units.player.attacksUsed < slashLimit(state.units.player) && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => !isSlashKind(card.kind) && (card.suit === 'heart' || card.suit === 'diamond'))
@@ -1269,8 +1331,9 @@ function App() {
       </div>
     </header>
 
-    <aside className="status-left"><PlayerStatus team="player" /></aside>
-    <aside className="ai-roster"><PlayerStatus team="north" /><PlayerStatus team="east" /><PlayerStatus team="west" /></aside>
+    <aside className="status-left"><PlayerStatus team="player" onInspect={(team, portrait, skillText) => setInspectedUnit({ team, portrait, skillText })} /></aside>
+    <aside className="ai-roster"><PlayerStatus team="north" onInspect={(team, portrait, skillText) => setInspectedUnit({ team, portrait, skillText })} /><PlayerStatus team="east" onInspect={(team, portrait, skillText) => setInspectedUnit({ team, portrait, skillText })} /><PlayerStatus team="west" onInspect={(team, portrait, skillText) => setInspectedUnit({ team, portrait, skillText })} /></aside>
+    {inspectedUnit && <UnitDetails {...inspectedUnit} close={() => setInspectedUnit(null)} />}
     <div className="battlefield">{state.generalSelected && <Battlefield />}</div>
 
     <div className="message-bar"><span className="message-pip" />{state.message}</div>

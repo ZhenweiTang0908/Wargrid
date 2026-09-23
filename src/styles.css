@@ -32,6 +32,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .ai-roster .avatar { width: 38px; height: 38px; font-size: 14px; }
 .ai-roster .status-meta, .ai-roster .equipment-line { display: none; }
 .status { width: 190px; display: flex; gap: 11px; padding: 10px; background: linear-gradient(105deg, #0c2026e8, #0b171bc2); border: 1px solid #24464e; border-left: 3px solid var(--cyan); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%); }
+.status[role="button"] { cursor: pointer; transition: border-color .18s, background .18s; }
+.status[role="button"]:hover, .status[role="button"]:focus-visible { border-color: #dbb772; background: #193238ef; outline: none; }
 .status.north { border-left-color: #6fcf8a; }
 .status.east { border-left-color: var(--red); }
 .status.west { border-left-color: #a87ddd; }
@@ -189,6 +191,39 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .history-list b { align-self: stretch; display: grid; place-items: center; border-right: 1px solid #29464d; color: #55747b; font: 700 12px monospace; }
 .history-list span { padding: 8px 11px; }
 .portrait-warning { display: none; }
+.unit-detail-overlay { z-index: 65; }
+.unit-detail { width: min(790px, 96vw); max-height: calc(100dvh - 20px); padding: 0; display: grid; grid-template-columns: minmax(180px, 36%) minmax(0, 1fr); overflow: hidden; text-align: left; }
+.unit-detail-art { position: relative; min-height: 420px; overflow: hidden; background: #182626; }
+.unit-detail-art::after { content: ''; position: absolute; inset: 25% 0 0; background: linear-gradient(transparent, #071216); pointer-events: none; }
+.unit-detail-art img { width: 100%; height: 100%; position: absolute; object-fit: cover; object-position: center 20%; opacity: .34; filter: saturate(.72) sepia(.12); }
+.unit-detail-canvas { position: absolute !important; inset: 0; z-index: 1; }
+.unit-detail-art > div { position: absolute; z-index: 1; left: 20px; bottom: 18px; display: grid; gap: 2px; text-shadow: 0 2px 8px #000; }
+.unit-detail-art span { color: #e6c77e; font-size: 12px; letter-spacing: .15em; }
+.unit-detail-art strong { font: 700 36px serif; color: #fff5db; }
+.unit-detail-info { min-width: 0; padding: 22px 24px; overflow-y: auto; }
+.unit-detail-info h1 { margin: 3px 0 12px; font-size: 27px; }
+.detail-vitals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #315057; border: 1px solid #315057; }
+.detail-vitals > div { display: grid; place-items: center; padding: 7px 2px; background: #102229; }
+.detail-vitals b { color: #f3d48b; font-size: 18px; }
+.detail-vitals span { color: #8da8a9; font-size: 10px; }
+.detail-section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin: 14px 0 7px; color: #e6c77e; font-size: 13px; font-weight: 700; }
+.detail-section-title small { color: #8fa9ad; font-size: 10px; font-weight: 400; }
+.detail-equipment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.detail-equipment > div { min-height: 63px; padding: 6px 8px; display: grid; align-content: center; border: 1px solid #34474a; background: #0d1a1e; }
+.detail-equipment > div.filled { border-color: #8f7446; background: linear-gradient(135deg, #302a1d, #101e20); }
+.detail-equipment span { color: #89a7ab; font-size: 10px; }
+.detail-equipment strong { color: #e6e4d6; font-size: 13px; }
+.detail-equipment small { color: #a4aaa1; font-size: 9px; line-height: 1.25; }
+.detail-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.detail-tags span { padding: 4px 7px; border: 1px solid #607b7d; background: #152e32; color: #d0e2dd; font-size: 11px; }
+.detail-skills { margin: 0; color: #b5cbca; font-size: 12px; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .unit-detail-art { min-height: 0; }
+  .unit-detail-info { padding: 12px 16px; }
+  .unit-detail-info h1 { margin-bottom: 6px; }
+  .detail-section-title { margin: 8px 0 4px; }
+  .detail-equipment > div { min-height: 49px; }
+}
 
 @media (max-height: 500px) and (orientation: landscape) {
   .battlefield { inset: 44px 0 94px; }
