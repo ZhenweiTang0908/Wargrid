@@ -307,16 +307,56 @@ function MountFigure({ card, offset, total }: { card: Card; offset: number; tota
   </group>
 }
 
+function WeaponFigure({ kind }: { kind: Card['kind'] }) {
+  const shaft = <mesh position-y={.28}><cylinderGeometry args={[.025, .035, 1.18, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
+  if (kind === 'vermilionFan') return <group>
+    <mesh position-y={.02}><cylinderGeometry args={[.025, .032, .72, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
+    <group position-y={.48}>{[-2, -1, 0, 1, 2].map(index => <mesh key={index} rotation-z={index * .22}><boxGeometry args={[.16, .52, .035]} /><meshStandardMaterial color={index % 2 ? '#bd5540' : '#e0b45c'} metalness={.38} roughness={.5} /></mesh>)}</group>
+  </group>
+  if (kind === 'crossbow') return <group>
+    <mesh position-y={.04}><boxGeometry args={[.12, .58, .1]} /><meshStandardMaterial color="#704a2c" roughness={.72} /></mesh>
+    <mesh position-y={.34} rotation-y={Math.PI / 2}><torusGeometry args={[.27, .025, 6, 18, Math.PI]} /><meshStandardMaterial color="#caa75d" metalness={.62} roughness={.35} /></mesh>
+    <mesh position={[0, .34, .04]}><boxGeometry args={[.025, .42, .025]} /><meshStandardMaterial color="#d8d1b7" metalness={.6} /></mesh>
+  </group>
+  if (kind === 'qilinBow') return <group>
+    <mesh position-y={.24}><cylinderGeometry args={[.025, .035, .94, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
+    <mesh position-y={.68} rotation-y={Math.PI / 2}><torusGeometry args={[.26, .025, 6, 18, Math.PI]} /><meshStandardMaterial color="#d0a25a" metalness={.62} roughness={.35} /></mesh>
+    <mesh position={[0, .68, .03]}><boxGeometry args={[.025, .52, .025]} /><meshStandardMaterial color="#ded5b6" metalness={.55} /></mesh>
+    <mesh position={[.03, .94, .03]} rotation-z={Math.PI / 2}><coneGeometry args={[.045, .18, 5]} /><meshStandardMaterial color="#d5d8d0" metalness={.8} /></mesh>
+  </group>
+  if (kind === 'axe') return <group>
+    {shaft}
+    <mesh position={[0, .88, 0]} rotation-z={-.18}><boxGeometry args={[.34, .28, .07]} /><meshStandardMaterial color="#bfc7c6" metalness={.9} roughness={.2} /></mesh>
+    <mesh position={[.14, .98, 0]} rotation-z={-.32}><coneGeometry args={[.11, .32, 5]} /><meshStandardMaterial color="#d6dddd" metalness={.92} roughness={.18} /></mesh>
+  </group>
+  if (kind === 'greenDragon') return <group>
+    <mesh position-y={.42}><cylinderGeometry args={[.028, .04, 1.62, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
+    <mesh position={[0, 1.24, 0]} rotation-z={.48}><coneGeometry args={[.13, .58, 7]} /><meshStandardMaterial color="#b9c4c2" metalness={.92} roughness={.16} /></mesh>
+    <mesh position={[.17, 1.43, 0]} rotation-z={-.32}><torusGeometry args={[.11, .025, 5, 12, Math.PI]} /><meshStandardMaterial color="#d2a54c" metalness={.78} /></mesh>
+  </group>
+  if (kind === 'halberd') return <group>
+    <mesh position-y={.48}><cylinderGeometry args={[.027, .04, 1.88, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
+    <mesh position={[0, 1.46, 0]} rotation-z={-.08}><coneGeometry args={[.12, .5, 5]} /><meshStandardMaterial color="#d3d8d5" metalness={.95} roughness={.14} /></mesh>
+    <mesh position={[.15, 1.5, 0]} rotation-z={-.5}><boxGeometry args={[.18, .08, .045]} /><meshStandardMaterial color="#c9d1ce" metalness={.9} /></mesh>
+  </group>
+  if (kind === 'spear') return <group>
+    {shaft}
+    <mesh position-y={.88}><coneGeometry args={[.11, .48, 6]} /><meshStandardMaterial color="#d6dddd" metalness={.95} roughness={.14} /></mesh>
+    <mesh position-y={.72}><torusGeometry args={[.11, .018, 6, 14]} /><meshStandardMaterial color="#d0a24f" metalness={.78} /></mesh>
+  </group>
+  const blade = ['qinggang', 'doubleSword', 'iceSword', 'gudingBlade'].includes(kind)
+  return <group>
+    {shaft}
+    <mesh position-y={blade ? .78 : .58}><coneGeometry args={[.09, blade ? .48 : .38, 4]} /><meshStandardMaterial color="#d6d9dc" metalness={.85} roughness={.22} /></mesh>
+    {blade && <mesh position-y={.44}><torusGeometry args={[.11, .018, 6, 14]} /><meshStandardMaterial color="#d0a24f" metalness={.75} /></mesh>}
+  </group>
+}
+
 function EquippedGear({ unit }: { unit: Unit }) {
   const weapon = unit.equipment.weapon?.kind
   const longWeapon = weapon && ['greenDragon', 'spear', 'halberd'].includes(weapon)
-  const bow = weapon === 'qilinBow' || weapon === 'crossbow'
   return <>
-    {weapon && <group position={[.42, .72, .08]} rotation-z={longWeapon ? -.14 : -.42}>
-      <mesh position-y={longWeapon ? .12 : -.02}><cylinderGeometry args={[.025, .035, longWeapon ? 1.5 : .72, 7]} /><meshStandardMaterial color="#6d4427" roughness={.72} /></mesh>
-      {bow ? <mesh position={[0, .26, 0]} rotation-y={Math.PI / 2}><torusGeometry args={[.25, .025, 6, 18, Math.PI]} /><meshStandardMaterial color="#d0a25a" metalness={.55} roughness={.35} /></mesh>
-        : <mesh position-y={longWeapon ? .91 : .47} rotation-z={weapon === 'greenDragon' ? .5 : 0}><coneGeometry args={[weapon === 'axe' ? .17 : .09, .38, 4]} /><meshStandardMaterial color={weapon === 'vermilionFan' ? '#d95742' : '#d6d9dc'} metalness={.85} roughness={.22} /></mesh>}
-    </group>}
+    {weapon && <group position={[.42, .72, .08]} rotation-z={longWeapon ? -.14 : -.42}><WeaponFigure kind={weapon} /></group>}
     {unit.equipment.armor && <>
       {[-.34, .34].map(side => <mesh key={side} position={[side, .98, 0]} rotation-z={side < 0 ? -.2 : .2}><sphereGeometry args={[.16, 8, 6]} /><meshStandardMaterial color={unit.equipment.armor?.kind === 'bagua' ? '#b69245' : '#737d87'} metalness={.7} roughness={.34} /></mesh>)}
       {unit.equipment.armor.kind === 'bagua' && <mesh position={[0, .74, .315]} rotation-z={Math.PI / 8}><cylinderGeometry args={[.16, .16, .045, 8]} /><meshStandardMaterial color="#d0aa4f" metalness={.65} roughness={.34} /></mesh>}
