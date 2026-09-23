@@ -139,6 +139,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .general-option p { min-height: 32px; margin: 3px 0 0; color: #93a7aa; font-size: 10px; line-height: 1.5; }
 .general-option .faction { position: absolute; top: 8px; left: 8px; width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid #ffffff99; border-radius: 50%; background: #132329dd; font: 700 12px serif; }
 .response-overlay { z-index: 60; }
+.halberd-overlay { pointer-events: none; background: #020608b8; backdrop-filter: blur(3px); }
+.halberd-overlay .panel { pointer-events: auto; }
 .response-panel { width: min(520px, 92vw); }
 .response-panel h1 { margin-bottom: 8px; font-size: clamp(20px, 3vw, 30px); }
 .response-panel > p { margin: 0 0 18px; color: #91a8ad; font-size: 13px; }

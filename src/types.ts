@@ -105,6 +105,11 @@ export interface PendingGuanxing {
   bottom: Card[]
 }
 
+export interface PendingHalberd {
+  cardId: string
+  targets: Team[]
+}
+
 export interface GameState {
   mapId: MapId
   deckMode: DeckMode
@@ -158,6 +163,7 @@ export interface GameState {
   pendingLiuli: { source: Team; originCardId: string; forcedSlashAttacksUsed?: number } | null
   pendingAxe: { target: Team; originCardId: string; amount: number } | null
   pendingIceSword: { target: Team; originCardId: string; amount: number; nature: 'fire' | 'thunder' | null } | null
+  pendingHalberd: PendingHalberd | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
   message: string

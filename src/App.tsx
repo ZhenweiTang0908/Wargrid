@@ -304,6 +304,8 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   const lijianSelected = state.lijianTargets.includes(team)
   const canChainTarget = selectedKind === 'ironChain' && unit.hp > 0
   const chainSelected = state.chainTargets.includes(team)
+  const canHalberdTarget = !!state.pendingHalberd && team !== 'player' && unit.hp > 0 && canSlash(state, attackSource, unit)
+  const halberdSelected = !!state.pendingHalberd?.targets.includes(team)
   const borrowedWielder = state.borrowedSwordWielder
   const canBorrowedWielder = selectedKind === 'borrowedSword' && team !== 'player' && !borrowedWielder && !!unit.equipment.weapon && Object.values(state.units).some(victim => canBorrowedSwordTarget(state, unit, victim))
   const canBorrowedVictim = selectedKind === 'borrowedSword' && !!borrowedWielder && canBorrowedSwordTarget(state, state.units[borrowedWielder], unit)
@@ -354,16 +356,17 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
         e.stopPropagation()
         if (canQingnangTarget) state.chooseQingnangTarget(team)
         else if (canJieyinTarget) state.chooseJieyinTarget(team)
+        else if (canHalberdTarget) state.selectHalberdTarget(team)
         else if (canChainTarget) state.selectChainTarget(team)
         else if (canLijianTarget) state.selectLijianTarget(team)
         else if (canBorrowedWielder) state.selectBorrowedSwordWielder(team)
         else if (canBorrowedVictim && selectedCardId && borrowedWielder) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: borrowedWielder, targets: [borrowedWielder, team] })
         else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
-      onPointerEnter={previewUnit ? undefined : () => { if (canTarget || canChainTarget || canBorrowedVictim) document.body.style.cursor = 'crosshair' }}
+      onPointerEnter={previewUnit ? undefined : () => { if (canTarget || canChainTarget || canHalberdTarget || canBorrowedVictim) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
     >
-      {(canTarget || canBorrowedVictim) && (
+      {(canTarget || canBorrowedVictim || canHalberdTarget) && (
         <mesh position-y={.06} rotation-x={-Math.PI / 2}>
           <ringGeometry args={[.47, .56, 32]} />
           <meshBasicMaterial color="#ffcb70" transparent opacity={.9} side={THREE.DoubleSide} />
@@ -380,6 +383,10 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
       {chainSelected && <mesh position-y={.08} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[.69, .77, 32]} />
         <meshBasicMaterial color="#6de5ed" transparent opacity={.95} side={THREE.DoubleSide} />
+      </mesh>}
+      {halberdSelected && <mesh position-y={.09} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[.8, .88, 32]} />
+        <meshBasicMaterial color="#f0bd63" transparent opacity={.98} side={THREE.DoubleSide} />
       </mesh>}
       {unit.chained && <mesh position-y={.34} rotation-x={Math.PI / 2}>
         <torusGeometry args={[.58, .055, 8, 24]} />
@@ -1096,6 +1103,28 @@ function TuxiWindow() {
   </section></div>
 }
 
+function HalberdWindow() {
+  const state = useGameStore()
+  const pending = state.pendingHalberd
+  const player = state.units.player
+  const selectTarget = useGameStore(s => s.selectHalberdTarget)
+  const confirm = useGameStore(s => s.confirmHalberd)
+  const cancel = useGameStore(s => s.cancelHalberd)
+  if (!pending) return null
+  const targets = Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && canSlash(state, player, unit))
+  return <div className="overlay response-overlay halberd-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">武器技能 · 方天画戟</span>
+    <h1>选择多目标【杀】</h1>
+    <p>这张【杀】是本回合最后一张手牌，可以攻击至多三名攻击范围内的角色。点击棋盘武将或下方名单调整目标。</p>
+    <div className="tuxi-options">
+      {targets.map(unit => <button key={unit.id} className={pending.targets.includes(unit.id) ? 'active' : ''} onClick={() => selectTarget(unit.id)}>
+        <strong>{unit.name}</strong><span>攻击距离 {combatDistance(state, player, unit)}</span><small>{pending.targets.includes(unit.id) ? '已选择' : '选择目标'}</small>
+      </button>)}
+    </div>
+    <div className="guanxing-actions"><button className="decline-response" onClick={cancel}>取消出牌</button><button className="primary" disabled={!pending.targets.length} onClick={confirm}>结算 {pending.targets.length}/3</button></div>
+  </section></div>
+}
+
 function LuoyiWindow() {
   const pending = useGameStore(s => s.pendingLuoyi)
   const choose = useGameStore(s => s.chooseLuoyi)
@@ -1375,6 +1404,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingLuoshen && <LuoshenWindow />}
     {state.generalSelected && !tutorial && state.pendingGuanxing && <GuanxingWindow />}
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
+    {state.generalSelected && !tutorial && state.pendingHalberd && <HalberdWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}
     {state.generalSelected && !tutorial && state.pendingLiuli && <LiuliWindow />}
