@@ -318,6 +318,17 @@ describe('identity victory rules', () => {
     expect(determineWinner(units)).toBe('east')
   })
 
+  it('returns the surviving rebel seat instead of a fixed fallback seat', () => {
+    const state = createInitialState(fixedDeck())
+    const units = {
+      ...state.units,
+      player: { ...state.units.player, hp: 0 },
+      east: { ...state.units.east, hp: 0 },
+      north: { ...state.units.north, identity: 'rebel' as const, hp: 1 },
+    }
+    expect(determineWinner(units)).toBe('north')
+  })
+
   it('awards the lord camp when rebels and renegade are gone', () => {
     const state = createInitialState(fixedDeck())
     const units = { ...state.units, east: { ...state.units.east, hp: 0 }, west: { ...state.units.west, hp: 0 } }
