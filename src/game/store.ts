@@ -620,22 +620,6 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   const emptyHandBonus = attacker.equipment.weapon?.kind === 'gudingBlade' && target.hand.length === 0 ? 1 : 0
   const amount = (attacker.drunk ? 2 : 1) + emptyHandBonus + (attacker.luoyiActive ? 1 : 0)
   const nature = slashCard?.kind === 'thunderSlash' ? 'thunder' : slashCard?.kind === 'fireSlash' || attacker.equipment.weapon?.kind === 'vermilionFan' ? 'fire' : null
-  let weaponText = ''
-  if (attacker.equipment.weapon?.kind === 'qilinBow') {
-    const mounts = [target.equipment.offensiveMount, target.equipment.defensiveMount].filter((card): card is Card => !!card)
-    if (attackerId === 'player' && mounts.length > 1 && slashCard) {
-      const pendingBase: GameState = { ...state, units, deck, discard }
-      const message = `${attacker.name}发动【麒麟弓】，请选择要弃置${target.name}的哪一匹坐骑`
-      return { ...pendingBase, pendingQilin: { target: targetId, originCardId: slashCard.id, amount, nature }, message, history: log(pendingBase, message) }
-    }
-    const slot = target.equipment.defensiveMount ? 'defensiveMount' : target.equipment.offensiveMount ? 'offensiveMount' : null
-    if (slot) {
-      const mount = target.equipment[slot]!
-      const removed = takeTargetCard({ ...state, units, deck, discard }, attackerId, targetId, false, mount.id)
-      units = removed.units ?? units; deck = removed.deck ?? deck; discard = removed.discard ?? discard
-      weaponText = `；【麒麟弓】弃置${target.name}的【${CARD_LABEL[mount.kind]}】${target.skills.includes('xiaoji') ? '，触发【枭姬】摸两张牌' : ''}`
-    }
-  }
   const base: GameState = { ...state, units, deck, discard }
   if (attacker.equipment.weapon?.kind === 'iceSword') {
     const available = [...target.hand, ...Object.values(target.equipment).filter((card): card is Card => !!card)]
@@ -648,8 +632,10 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
       if (target.hp > damageAfterArmor) return preventWithIceSword(base, attackerId, targetId, available.slice(0, 2))
     }
   }
-  const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : nature === 'thunder' ? '雷电' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}${weaponText}`
-  return nature ? elementalDamage(base, attackerId, targetId, amount, nature, slashCard) : damage(base, attackerId, targetId, amount, effectText, false, slashCard)
+  const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : nature === 'thunder' ? '雷电' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}`
+  const result = nature ? elementalDamage(base, attackerId, targetId, amount, nature, slashCard) : damage(base, attackerId, targetId, amount, effectText, false, slashCard)
+  const afterDamage: GameState = { ...base, ...result }
+  return resolveQilinAfterDamage(afterDamage, attackerId, targetId, slashCard, amount, nature) ?? result
 }
 
 function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCard?: Card): Partial<GameState> {
@@ -695,6 +681,22 @@ function takeTargetCard(state: GameState, actorId: Team, targetId: Team, gain: b
     deck: recovery.deck, discard: recovery.discard, message, history: log(state, message),
   }
   return lostLastHandCard ? triggerLianying(result, targetId) : result
+}
+
+function resolveQilinAfterDamage(state: GameState, attackerId: Team, targetId: Team, slashCard: Card | undefined, amount: number, nature: 'fire' | 'thunder' | null): Partial<GameState> | null {
+  const attacker = state.units[attackerId], target = state.units[targetId]
+  if (attacker.equipment.weapon?.kind !== 'qilinBow' || target.hp <= 0) return null
+  const mounts = [target.equipment.offensiveMount, target.equipment.defensiveMount].filter((card): card is Card => !!card)
+  if (!mounts.length) return null
+  if (attackerId === 'player' && mounts.length > 1 && slashCard) {
+    const message = `${attacker.name}发动【麒麟弓】，请选择要弃置${target.name}的哪一匹坐骑`
+    return { ...state, pendingQilin: { target: targetId, originCardId: slashCard.id, amount, nature }, message, history: log(state, message) }
+  }
+  const mount = target.equipment.defensiveMount ?? target.equipment.offensiveMount
+  if (!mount) return null
+  const removed = takeTargetCard(state, attackerId, targetId, false, mount.id)
+  const message = `${attacker.name}发动【麒麟弓】，弃置${target.name}的【${CARD_LABEL[mount.kind]}】${target.skills.includes('xiaoji') ? '，触发【枭姬】摸两张牌' : ''}${removed.message?.includes('白银狮子') ? '；白银狮子令其回复 1 点体力' : ''}`
+  return { ...state, ...removed, message, history: log(state, message) }
 }
 
 function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'barbarians', sourceCard?: Card, resolvedTargets: Team[] = []): Partial<GameState> {
@@ -1732,21 +1734,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!pending || state.winner || attacker.hp <= 0 || attacker.equipment.weapon?.kind !== 'qilinBow') return
     const target = state.units[pending.target], mount = slot ? target.equipment[slot] : undefined
     if (slot && !mount) return
-    let working: GameState = { ...state, pendingQilin: null }, weaponText = ''
+    let working: GameState = { ...state, pendingQilin: null }
     if (mount) {
       const removed = takeTargetCard(working, 'player', pending.target, false, mount.id)
       working = { ...working, ...removed }
-      weaponText = `；【麒麟弓】弃置${target.name}的【${CARD_LABEL[mount.kind]}】${target.skills.includes('xiaoji') ? '，触发【枭姬】摸两张牌' : ''}`
+      const message = `${attacker.name}发动【麒麟弓】，弃置${target.name}的【${CARD_LABEL[mount.kind]}】${target.skills.includes('xiaoji') ? '，触发【枭姬】摸两张牌' : ''}${working.message?.includes('白银狮子') ? '；白银狮子令其回复 1 点体力' : ''}`
+      set({ ...working, message, history: log(state, message) })
+      return
     }
-    const slash = working.discard.find(card => card.id === pending.originCardId)
-    const targetAfter = working.units[pending.target]
-    const effectText = `${targetAfter.name}受到 ${pending.amount} 点${pending.nature === 'fire' ? '火焰' : pending.nature === 'thunder' ? '雷电' : ''}伤害${weaponText}`
-    const result = pending.nature
-      ? elementalDamage(working, 'player', pending.target, pending.amount, pending.nature, slash)
-      : damage(working, 'player', pending.target, pending.amount, effectText, false, slash)
-    const settled: GameState = { ...working, ...result, pendingQilin: null }
-    const message = pending.nature && weaponText ? `${settled.message}${weaponText}` : settled.message
-    set({ ...settled, message, history: log(settled, message) })
+    const message = `${attacker.name}发动【麒麟弓】，不弃置${target.name}的坐骑`
+    set({ ...working, message, history: log(state, message) })
   },
   chooseYijiRecipient: (cardId, recipient) => {
     const state = get(), pending = state.pendingYiji

@@ -2120,6 +2120,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
     let state = useGameStore.getState()
     expect(state.pendingQilin).toMatchObject({ target: 'north', originCardId: slash.id, amount: 1, nature: null })
+    expect(state.units.north.hp).toBe(3)
     expect(state.discard).toContainEqual(slash)
     useGameStore.getState().chooseQilinMount('offensiveMount')
     state = useGameStore.getState()
