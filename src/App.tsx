@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
-import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
+import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
@@ -1519,6 +1519,8 @@ function App() {
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
   const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired
+  const previewCell = state.pathPreview[state.pathPreview.length - 1]
+  const previewTerrain = previewCell ? terrainAt(state, previewCell) : null
   const selectionHint = selectedCard
     ? state.turnStage === 'discard'
       ? `弃牌阶段：还需选择 ${discardRequired - state.discardSelection.length} 张手牌`
@@ -1579,6 +1581,7 @@ function App() {
     <div className="battlefield">{state.generalSelected && <Battlefield />}</div>
 
     <div className="message-bar"><span className="message-pip" /><span>{state.message}</span>{selectionHint && <small className="selection-hint">{selectionHint}</small>}</div>
+    {previewCell && previewTerrain && <div className="terrain-readout"><strong>{TERRAIN_GUIDE[previewTerrain].mark} · {TERRAIN_GUIDE[previewTerrain].name}</strong><span>移动消耗 {movementCost(state, previewCell)}</span><small>{TERRAIN_GUIDE[previewTerrain].rule}</small></div>}
 
     <footer className="command-deck">
       <div className="movement"><span>{state.turnStage === 'play' ? `出牌阶段 · 移动 ${state.units.player.movement}` : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{Array.from({ length: Math.max(3, state.units.player.movement) }, (_, index) => index + 1).map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>

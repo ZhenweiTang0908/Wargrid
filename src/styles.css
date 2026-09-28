@@ -56,6 +56,10 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .message-bar { position: absolute; z-index: 8; bottom: 122px; left: 50%; transform: translateX(-50%); min-width: 320px; max-width: 70%; padding: 7px 16px; display: flex; align-items: center; justify-content: center; gap: 9px; text-align: center; color: #bdd0d2; background: #071216d9; border-top: 1px solid #27464c; font-size: 12px; letter-spacing: .04em; }
 .message-pip { display: inline-block; width: 5px; height: 5px; margin: 0 8px 2px 0; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
 .selection-hint { padding-left: 9px; border-left: 1px solid #42646a; color: #e4c77e; font-size: 10px; white-space: nowrap; }
+.terrain-readout { position: absolute; z-index: 8; left: max(18px, env(safe-area-inset-left)); bottom: 132px; display: grid; grid-template-columns: auto auto; gap: 2px 8px; max-width: 250px; padding: 7px 10px; border-left: 2px solid #a98b55; background: #071216d9; box-shadow: 0 4px 16px #0005; }
+.terrain-readout strong { color: #eed28f; font: 700 12px serif; }
+.terrain-readout span { color: #88bfc0; font-size: 10px; }
+.terrain-readout small { grid-column: 1 / -1; color: #9aadae; font-size: 9px; line-height: 1.35; }
 
 .command-deck { position: absolute; z-index: 9; inset: auto 0 0; height: 122px; padding: 10px max(18px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); display: grid; grid-template-columns: 130px minmax(300px, 1fr) 190px; align-items: center; gap: 12px; background: linear-gradient(90deg, #081419f5, #0c1d22fa 50%, #081419f5); border-top: 1px solid #32535a; box-shadow: 0 -14px 40px #0008; }
 .command-deck > * { min-width: 0; }
@@ -276,6 +280,8 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .hearts { gap: 1px; margin: 2px 0; font-size: 9px; }
   .message-bar { bottom: 94px; padding: 4px 10px; gap: 5px; }
   .selection-hint { max-width: 48vw; overflow: hidden; text-overflow: ellipsis; }
+  .terrain-readout { bottom: 102px; left: 10px; max-width: 190px; padding: 5px 7px; }
+  .terrain-readout small { font-size: 8px; }
   .command-deck { height: 94px; grid-template-columns: 100px minmax(0, 1fr) 150px; gap: 6px; padding-top: 5px; padding-bottom: 5px; }
   .card { width: 61px; height: 75px; padding: 5px; }
   .card small { display: none; }
@@ -342,6 +348,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .status-meta { display: none; }
   .message-bar { bottom: 91px; padding: 4px 10px; min-width: 260px; font-size: 10px; }
   .selection-hint { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; }
+  .terrain-readout { bottom: 98px; left: 9px; max-width: 170px; }
   .command-deck { height: 92px; grid-template-columns: 74px minmax(0, 1fr) minmax(112px, 25%); padding-top: 5px; padding-bottom: 5px; }
   .movement { gap: 5px; }
   .movement i { width: 18px; }
