@@ -7,7 +7,7 @@ export type AudioEvent = { type: 'voice'; cue: VoiceCue } | { type: 'effect'; cu
 const cardVoice: Partial<Record<CardKind, VoiceCue>> = {
   slash: 'slash', fireSlash: 'slash', thunderSlash: 'slash', dodge: 'dodge', peach: 'peach',
   nullify: 'nullify', duel: 'duel', arrows: 'arrows', barbarians: 'barbarians',
-  harvest: 'harvest', peachGarden: 'peachGarden', drawTwo: 'drawTwo', indulgence: 'indulgence', lightning: 'lightning',
+  harvest: 'harvest', peachGarden: 'peachGarden', drawTwo: 'drawTwo', indulgence: 'indulgence', supplyShortage: 'indulgence', lightning: 'lightning',
   crossbow: 'equipment', qinggang: 'equipment', greenDragon: 'equipment', spear: 'equipment', axe: 'equipment',
   halberd: 'equipment', qilinBow: 'equipment', doubleSword: 'equipment', iceSword: 'equipment', shield: 'equipment',
   bagua: 'equipment', silverLion: 'equipment', vineArmor: 'equipment', redHare: 'equipment', dayuan: 'equipment', zixing: 'equipment',

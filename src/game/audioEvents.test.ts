@@ -35,6 +35,14 @@ describe('game audio cues', () => {
     expect(audioEvents(before, after)).toEqual([{ type: 'effect', cue: 'card' }, { type: 'voice', cue: 'equipment' }])
   })
 
+  it('reuses the delayed-tactic voice for Supply Shortage', () => {
+    const shortage = card('shortage', 'supplyShortage')
+    const state = createInitialState([shortage])
+    const before = { ...state, generalSelected: true, units: { ...state.units, player: { ...state.units.player, hand: [shortage] } } }
+    const after = { ...before, discard: [shortage], units: { ...before.units, player: { ...before.units.player, hand: [] } } }
+    expect(audioEvents(before, after)).toEqual([{ type: 'effect', cue: 'card' }, { type: 'voice', cue: 'indulgence' }])
+  })
+
   it('keeps discard-stage payments quiet and distinguishes victory from defeat', () => {
     const slash = card('discarded', 'slash')
     const state = createInitialState([slash])
