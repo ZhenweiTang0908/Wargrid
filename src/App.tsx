@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices, jijiangChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
-import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canDuelTarget, canSlash, combatDistance, createDeck, createStandardDeck, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
+import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canDuelTarget, canSlash, canUseWushengCard, combatDistance, createDeck, createStandardDeck, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
@@ -838,7 +838,7 @@ function CardView({ card, selected, equipped = false }: { card: Card; selected: 
   const state = useGameStore()
   const discarding = state.phase === 'player' && state.turnStage === 'discard'
   const red = card.suit === 'heart' || card.suit === 'diamond'
-  const disabled = !discarding && (state.phase !== 'player' || (!state.zhihengMode && !state.lijianMode && !(state.selectedAsDismantle && state.units.player.skills.includes('qixi') && !red) && !(state.selectedAsGuose && card.suit === 'diamond') && !(state.selectedAsSlash && state.units.player.skills.includes('wusheng') && red) && ((card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))))
+  const disabled = !discarding && (state.phase !== 'player' || (!state.zhihengMode && !state.lijianMode && !(state.selectedAsDismantle && state.units.player.skills.includes('qixi') && !red) && !(state.selectedAsGuose && card.suit === 'diamond') && !(state.selectedAsSlash && state.units.player.skills.includes('wusheng') && canUseWushengCard(state.units.player, card)) && ((card.kind === 'peach' && state.units.player.hp >= state.units.player.maxHp) || (isSlashKind(card.kind) && state.units.player.attacksUsed >= slashLimit(state.units.player)) || (card.kind === 'wine' && state.units.player.wineUsed))))
   return (
     <button className={`card ${card.kind} ${selected ? 'selected' : ''} ${discarding ? 'discarding' : ''}`} disabled={disabled} onClick={() => discarding ? toggleDiscard(card.id) : selectCard(card.id)}>
       <span className={`card-suit ${red ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
@@ -1483,7 +1483,7 @@ function App() {
   const [inspectedUnit, setInspectedUnit] = useState<{ team: Team; portrait: string; skillText: string } | null>(null)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.lijianMode || state.selectedAsDismantle && state.units.player.skills.includes('qixi') || state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
-  const canWusheng = state.units.player.skills.includes('wusheng') && state.units.player.attacksUsed < slashLimit(state.units.player) && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => !isSlashKind(card.kind) && (card.suit === 'heart' || card.suit === 'diamond'))
+  const canWusheng = state.units.player.skills.includes('wusheng') && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => !isSlashKind(card.kind) && canUseWushengCard(state.units.player, card))
   const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < slashLimit(state.units.player)
   const canJijiang = state.units.player.identity === 'lord' && state.units.player.skills.includes('jijiang') && state.units.player.attacksUsed < slashLimit(state.units.player) && !!jijiangChoices(state, 'player')[0]
   const canQixi = state.units.player.skills.includes('qixi') && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => card.suit === 'spade' || card.suit === 'club')

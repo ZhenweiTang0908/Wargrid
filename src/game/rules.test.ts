@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Card, GameState } from '../types'
-import { MAP_DEFINITIONS, MAP_IDS, attackRange, canPeach, canSlash, combatDistance, createDeck, createInitialState, createStandardDeck, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
+import { MAP_DEFINITIONS, MAP_IDS, attackRange, canPeach, canSlash, canUseWushengCard, combatDistance, createDeck, createInitialState, createStandardDeck, determineWinner, drawCards, effectiveAttackRange, findPath, movementCost, pathDistance, reachableCells, resolveEndTurnTerrain, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 
 const fixedDeck = (): Card[] => Array.from({ length: 28 }, (_, index) => ({
   id: `test-${index}`,
@@ -217,6 +217,11 @@ describe('card and victory rules', () => {
     expect(attackRange(halberd)).toBe(4)
     expect(slashLimit(crossbow)).toBe(Infinity)
     expect(slashLimit({ ...state.units.player, skill: 'paoxiao' })).toBe(Infinity)
+    const redHandCard = { id: 'red', kind: 'peach' as const, suit: 'heart' as const, rank: 3 }
+    const redCrossbow = { id: 'red-crossbow', kind: 'crossbow' as const, suit: 'diamond' as const, rank: 1 }
+    const wushengWithCrossbow = { ...state.units.player, attacksUsed: 1, equipment: { weapon: redCrossbow } }
+    expect(canUseWushengCard(wushengWithCrossbow, redHandCard)).toBe(true)
+    expect(canUseWushengCard(wushengWithCrossbow, redCrossbow)).toBe(false)
     const attacker = { ...state.units.player, position: { x: 4, y: 2 }, equipment: { offensiveMount: { id: 'r', kind: 'redHare' as const, suit: 'heart' as const, rank: 5 } } }
     const defender = { ...state.units.north, position: { x: 4, y: 0 }, equipment: { defensiveMount: { id: 'd', kind: 'dilu' as const, suit: 'club' as const, rank: 5 } } }
     const mountedState = { ...state, units: { ...state.units, player: attacker, north: defender } }

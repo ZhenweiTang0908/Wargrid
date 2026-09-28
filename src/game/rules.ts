@@ -488,6 +488,11 @@ export const plunderableCards = (unit: Unit, includeJudgement = true): Card[] =>
 ]
 export const isSlashKind = (kind: CardKind) => kind === 'slash' || kind === 'fireSlash' || kind === 'thunderSlash'
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
+export function canUseWushengCard(unit: Unit, card: Card) {
+  if (!isRedCard(card)) return false
+  const equipment = Object.fromEntries(Object.entries(unit.equipment).filter(([, equipped]) => equipped?.id !== card.id)) as Unit['equipment']
+  return unit.attacksUsed < slashLimit({ ...unit, equipment })
+}
 export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'vineArmor', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random, resolvingCardIds: readonly string[] = []) {

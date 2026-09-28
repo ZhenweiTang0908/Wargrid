@@ -2225,6 +2225,30 @@ describe('standard card scenarios', () => {
     expect(state.discard).not.toContainEqual(weapon)
   })
 
+  it('does not offer a spent Crossbow itself as a second Wusheng Slash', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const crossbow = card('crossbow', 'diamond', 1)
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, attacksUsed: 1, hand: [], equipment: { weapon: crossbow } },
+    } }))
+    useGameStore.getState().activateWusheng()
+    expect(useGameStore.getState().selectedAsSlash).toBe(false)
+  })
+
+  it('keeps a red hand card available for Wusheng while Crossbow supplies the extra Slash', () => {
+    useGameStore.getState().selectGeneral('wusheng')
+    const crossbow = card('crossbow', 'diamond', 1), redTrick = card('drawTwo', 'heart', 8)
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, attacksUsed: 1, hand: [redTrick], equipment: { weapon: crossbow } },
+    } }))
+    useGameStore.getState().activateWusheng()
+    useGameStore.getState().selectCard(crossbow.id)
+    expect(useGameStore.getState().selectedCardId).toBeNull()
+    expect(useGameStore.getState().message).toContain('出杀次数已达上限')
+    useGameStore.getState().selectCard(redTrick.id)
+    expect(useGameStore.getState().selectedCardId).toBe(redTrick.id)
+  })
+
   it('uses a red card as slash through Wusheng in a duel response', () => {
     const duel = card('duel', 'spade'), redCard = card('peach', 'heart'), enemySlash = card('slash', 'club')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {

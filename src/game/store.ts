@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type PendingGanglieContinuation, type PendingResponse, type PendingTieqiContinuation, type Position, type Team, type Unit } from '../types'
-import { attackRange, canBorrowedSwordTarget, canDuelTarget, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, plunderableCards, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
+import { attackRange, canBorrowedSwordTarget, canDuelTarget, canPeach, canSlash, canUseWushengCard, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, plunderableCards, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 import { resolveEquipmentLoss } from './equipment'
 
 interface GameStore extends GameState {
@@ -2472,6 +2472,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (state.selectedAsSlash && state.units.player.skills.includes('wusheng')) {
       if (!isRed(card)) { set({ message: '【武圣】只能选择红色牌' }); return }
+      if (!canUseWushengCard(state.units.player, card)) { set({ message: '弃置【诸葛连弩】后本回合出杀次数已达上限' }); return }
       set({ selectedCardId: id, message: `【武圣】将【${CARD_LABEL[card.kind]}】当【杀】，请选择目标` }); return
     }
     if (state.spearMode) {
@@ -2490,7 +2491,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   activateWusheng: () => {
     const state = get(), player = state.units.player
-    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('wusheng') || player.attacksUsed >= slashLimit(player) || ![...player.hand, ...equippedCards(player)].some(card => isRed(card) && !isSlashKind(card.kind))) return
+    if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('wusheng') || ![...player.hand, ...equippedCards(player)].some(card => !isSlashKind(card.kind) && canUseWushengCard(player, card))) return
     const active = !state.selectedAsSlash
     const selected = player.hand.find(card => card.id === state.selectedCardId)
     set({ selectedAsSlash: active, selectedCardId: active && selected && isRed(selected) ? selected.id : null, selectedAsDismantle: false, selectedAsGuose: false, message: active ? '【武圣】请选择一张红色手牌或装备，再选择攻击目标' : '已取消武圣' })
