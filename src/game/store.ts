@@ -423,7 +423,8 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     units = { ...units, [attackerId]: { ...killer, hand: [], equipment: {} } }
   }
   let winner = determineWinner(units)
-  const finalMessage = hp <= 0 ? `${state.units[attackerId].name}击败了${target.name}，其身份是${target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'}！` : message
+  const identityName = target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'
+  const finalMessage = hp > 0 ? message : attackerId === targetId ? `${target.name}阵亡，其身份是${identityName}！` : `${state.units[attackerId].name}击败了${target.name}，其身份是${identityName}！`
   let skillText = ''
   if (hp > 0 && target.skills.includes('jianxiong')) {
     const sourceIndex = sourceCard ? discard.findIndex(card => card.id === sourceCard.id) : -1

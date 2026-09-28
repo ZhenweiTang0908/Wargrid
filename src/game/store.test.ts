@@ -1917,7 +1917,7 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hp).toBe(4)
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.units.east.hp).toBe(3)
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['arrows', 'dodge']))
   })
 
@@ -1932,7 +1932,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
     const state = useGameStore.getState()
     expect(state.pendingResponse).toMatchObject({ effect: 'nullify', target: 'player', trick: 'arrows' })
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.units.north.hand).toEqual([northDodge])
   })
 
@@ -2004,6 +2004,7 @@ describe('standard card scenarios', () => {
     useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: { ...state.units,
       north: { ...state.units.north, skill: 'wusheng', skills: ['wusheng'], position: state.controlPoint, hand: [], equipment: { offensiveMount: mount } },
       east: { ...state.units.east, position: { x: 5, y: 4 }, hand: [], equipment: {} },
+      west: { ...state.units.west, hp: 4, maxHp: 4 },
     } }))
     await useGameStore.getState().runAI()
     const state = useGameStore.getState()
@@ -2236,7 +2237,7 @@ describe('standard card scenarios', () => {
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 0, y: 3 }, hand: [attack, spare] }, west: { ...state.units.west, position: { x: 0, y: 4 }, hand: [] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: attack.id, target: 'west' })
     const state = useGameStore.getState()
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.units.west.hand).toContainEqual(spare)
     expect(state.units.player.hand).toHaveLength(0)
     expect(state.message).toContain('反馈')
@@ -2566,7 +2567,7 @@ describe('standard card scenarios', () => {
     expect(state.pendingHalberd).toBeNull()
     expect(state.units.north.hp).toBe(3)
     expect(state.units.east.hp).toBe(3)
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.message).toContain('方天画戟')
   })
@@ -3339,7 +3340,7 @@ describe('standard card scenarios', () => {
         ...state.units,
         north: { ...state.units.north, skill: 'keji', skills: ['keji'], position: { x: 4, y: 0 }, hp: 2, hand: [payment], movement: 3 },
         east: { ...state.units.east, position: { x: 8, y: 8 }, hand: [] },
-        west: { ...state.units.west, position: { x: 0, y: 8 }, hand: [] },
+        west: { ...state.units.west, position: { x: 0, y: 8 }, hp: 4, maxHp: 4, hand: [] },
       },
     }))
     await useGameStore.getState().runAI()
@@ -3391,7 +3392,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north', targets: ['north', 'west'] })
     const state = useGameStore.getState()
     expect(state.borrowedSwordWielder).toBeNull()
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.units.east.hp).toBe(4)
     expect(state.units.north.hand).toHaveLength(0)
   })
@@ -3457,7 +3458,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().respond(forcedSlash.id)
     const state = useGameStore.getState()
     expect(state.pendingResponse).toBeNull()
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.units.player.attacksUsed).toBe(1)
     expect(state.units.player.equipment.weapon).toEqual(weapon)
   })
@@ -3477,7 +3478,7 @@ describe('standard card scenarios', () => {
     expect(state.units.player.equipment.offensiveMount).toBeUndefined()
     expect(state.units.player.equipment.weapon).toEqual(weapon)
     expect(state.discard).toContainEqual(mount)
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
   })
 
   it('lets Guan Yu use the borrowed red weapon as Slash at adjacent range', () => {
@@ -3491,7 +3492,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().respond(weapon.id)
     const state = useGameStore.getState()
     expect(state.units.player.equipment.weapon).toBeUndefined()
-    expect(state.units.west.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
     expect(state.units.east.hand).not.toContainEqual(weapon)
     expect(state.discard).toContainEqual(weapon)
   })
@@ -3539,7 +3540,7 @@ describe('standard card scenarios', () => {
     expect(state.units.player.equipment.weapon).toBeUndefined()
     expect(state.units.player.hand).toContainEqual(forcedSlash)
     expect(state.units.east.hand).toContainEqual(weapon)
-    expect(state.units.west.hp).toBe(4)
+    expect(state.units.west.hp).toBe(3)
   })
 
   it('triggers Xiaoji when Borrowed Sword takes Sun Shangxiang weapon', () => {
@@ -3646,6 +3647,8 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBeLessThanOrEqual(0)
     expect(state.units.player.hand).toEqual([])
     expect(state.deck).toEqual([peach, extra])
+    expect(state.message).toContain('黄盖阵亡')
+    expect(state.message).not.toContain('黄盖击败了黄盖')
   })
 
   it('draws Kurou cards only after surviving its dying window', () => {
@@ -3776,6 +3779,7 @@ describe('standard card scenarios', () => {
     useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: { ...state.units,
       north: { ...state.units.north, skill: 'guose', skills: ['guose', 'liuli'], position: state.controlPoint, hand: [], equipment: { weapon: equipped } },
       east: { ...state.units.east, hand: [] },
+      west: { ...state.units.west, hp: 4, maxHp: 4 },
     } }))
     await useGameStore.getState().runAI()
     const state = useGameStore.getState()
@@ -3789,6 +3793,7 @@ describe('standard card scenarios', () => {
     useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: { ...state.units,
       north: { ...state.units.north, skill: ability === 'paoxiao' ? 'paoxiao' : 'longdan', skills: ability === 'paoxiao' ? ['paoxiao'] : ['longdan'], position: state.controlPoint, hand: [first, second], equipment: ability === 'crossbow' ? { weapon: card('crossbow', 'diamond') } : {} },
       east: { ...state.units.east, position: { x: 4, y: 5 }, hand: [] },
+      west: { ...state.units.west, hp: 4, maxHp: 4 },
     } }))
     await useGameStore.getState().runAI()
     const state = useGameStore.getState()
@@ -4109,6 +4114,7 @@ describe('standard card scenarios', () => {
       ...state.units,
       north: { ...state.units.north, skill: 'yingzi', skills: ['yingzi', 'fanjian'], position: state.controlPoint, hand: [gift] },
       player: { ...state.units.player, hand: [] },
+      west: { ...state.units.west, hp: 4, maxHp: 4 },
     } }))
     await useGameStore.getState().runAI()
     const state = useGameStore.getState()

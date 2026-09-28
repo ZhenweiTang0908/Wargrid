@@ -133,6 +133,14 @@ describe('board rules', () => {
     expect(findPath(state, { x: 4, y: 8 }, { x: 2, y: 6 }, 'player')).toEqual([])
   })
 
+  it('uses the standard health values for the initial generals', () => {
+    const state = createInitialState(fixedDeck())
+    expect(state.units.player).toMatchObject({ name: '关羽', hp: 5, maxHp: 5 })
+    expect(state.units.north).toMatchObject({ name: '赵云', hp: 4, maxHp: 4 })
+    expect(state.units.east).toMatchObject({ name: '夏侯惇', hp: 4, maxHp: 4 })
+    expect(state.units.west).toMatchObject({ name: '司马懿', hp: 3, maxHp: 3 })
+  })
+
   it('limits reachable cells by remaining movement', () => {
     const state = createInitialState(fixedDeck())
     const cells = reachableCells(state, { ...state.units.player, movement: 1 })
