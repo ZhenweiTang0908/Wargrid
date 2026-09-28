@@ -4,7 +4,7 @@ import type { Unit } from './types'
 type Props = { unit: Unit; color: string; darkColor: string; accent: string }
 
 const armoredSkills = new Set(['wusheng', 'longdan', 'ganglie', 'jianxiong', 'tuxi', 'luoyi', 'paoxiao', 'wushuang', 'tieqi', 'mashu', 'yingzi', 'keji', 'zhiheng', 'qixi', 'kurou'])
-const beardSkills = new Set(['wusheng', 'jianxiong', 'paoxiao', 'ganglie', 'rende', 'wushuang', 'luoyi'])
+const beardSkills = new Set(['wusheng', 'jianxiong', 'paoxiao', 'ganglie', 'rende', 'wushuang', 'luoyi', 'kurou'])
 
 function Polearm({ kind, accent }: { kind: 'guandao' | 'spear' | 'serpent' | 'halberd'; accent: string }) {
   const metal = kind === 'guandao' ? '#aeb8ae' : '#d2d7cf'
@@ -559,6 +559,66 @@ function XuChuRegalia({ accent }: { accent: string }) {
   </group>
 }
 
+function GanNingRegalia({ accent }: { accent: string }) {
+  const sea = '#17636b', deepSea = '#173e47', brass = '#c19a52', sail = '#d8c9a8', leather = '#51382b'
+  return <group>
+    {/* Low scarf, bell chains and split sailcloth cape identify the Jinfan raider at board scale. */}
+    <mesh position={[0, 1.49, -.035]} scale={[1.08, .54, 1]} castShadow><sphereGeometry args={[.282, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.7]} /><meshStandardMaterial color={deepSea} roughness={.8} /></mesh>
+    <mesh position={[0, 1.57, .13]} rotation-x={Math.PI / 2}><torusGeometry args={[.225, .038, 7, 20, Math.PI]} /><meshStandardMaterial color={sea} roughness={.7} /></mesh>
+    <mesh position={[-.23, 1.56, -.02]} rotation-z={.62} castShadow><boxGeometry args={[.12, .48, .052]} /><meshStandardMaterial color={accent} roughness={.88} side={THREE.DoubleSide} /></mesh>
+    <mesh position={[-.34, 1.38, -.04]} rotation-z={.35} castShadow><boxGeometry args={[.09, .35, .045]} /><meshStandardMaterial color={sea} roughness={.9} side={THREE.DoubleSide} /></mesh>
+    {[-1, 1].map(side => <group key={`ganning-side-${side}`}>
+      <group position={[side * .43, 1.01, -.015]} rotation-z={side * .27}>
+        <mesh scale={[1.12, .78, .94]} castShadow><dodecahedronGeometry args={[.218, 0]} /><meshStandardMaterial color={side > 0 ? sea : deepSea} metalness={.48} roughness={.43} /></mesh>
+        {[0, 1].map(layer => <mesh key={layer} position={[side * .02, -.1 - layer * .08, .17]} rotation-z={side * .08}><boxGeometry args={[.2 - layer * .018, .07, .038]} /><meshStandardMaterial color={layer ? brass : sail} metalness={layer ? .67 : .08} roughness={layer ? .32 : .75} /></mesh>)}
+      </group>
+      <mesh position={[side * .39, .52, -.31]} rotation-z={side * .18} castShadow><boxGeometry args={[.245, .8, .048]} /><meshStandardMaterial color={side > 0 ? sea : sail} roughness={.92} side={THREE.DoubleSide} /></mesh>
+      <group position={[side * .32, .77, .255]} rotation-z={side * .11}>
+        <mesh><capsuleGeometry args={[.011, .34, 4, 7]} /><meshStandardMaterial color={brass} metalness={.73} roughness={.31} /></mesh>
+        {[0, 1, 2].map(index => <group key={index} position={[side * (index % 2) * .018, .11 - index * .12, 0]}>
+          <mesh><torusGeometry args={[.042, .012, 6, 12]} /><meshStandardMaterial color={brass} metalness={.82} roughness={.24} /></mesh>
+          <mesh position-y={-.052}><sphereGeometry args={[.027, 8, 6]} /><meshStandardMaterial color={brass} metalness={.78} roughness={.27} /></mesh>
+        </group>)}
+      </group>
+    </group>)}
+    <group position={[0, .89, .41]}>
+      <mesh scale={[1.22, .78, .43]}><octahedronGeometry args={[.143]} /><meshStandardMaterial color={brass} metalness={.78} roughness={.27} /></mesh>
+      <mesh position-z={.066} scale={[1.2, .72, .45]}><dodecahedronGeometry args={[.056, 0]} /><meshStandardMaterial color={accent} emissive="#123d42" emissiveIntensity={.34} metalness={.39} roughness={.3} /></mesh>
+    </group>
+    <group position={[-.31, .75, -.27]} rotation-z={.18}>
+      <mesh castShadow><cylinderGeometry args={[.024, .028, .88, 8]} /><meshStandardMaterial color={leather} roughness={.78} /></mesh>
+      <mesh position={[-.08, .23, 0]} rotation-z={-.15} castShadow><boxGeometry args={[.17, .38, .026]} /><meshStandardMaterial color={sail} roughness={.9} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[-.08, .28, .018]}><boxGeometry args={[.1, .09, .014]} /><meshStandardMaterial color={sea} roughness={.72} /></mesh>
+    </group>
+  </group>
+}
+
+function HuangGaiRegalia({ accent }: { accent: string }) {
+  const iron = '#706e66', darkIron = '#3f403c', bronze = '#a97a43', crimson = '#74302a', leather = '#4a3128'
+  return <group>
+    {/* Battered helmet, offset plates and scars give the veteran his Kurou silhouette. */}
+    <mesh position={[0, 1.49, -.04]} scale={[1.08, .58, 1.02]} castShadow><sphereGeometry args={[.286, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.68]} /><meshStandardMaterial color={darkIron} metalness={.64} roughness={.4} /></mesh>
+    <mesh position={[0, 1.58, .14]} rotation-x={Math.PI / 2}><torusGeometry args={[.228, .035, 7, 20, Math.PI]} /><meshStandardMaterial color={bronze} metalness={.78} roughness={.28} /></mesh>
+    <mesh position={[.025, 1.68, -.02]} rotation-z={-.12} castShadow><coneGeometry args={[.07, .3, 6]} /><meshStandardMaterial color={crimson} roughness={.58} /></mesh>
+    <mesh position={[.06, 1.82, -.025]} rotation-z={-.28}><capsuleGeometry args={[.027, .22, 5, 9]} /><meshStandardMaterial color="#a74836" roughness={.82} /></mesh>
+    {[-1, 1].map(side => <group key={`huanggai-side-${side}`}>
+      <group position={[side * .44, 1.0, -.01]} rotation-z={side * .28}>
+        <mesh scale={[side < 0 ? 1.25 : 1.08, .84, 1]} castShadow><dodecahedronGeometry args={[.23, 0]} /><meshStandardMaterial color={side < 0 ? iron : leather} metalness={side < 0 ? .7 : .18} roughness={side < 0 ? .32 : .67} /></mesh>
+        {side < 0 && <mesh position={[-.02, .04, .2]} scale={[1.1, .82, .48]}><octahedronGeometry args={[.08]} /><meshStandardMaterial color={bronze} metalness={.77} roughness={.27} /></mesh>}
+        {[0, 1, 2].map(layer => <mesh key={layer} position={[0, -.1 - layer * .078, .16]}><boxGeometry args={[.21 - layer * .014, .067, .043]} /><meshStandardMaterial color={layer === 1 ? bronze : iron} metalness={.65} roughness={.34} /></mesh>)}
+      </group>
+      <mesh position={[side * .39, .5, -.31]} rotation-z={side * .17} castShadow><boxGeometry args={[.255, .82, .052]} /><meshStandardMaterial color={side > 0 ? crimson : '#53302a'} roughness={.91} side={THREE.DoubleSide} /></mesh>
+      {[0, 1, 2].map(index => <mesh key={index} position={[side * (.23 + index * .013), .58 - index * .125, .31]}><boxGeometry args={[.18, .085, .04]} /><meshStandardMaterial color={index === 1 ? bronze : darkIron} metalness={.62} roughness={.37} /></mesh>)}
+    </group>)}
+    <group position={[0, .88, .414]}>
+      <mesh scale={[1.25, .82, .45]}><octahedronGeometry args={[.15]} /><meshStandardMaterial color={bronze} metalness={.78} roughness={.27} /></mesh>
+      <mesh position-z={.07}><sphereGeometry args={[.05, 10, 8]} /><meshStandardMaterial color={accent} emissive="#401d16" emissiveIntensity={.35} metalness={.42} roughness={.29} /></mesh>
+    </group>
+    <mesh position={[-.31, .78, .27]} rotation-z={.22}><boxGeometry args={[.035, .58, .025]} /><meshStandardMaterial color="#a14a3d" roughness={.88} /></mesh>
+    <mesh position={[.27, .67, .29]} rotation-z={-.38}><boxGeometry args={[.025, .36, .018]} /><meshStandardMaterial color="#8e3c34" roughness={.9} /></mesh>
+  </group>
+}
+
 function BowAndQuiver({ accent }: { accent: string }) {
   return <group>
     <group position={[.37, .73, .05]} rotation={[0, -.18, -.2]}>
@@ -617,6 +677,15 @@ function SignatureGear({ unit, accent }: { unit: Unit; accent: string }) {
         <mesh position-y={-.31}><boxGeometry args={[.18, .045, .055]} /><meshStandardMaterial color="#c6a35f" metalness={.72} roughness={.3} /></mesh>
       </group>)}
     </group>
+    if (unit.skill === 'kurou') return <group position={[-.42, .65, -.08]} rotation={[.05, 0, .16]}>
+      <mesh position-y={-.26} castShadow><cylinderGeometry args={[.04, .05, .62, 10]} /><meshStandardMaterial color="#4b3025" roughness={.72} /></mesh>
+      <mesh position-y={.08} castShadow><cylinderGeometry args={[.045, .038, .18, 9]} /><meshStandardMaterial color="#a97a43" metalness={.73} roughness={.29} /></mesh>
+      {[0, 1, 2, 3].map(index => <group key={index} position={[Math.sin(index * .4) * .03, .25 + index * .15, 0]} rotation-z={-.12 - index * .09}>
+        <mesh castShadow><capsuleGeometry args={[.025 - index * .002, .13, 5, 9]} /><meshStandardMaterial color={index % 2 ? '#716f67' : '#8a8980'} metalness={.8} roughness={.24} /></mesh>
+        <mesh position-y={.082}><torusGeometry args={[.034, .009, 5, 10]} /><meshStandardMaterial color="#a97a43" metalness={.78} roughness={.27} /></mesh>
+      </group>)}
+      <mesh position={[.14, .76, 0]} rotation-z={-.72} castShadow><coneGeometry args={[.055, .2, 5]} /><meshStandardMaterial color="#8b8981" metalness={.82} roughness={.2} /></mesh>
+    </group>
     if (unit.skill === 'ganglie') return <group position={[-.43, .64, -.13]} rotation={[.04, 0, .14]}>
       <mesh position-y={-.31} castShadow><cylinderGeometry args={[.034, .042, .58, 10]} /><meshStandardMaterial color="#4d3025" roughness={.7} /></mesh>
       <mesh position-y={-.02} castShadow><boxGeometry args={[.27, .055, .09]} /><meshStandardMaterial color="#b1844d" metalness={.8} roughness={.27} /></mesh>
@@ -667,6 +736,8 @@ function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }
   if (skill === 'qingnang') return <HuaTuoRegalia accent={accent} />
   if (skill === 'tuxi') return <ZhangLiaoRegalia accent={accent} />
   if (skill === 'luoyi') return <XuChuRegalia accent={accent} />
+  if (skill === 'qixi') return <GanNingRegalia accent={accent} />
+  if (skill === 'kurou') return <HuangGaiRegalia accent={accent} />
   if (skill === 'kongcheng' || skill === 'qicai') return <group>
     <mesh position={[0, 1.61, -.08]} rotation-z={-.06} castShadow><cylinderGeometry args={[.17, .2, .075, 12]} /><meshStandardMaterial color="#443d33" roughness={.8} /></mesh>
     <mesh position={[0, 1.69, -.07]} castShadow><coneGeometry args={[.19, .17, 12]} /><meshStandardMaterial color={skill === 'kongcheng' ? '#e0d4b8' : accent} roughness={.72} /></mesh>
@@ -680,10 +751,6 @@ function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }
     <mesh position={[0, 1.59, -.01]} rotation-x={-.08} castShadow><torusGeometry args={[.2, .026, 7, 18]} /><meshStandardMaterial color={gold} metalness={.78} roughness={.28} /></mesh>
     {[-1, 1].map(side => <mesh key={side} position={[side * .15, 1.72, -.02]} rotation-z={side * -.18} castShadow><coneGeometry args={[.07, .28, 6]} /><meshStandardMaterial color={accent} metalness={.25} roughness={.56} /></mesh>)}
     <mesh position={[0, 1.72, -.02]}><sphereGeometry args={[.042, 10, 8]} /><meshStandardMaterial color={gold} metalness={.8} roughness={.25} /></mesh>
-  </group>
-  if (skill === 'qixi' || skill === 'kurou') return <group>
-    <mesh position={[0, 1.49, -.01]} rotation-z={-.05} castShadow><torusGeometry args={[.27, .035, 7, 18, Math.PI * 1.35]} /><meshStandardMaterial color={skill === 'qixi' ? '#1b5d65' : '#4b3030'} roughness={.78} /></mesh>
-    <mesh position={[.26, 1.38, .13]} rotation-z={-.35}><boxGeometry args={[.07, .42, .045]} /><meshStandardMaterial color={skill === 'qixi' ? '#2b8b92' : '#6b4c3c'} roughness={.74} /></mesh>
   </group>
   if (skill === 'tieqi' || skill === 'mashu') return <group>
     <mesh position={[0, 1.66, -.04]} rotation-z={-.1} castShadow><coneGeometry args={[.055, .42, 6]} /><meshStandardMaterial color={accent} metalness={.32} roughness={.5} /></mesh>
@@ -769,6 +836,10 @@ export function CharacterBody({ unit, color, darkColor, accent }: Props) {
       <mesh position={[-.112, .05, -.02]} rotation-z={.48}><boxGeometry args={[.19, .018, .018]} /><meshStandardMaterial color="#302522" roughness={.9} /></mesh>
       <mesh position={[-.005, 0, .026]}><sphereGeometry args={[.018, 8, 6]} /><meshStandardMaterial color="#b1844d" metalness={.78} roughness={.26} /></mesh>
       <mesh position={[-.015, -.105, -.012]} rotation-z={-.17}><boxGeometry args={[.018, .16, .014]} /><meshStandardMaterial color="#8f3c34" roughness={.85} /></mesh>
+    </group>}
+    {unit.skill === 'kurou' && <group position={[.115, 1.18, .285]}>
+      <mesh rotation-z={-.58}><boxGeometry args={[.018, .22, .012]} /><meshStandardMaterial color="#8f493e" roughness={.96} /></mesh>
+      <mesh position={[-.026, -.01, .002]} rotation-z={.38}><boxGeometry args={[.014, .13, .012]} /><meshStandardMaterial color="#9d5548" roughness={.96} /></mesh>
     </group>}
     <mesh position={[0, 1.39, -.045]} scale={[1.05, .51, .98]} castShadow><sphereGeometry args={[.276, 20, 14]} /><meshStandardMaterial color={hair} roughness={.93} /></mesh>
     {[-1, 1].map(side => <mesh key={`hairline-${side}`} position={[side * .148, 1.373, .181]} rotation-z={side * -.23}><capsuleGeometry args={[.059, .12, 5, 9]} /><meshStandardMaterial color={hair} roughness={.92} /></mesh>)}
