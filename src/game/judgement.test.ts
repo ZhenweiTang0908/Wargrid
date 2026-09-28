@@ -50,7 +50,7 @@ describe('player Guicai judgement window', () => {
     const original = card('slash', 'spade', 5)
     const state = useGameStore.getState()
     useGameStore.setState(beginTurn({ ...state, deck: [original, card('slash', 'club'), card('slash', 'diamond')], units: { ...state.units, player: { ...state.units.player, hand: [replacement], judgement: [delayed] } } }, 'player'))
-    expect(useGameStore.getState().pendingJudgement?.delayed).toEqual(delayed)
+    expect(useGameStore.getState().pendingJudgement).toMatchObject({ kind: 'delayed', delayed })
     useGameStore.getState().chooseJudgementCard(replacement.id)
     const resolved = useGameStore.getState()
     expect(resolved.units.player.hp).toBe(state.units.player.hp)
@@ -134,5 +134,93 @@ describe('player Guicai judgement window', () => {
     expect(resolved.units.north.hp).toBeLessThanOrEqual(0)
     expect(resolved.units.north.hand).toHaveLength(0)
     expect(resolved.currentUnit).toBe('east')
+  })
+
+  it('lets Sima Yi replace a failed Bagua judgement with a red hand card', () => {
+    const slash = card('slash', 'club')
+    const bagua = card('bagua', 'spade', 2)
+    const blackJudge = card('duel', 'spade')
+    const replacement = card('peach', 'heart')
+    const retained = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    const hp = state.units.player.hp
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [replacement, retained], equipment: { armor: bagua } },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
+    const waiting = useGameStore.getState()
+    expect(waiting.pendingResponse).toBeNull()
+    expect(waiting.pendingJudgement).toMatchObject({ kind: 'bagua', original: blackJudge })
+
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingJudgement).toBeNull()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hp).toBe(hp)
+    expect(resolved.units.player.hand).toEqual([retained])
+    expect(resolved.discard).toEqual(expect.arrayContaining([slash, blackJudge, replacement]))
+    expect(resolved.history.some(entry => entry.includes('鬼才') && entry.includes('八卦阵'))).toBe(true)
+  })
+
+  it('can keep a black Bagua judgement and then answer with Dodge', () => {
+    const slash = card('slash', 'club')
+    const bagua = card('bagua', 'spade', 2)
+    const blackJudge = card('duel', 'club')
+    const dodge = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
+    useGameStore.getState().chooseJudgementCard(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', armorChecked: true })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(dodge)
+
+    useGameStore.getState().respond(dodge.id)
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hand).not.toContainEqual(dodge)
+    expect(resolved.discard).toEqual(expect.arrayContaining([blackJudge, dodge]))
+  })
+
+  it('counts a red Guicai replacement as one Dodge against Wushuang', () => {
+    const slash = card('slash', 'club')
+    const bagua = card('bagua', 'spade', 2)
+    const blackJudge = card('duel', 'club')
+    const replacement = card('peach', 'heart')
+    const dodge = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [replacement, dodge], equipment: { armor: bagua } },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', armorChecked: true, requiredCount: 1 })
+    useGameStore.getState().respond(dodge.id)
+    expect(useGameStore.getState().pendingResponse).toBeNull()
   })
 })

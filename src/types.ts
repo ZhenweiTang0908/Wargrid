@@ -122,13 +122,21 @@ export interface PendingPlunder {
   reason?: 'feedback'
 }
 
-export interface PendingJudgement {
-  team: Team
-  delayed: Card
-  original: Card
-  skipPlay: boolean
-  skipDraw: boolean
-}
+export type PendingJudgement =
+  | {
+      kind: 'delayed'
+      team: Team
+      delayed: Card
+      original: Card
+      skipPlay: boolean
+      skipDraw: boolean
+    }
+  | {
+      kind: 'bagua'
+      team: 'player'
+      original: Card
+      response: PendingResponse
+    }
 
 export interface PendingGuanxing {
   original: Card[]

@@ -653,6 +653,28 @@ function judgeBagua(state: GameState, targetId: Team, sourceCards: Card | Card[]
   return { state: { ...altered.state, units: tiandu ? { ...altered.state.units, [targetId]: { ...target, hand: [...target.hand, judge], animation: 'cast' } } : altered.state.units, discard: [...altered.state.discard, ...altered.displaced, ...(tiandu ? [] : [judge])], message, history: log(altered.state, message) }, success }
 }
 
+function finishPlayerBagua(state: GameState, pending: PendingResponse, success: boolean): GameState {
+  if (!success) {
+    const prompt = '【八卦阵】判定失败，请选择是否打出【闪】'
+    return { ...state, pendingResponse: { ...pending, armorChecked: true, prompt }, message: prompt, history: log(state, prompt) }
+  }
+  if ((pending.requiredCount ?? 1) > 1) {
+    const prompt = '【八卦阵】视为打出第一张【闪】；【无双】还需一张【闪】'
+    return { ...state, pendingResponse: { ...pending, armorChecked: true, requiredCount: (pending.requiredCount ?? 1) - 1, prompt }, message: prompt, history: log(state, prompt) }
+  }
+  if (pending.effect === 'arrows') return { ...state, pendingResponse: null }
+
+  const attacker = state.units[pending.source]
+  const counted = pending.forcedSlashAttacksUsed ?? attacker.attacksUsed + 1
+  let next: GameState = { ...state, pendingResponse: null, units: { ...state.units, [pending.source]: { ...attacker, attacksUsed: counted, drunk: false, animation: 'attack' } } }
+  if (attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
+    const paid = attacker.hand.slice(0, 2)
+    const forced: GameState = { ...next, units: { ...next.units, [pending.source]: { ...next.units[pending.source], hand: attacker.hand.slice(2) } }, discard: [...next.discard, ...paid] }
+    next = { ...forced, ...damage(forced, pending.source, 'player', attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${next.units.player.name}`, false, forced.discard.find(card => card.id === pending.originCardId)) }
+  }
+  return next
+}
+
 function judgeTieqi(state: GameState, attackerId: Team, sourceCards: Card | Card[] = []) {
   const attacker = state.units[attackerId]
   if (!attacker.skills.includes('tieqi')) return { state, locked: false }
@@ -1037,7 +1059,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
     if ((delayed.kind === 'indulgence' || delayed.kind === 'supplyShortage' || delayed.kind === 'lightning') && working.units.player.hp > 0 && working.units.player.skills.includes('guicai') && working.units.player.hand.length) {
       const delayedName = delayed.kind === 'lightning' ? '闪电' : delayed.kind === 'supplyShortage' ? '兵粮寸断' : '乐不思蜀'
       const prompt = `${working.units[team].name}的【${delayedName}】判定为${originalJudge.suit}${originalJudge.rank}，是否发动【鬼才】改判？`
-      return { ...working, deck: judged.deck, discard: judged.discard, units: { ...working.units, [team]: { ...working.units[team], judgement: unit.judgement.slice(index + 1) } }, pendingJudgement: { team, delayed, original: originalJudge, skipPlay, skipDraw }, message: prompt, history: log(working, prompt) }
+      return { ...working, deck: judged.deck, discard: judged.discard, units: { ...working.units, [team]: { ...working.units[team], judgement: unit.judgement.slice(index + 1) } }, pendingJudgement: { kind: 'delayed', team, delayed, original: originalJudge, skipPlay, skipDraw }, message: prompt, history: log(working, prompt) }
     }
     let judge = originalJudge, judgementDiscard = [originalJudge]
     const owner = working.units[team]
@@ -1864,6 +1886,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const replacement = cardId ? player.hand.find(card => card.id === cardId) : undefined
     if (cardId && !replacement) return
     const judge = replacement ?? pending.original
+    if (pending.kind === 'bagua') {
+      const success = isRed(judge)
+      const playerAfter = replacement ? { ...player, hand: player.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } : player
+      const result = success ? '判定为红色，视为打出【闪】' : '判定为黑色，判定失败'
+      const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : `${player.name}保留原判定；`}${player.name}发动【八卦阵】，${result}`
+      const judged: GameState = {
+        ...state,
+        units: { ...state.units, player: playerAfter },
+        discard: [...state.discard, pending.original, ...(replacement ? [replacement] : [])],
+        pendingJudgement: null,
+        message,
+        history: log(state, message),
+      }
+      const next = finishPlayerBagua(judged, pending.response, success)
+      set(next)
+      if (next.phase === 'ai' && !next.pendingJudgement && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
+      return
+    }
     const owner = state.units[pending.team]
     const tiandu = owner.skills.includes('tiandu')
     const isLightning = pending.delayed.kind === 'lightning'
@@ -1895,31 +1935,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateBagua: () => {
     const state = get(), pending = state.pendingResponse
     if (!pending || (pending.effect !== 'slash' && pending.effect !== 'arrows') || pending.target !== 'player' || pending.armorChecked || state.units.player.equipment.armor?.kind !== 'bagua' || (pending.effect === 'slash' && state.units[pending.source].equipment.weapon?.kind === 'qinggang')) return
-    const judged = judgeBagua(state, 'player', state.discard.find(card => card.id === pending.originCardId))
-    let next: GameState = judged.state
-    if (!judged.success) {
-      const prompt = '【八卦阵】判定失败，请选择是否打出【闪】'
-      set({ ...next, pendingResponse: { ...pending, armorChecked: true, prompt }, message: prompt, history: log(next, prompt) })
-      return
+    const sourceCard = state.discard.find(card => card.id === pending.originCardId)
+    if (state.units.player.skills.includes('guicai') && state.units.player.hand.length) {
+      const drawn = drawWhileResolving(state.deck, state.discard, 1, sourceCard)
+      const original = drawn.drawn[0]
+      if (original) {
+        const prompt = `${state.units.player.name}发动【八卦阵】，判定为${original.suit}${original.rank}；是否发动【鬼才】改判？`
+        set({ ...state, deck: drawn.deck, discard: drawn.discard, pendingResponse: null, pendingJudgement: { kind: 'bagua', team: 'player', original, response: pending }, message: prompt, history: log(state, prompt) })
+        return
+      }
     }
-    if ((pending.requiredCount ?? 1) > 1) {
-      const prompt = '【八卦阵】视为打出第一张【闪】；【无双】还需一张【闪】'
-      set({ ...next, pendingResponse: { ...pending, armorChecked: true, requiredCount: (pending.requiredCount ?? 1) - 1, prompt }, message: prompt, history: log(next, prompt) })
-      return
-    }
-    if (pending.effect === 'arrows') {
-      set({ ...next, pendingResponse: null })
-      if (next.phase === 'ai' && !next.winner) setTimeout(() => void get().runAI(), 120)
-      return
-    }
-    const attacker = next.units[pending.source]
-    const counted = pending.forcedSlashAttacksUsed ?? attacker.attacksUsed + 1
-    next = { ...next, pendingResponse: null, units: { ...next.units, [pending.source]: { ...attacker, attacksUsed: counted, drunk: false, animation: 'attack' } } }
-    if (attacker.equipment.weapon?.kind === 'axe' && attacker.hand.length >= 2) {
-      const paid = attacker.hand.slice(0, 2)
-      const forced: GameState = { ...next, units: { ...next.units, [pending.source]: { ...next.units[pending.source], hand: attacker.hand.slice(2) } }, discard: [...next.discard, ...paid] }
-      next = { ...forced, ...damage(forced, pending.source, 'player', attacker.drunk ? 2 : 1, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${next.units.player.name}`, false, forced.discard.find(card => card.id === pending.originCardId)) }
-    }
+    const judged = judgeBagua(state, 'player', sourceCard)
+    const next = finishPlayerBagua(judged.state, pending, judged.success)
     set(next)
     if (next.phase === 'ai' && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
   },
