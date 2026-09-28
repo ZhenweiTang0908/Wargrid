@@ -823,7 +823,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
       return { ...working, deck: rest, pendingGuanxing: { original: viewed, pool: viewed, top: [], bottom: [] }, message, history: log(working, message) }
     }
     const hasIndulgence = unit.judgement.some(card => card.kind === 'indulgence'), hasSupplyShortage = unit.judgement.some(card => card.kind === 'supplyShortage'), hasLightning = unit.judgement.some(card => card.kind === 'lightning')
-    const priority = (card: Card) => hasIndulgence && card.suit === 'heart' ? -20 : hasSupplyShortage && !(card.suit === 'club' && card.rank >= 2 && card.rank <= 9) ? -18 : hasLightning && !(card.suit === 'spade' && card.rank >= 2 && card.rank <= 9) ? -15 : card.kind === 'peach' ? 0 : card.kind === 'dodge' ? 1 : card.kind === 'slash' ? 2 : 3
+    const priority = (card: Card) => hasIndulgence && card.suit === 'heart' ? -20 : hasSupplyShortage && card.suit === 'club' ? -18 : hasLightning && !(card.suit === 'spade' && card.rank >= 2 && card.rank <= 9) ? -15 : card.kind === 'peach' ? 0 : card.kind === 'dodge' ? 1 : card.kind === 'slash' ? 2 : 3
     viewed.sort((a, b) => priority(a) - priority(b))
     const message = `${unit.name}发动【观星】，调整牌堆顶 ${count} 张牌`
     working = { ...working, deck: [...viewed, ...rest], message, history: log(working, message) }
@@ -838,7 +838,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
     }
     let judge = originalJudge, judgementDiscard = [originalJudge]
     const owner = working.units[team]
-    const isUnfavorable = (card: Card) => delayed.kind === 'indulgence' ? card.suit !== 'heart' : delayed.kind === 'supplyShortage' ? card.suit === 'club' && card.rank >= 2 && card.rank <= 9 : delayed.kind === 'lightning' ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 : false
+    const isUnfavorable = (card: Card) => delayed.kind === 'indulgence' ? card.suit !== 'heart' : delayed.kind === 'supplyShortage' ? card.suit !== 'club' : delayed.kind === 'lightning' ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 : false
     const unfavorable = isUnfavorable(originalJudge)
     const alliedWithOwner = (candidate: Unit) => candidate.id === team ||
       (candidate.identity === 'lord' || candidate.identity === 'loyalist') && (owner.identity === 'lord' || owner.identity === 'loyalist') ||
@@ -870,7 +870,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
       working = { ...working, message, history: log(working, message) }
     }
     if (delayed.kind === 'supplyShortage') {
-      const failed = judge.suit === 'club' && judge.rank >= 2 && judge.rank <= 9; if (failed) skipDraw = true
+      const failed = judge.suit !== 'club'; if (failed) skipDraw = true
       const message = `${owner.name}的【兵粮寸断】判定为${judgeName}，${failed ? '跳过摸牌阶段' : '判定通过'}`
       working = { ...working, message, history: log(working, message) }
     }
@@ -1239,11 +1239,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const delayed = virtualIndulgence ? { ...card, kind: 'indulgence' as const } : card
         const delayedName = kind === 'supplyShortage' ? '兵粮寸断' : '乐不思蜀'
         const message = `${unit.name}${virtualIndulgence ? '发动【国色】，将方片牌当' : '将'}【${delayedName}】置入${target.name}的判定区`
-        set({ units: { ...base.units, [targetId]: { ...target, judgement: [...target.judgement, delayed], animation: 'cast' } }, deck: base.deck, discard: base.discard.filter(item => item.id !== card.id), message, history: log(state, message) }); return
+        set({ units: { ...base.units, [targetId]: { ...target, judgement: [...target.judgement, delayed], animation: 'cast' } }, deck: base.deck, discard: base.discard.filter(item => item.id !== card.id), message, history: log(base, message) }); return
       }
       if (kind === 'lightning') {
         const actor = base.units[action.unit], message = `${unit.name}将【闪电】置入判定区`
-        set({ units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: state.discard, message, history: log(state, message) }); return
+        set({ units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: state.discard, message, history: log(base, message) }); return
       }
       if (kind === 'dismantle' || kind === 'snatch') {
         const gain = kind === 'snatch'
@@ -1569,7 +1569,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tiandu = owner.skills.includes('tiandu')
     const isLightning = pending.delayed.kind === 'lightning'
     const isSupplyShortage = pending.delayed.kind === 'supplyShortage'
-    const failed = isLightning ? judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9 : isSupplyShortage ? judge.suit === 'club' && judge.rank >= 2 && judge.rank <= 9 : judge.suit !== 'heart'
+    const failed = isLightning ? judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9 : isSupplyShortage ? judge.suit !== 'club' : judge.suit !== 'heart'
     const passedLightning = isLightning && !failed
     const discarded = [...(passedLightning ? [] : [pending.delayed]), pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
     const playerAfter = replacement ? { ...player, hand: player.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } : player

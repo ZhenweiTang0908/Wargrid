@@ -252,6 +252,17 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('集智'))).toBe(true)
   })
 
+  it('does not trigger Jizhi after using a delayed trick', () => {
+    useGameStore.getState().selectGeneral('jizhi')
+    const trick = card('indulgence', 'heart'), insight = card('peach', 'heart'), spare = card('slash')
+    useGameStore.setState(state => ({ deck: [insight, spare], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [trick] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: trick.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([])
+    expect(state.units.north.judgement).toEqual([trick])
+    expect(state.history.some(entry => entry.includes('集智'))).toBe(false)
+  })
+
   it('does not draw the resolving trick when Jizhi reshuffles the discard pile', () => {
     useGameStore.getState().selectGeneral('jizhi')
     const trick = card('drawTwo'), reward = card('slash')
@@ -1306,7 +1317,7 @@ describe('standard card scenarios', () => {
   })
 
   it('skips drawing but keeps the play stage when supply shortage hits', () => {
-    const shortage = card('supplyShortage', 'heart', 4), badJudge = card('slash', 'club', 5), drawA = card('slash'), drawB = card('dodge')
+    const shortage = card('supplyShortage', 'heart', 4), badJudge = card('slash', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
     const state = createInitialState([])
     state.deck = [badJudge, drawA, drawB]
     state.units.player = { ...state.units.player, judgement: [shortage], hand: [] }
@@ -1317,7 +1328,7 @@ describe('standard card scenarios', () => {
   })
 
   it('draws normally when supply shortage does not hit', () => {
-    const shortage = card('supplyShortage', 'heart', 4), safeJudge = card('slash', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
+    const shortage = card('supplyShortage', 'heart', 4), safeJudge = card('slash', 'club', 5), drawA = card('slash'), drawB = card('dodge')
     const state = createInitialState([])
     state.deck = [safeJudge, drawA, drawB]
     state.units.player = { ...state.units.player, judgement: [shortage], hand: [] }

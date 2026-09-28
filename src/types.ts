@@ -232,7 +232,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   gudingBlade: '攻击范围 2；无手牌目标受到伤害 +1', vermilionFan: '攻击范围 4；普通【杀】改为火焰伤害',
   shield: '使黑色【杀】失效', bagua: '需要打出【闪】时可判定，红色视为打出【闪】', silverLion: '受到的伤害最多为 1；失去时回复 1 点体力', vineArmor: '普通【杀】、万箭和南蛮对其无效；受到火焰伤害 +1',
   arrows: '所有其他角色需打出【闪】', barbarians: '所有其他角色需打出【杀】', nullify: '抵消锦囊或反制另一张【无懈可击】',
-  indulgence: '置于其他角色判定区，可能跳过出牌', supplyShortage: '置于其他角色判定区，♣2～9 时跳过摸牌', lightning: '判定为黑桃 2～9 时造成 3 点雷电伤害',
+  indulgence: '置于其他角色判定区，可能跳过出牌', supplyShortage: '置于其他角色判定区，判定非梅花时跳过摸牌', lightning: '判定为黑桃 2～9 时造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '亮出等量牌，所有存活角色依次各选一张',
   fireAttack: '目标展示手牌；弃置同花色牌造成 1 点火焰伤害', ironChain: '令角色横置或重置并传导属性伤害；也可重铸摸一张牌',
   redHare: '进攻坐骑：计算距离 -1', dayuan: '进攻坐骑：计算距离 -1', zixing: '进攻坐骑：计算距离 -1',

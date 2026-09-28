@@ -1155,7 +1155,7 @@ function JudgementWindow() {
   const outcome = (card: Card) => lightning
     ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 ? '命中：受到 3 点雷电伤害' : '未命中：传给下一位武将'
     : supplyShortage
-      ? card.suit === 'club' && card.rank >= 2 && card.rank <= 9 ? '判定失败：跳过摸牌阶段' : '判定通过'
+      ? card.suit !== 'club' ? '判定失败：跳过摸牌阶段' : '判定通过'
       : card.suit === 'heart' ? '判定通过' : '跳过出牌阶段'
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">鬼才 · 判定响应</span>
