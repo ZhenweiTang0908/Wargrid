@@ -1151,12 +1151,23 @@ function CardGuide({ close }: { close: () => void }) {
   const catalog = useMemo(() => {
     const cards = deckMode === 'standard' ? createStandardDeck(() => .5) : createDeck()
     const counts = new Map<Card['kind'], number>()
+    const printed = new Map<Card['kind'], Map<string, number>>()
     for (const card of cards) counts.set(card.kind, (counts.get(card.kind) ?? 0) + 1)
+    for (const card of cards) {
+      const key = `${card.suit}:${card.rank}`
+      const entries = printed.get(card.kind) ?? new Map<string, number>()
+      entries.set(key, (entries.get(key) ?? 0) + 1)
+      printed.set(card.kind, entries)
+    }
     return (Object.keys(CARD_LABEL) as Card['kind'][]).filter(kind => counts.has(kind)).map(kind => ({
       kind,
       label: CARD_LABEL[kind],
       copy: CARD_COPY[kind],
       count: counts.get(kind) ?? 0,
+      prints: [...(printed.get(kind) ?? new Map())].sort(([a], [b]) => a.localeCompare(b)).map(([key, amount]) => {
+        const [suit, rank] = key.split(':') as [Card['suit'], string]
+        return `${SUIT_GLYPH[suit]}${rank}${amount > 1 ? `×${amount}` : ''}`
+      }).join(' · '),
       family: BASIC_CARD_KINDS.has(kind) ? '基本牌' : EQUIPMENT_CARD_KINDS.has(kind) ? '装备牌' : '锦囊牌',
     }))
   }, [deckMode])
@@ -1170,6 +1181,7 @@ function CardGuide({ close }: { close: () => void }) {
       <div className="detail-section-title"><span>{group}</span><small>{catalog.filter(card => card.family === group).reduce((sum, card) => sum + card.count, 0)} 张</small></div>
       <div className="card-guide-grid">{catalog.filter(card => card.family === group).map(card => <article className={`card-guide-item ${card.kind}`} key={card.kind}>
         <div><strong>{card.label}</strong><span>{card.count} 张</span></div>
+        <small className="card-guide-prints">{card.prints}</small>
         <p>{card.copy}</p>
       </article>)}</div>
     </div>)}

@@ -107,6 +107,7 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .card-guide-item > div { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; }
 .card-guide-item strong { color: #e9c77d; font: 700 15px serif; }
 .card-guide-item span { color: #7fa3a8; font-size: 10px; white-space: nowrap; }
+.card-guide-prints { display: block; margin-top: 4px; color: #c6d7ce; font-size: 9px; line-height: 1.35; letter-spacing: .02em; overflow-wrap: anywhere; }
 .card-guide-item p { margin: 5px 0 0; color: #a4b7b8; font-size: 10px; line-height: 1.4; }
 .card-guide-item.basic, .card-guide-item.slash, .card-guide-item.fireSlash, .card-guide-item.thunderSlash, .card-guide-item.dodge, .card-guide-item.peach, .card-guide-item.wine { border-left: 2px solid #c36b61; }
 .card-guide-item.equipment, .card-guide-item.crossbow, .card-guide-item.qinggang, .card-guide-item.greenDragon, .card-guide-item.spear, .card-guide-item.axe, .card-guide-item.halberd, .card-guide-item.qilinBow, .card-guide-item.gudingBlade, .card-guide-item.vermilionFan, .card-guide-item.doubleSword, .card-guide-item.iceSword, .card-guide-item.shield, .card-guide-item.bagua, .card-guide-item.silverLion, .card-guide-item.vineArmor, .card-guide-item.redHare, .card-guide-item.dayuan, .card-guide-item.zixing, .card-guide-item.dilu, .card-guide-item.jueying, .card-guide-item.zhaohuang { border-left: 2px solid #c6a45d; }
