@@ -967,7 +967,7 @@ function PlayerStatus({ team, onInspect }: { team: Team; onInspect: (team: Team,
   const unit = useGameStore(s => s.units[team])
   const score = useGameStore(s => s.scores[team])
   const portraits: Record<GeneralSkill, string> = { qianxun: '/heroes/lu-xun.png', lianying: '/heroes/lu-xun.png', guose: '/heroes/da-qiao.png', liuli: '/heroes/da-qiao.png', luoshen: '/heroes/zhen-ji.png', qingguo: '/heroes/zhen-ji.png', keji: '/heroes/lu-meng.png', kurou: '/heroes/huang-gai.png', tieqi: '/heroes/ma-chao.png', mashu: '/heroes/ma-chao.png', rende: '/heroes/liu-bei.png', jijiang: '/heroes/liu-bei.png', wusheng: '/heroes/guan-yun.png', longdan: '/heroes/zhao-ling.png', ganglie: '/heroes/xiahou-lie.png', feedback: '/heroes/sima-xuan.png', guicai: '/heroes/sima-xuan.png', jianxiong: '/heroes/cao-cao.png', hujia: '/heroes/cao-cao.png', yiji: '/heroes/guo-jia.png', tiandu: '/heroes/guo-jia.png', qingnang: '/heroes/hua-tuo.png', jijiu: '/heroes/hua-tuo.png', yingzi: '/heroes/zhou-yu.png', fanjian: '/heroes/zhou-yu.png', guanxing: '/heroes/zhuge-liang.png', kongcheng: '/heroes/zhuge-liang.png', tuxi: '/heroes/zhang-liao.png', luoyi: '/heroes/xu-chu.png', jieyin: '/heroes/sun-shangxiang.png', xiaoji: '/heroes/sun-shangxiang.png', paoxiao: '/heroes/zhang-fei.png', jizhi: '/heroes/huang-yueying.png', qicai: '/heroes/huang-yueying.png', qixi: '/heroes/gan-ning.png', biyue: '/heroes/diao-chan.png', lijian: '/heroes/diao-chan.png', zhiheng: '/heroes/sun-quan.png', jiuyuan: '/heroes/sun-quan.png', wushuang: '/heroes/lu-bu.png' }
-  const skillCopy = { rende: '仁德/激将 · 赠牌回血/蜀将代杀', jijiang: '激将 · 蜀势力忠臣代出杀', hujia: '护驾 · 魏势力忠臣代出闪', wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄/护驾 · 受伤获牌/魏将代闪', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', qingnang: '青囊/急救 · 弃牌治疗/红牌救人', jijiu: '急救 · 红牌可当桃', yingzi: '英姿/反间 · 摸三张/猜花色', fanjian: '反间 · 赠牌猜花色', guanxing: '观星/空城 · 调牌堆/免杀与决斗', kongcheng: '空城 · 无手牌免杀与决斗', tuxi: '突袭 · 从两名角色处获得手牌', luoyi: '裸衣 · 少摸一张并强化杀/决斗', jieyin: '结姻/枭姬 · 双疗/失装备摸牌', xiaoji: '枭姬 · 失去装备摸两张', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '离间/闭月 · 男性决斗/结束摸牌', lijian: '离间 · 弃牌令两名男性决斗', zhiheng: '制衡/救援 · 换牌/吴将桃强化', jiuyuan: '救援 · 吴将桃额外回复一点', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
+  const skillCopy = { rende: '仁德/激将 · 赠牌回血/蜀将代杀', jijiang: '激将 · 蜀势力角色代出杀', hujia: '护驾 · 魏势力角色代出闪', wusheng: '武圣 · 红牌可当杀', longdan: '龙胆 · 杀闪互化', ganglie: '刚烈 · 受伤后判定反击', feedback: '反馈/鬼才 · 受伤获牌/改判', jianxiong: '奸雄/护驾 · 受伤获牌/魏将代闪', yiji: '天妒/遗计 · 获判定牌/受伤摸二', tiandu: '天妒 · 获得判定牌', qingnang: '青囊/急救 · 弃牌治疗/红牌救人', jijiu: '急救 · 红牌可当桃', yingzi: '英姿/反间 · 摸三张/猜花色', fanjian: '反间 · 赠牌猜花色', guanxing: '观星/空城 · 调牌堆/免杀与决斗', kongcheng: '空城 · 无手牌免杀与决斗', tuxi: '突袭 · 从两名角色处获得手牌', luoyi: '裸衣 · 少摸一张并强化杀/决斗', jieyin: '结姻/枭姬 · 双疗/失装备摸牌', xiaoji: '枭姬 · 失去装备摸两张', paoxiao: '咆哮 · 出杀无次数限制', jizhi: '集智/奇才 · 摸牌/锦囊无距离', qixi: '奇袭 · 黑牌可当过河拆桥', biyue: '离间/闭月 · 男性决斗/结束摸牌', lijian: '离间 · 弃牌令两名男性决斗', zhiheng: '制衡/救援 · 换牌/吴将桃强化', jiuyuan: '救援 · 吴将桃额外回复一点', wushuang: '无双 · 杀与决斗需双响应', guicai: '鬼才 · 使用手牌修改判定', qicai: '奇才 · 锦囊无距离限制' } as const
   const factionLabel: Record<Faction, string> = { wei: '魏', shu: '蜀', wu: '吴', qun: '群' }
   const lordSkill = unit.identity === 'lord' ? unit.skills.includes('jijiang') ? ' · 激将' : unit.skills.includes('hujia') ? ' · 护驾' : '' : ''
   const skillText = unit.skill === 'qianxun' ? '谦逊/连营 · 免顺手乐/空手摸牌' : unit.skill === 'lianying' ? '连营 · 失最后手牌摸一张' : unit.skill === 'guose' ? '国色/流离 · 方片乐/转移杀' : unit.skill === 'liuli' ? '流离 · 弃牌转移杀' : unit.skill === 'luoshen' ? '洛神/倾国 · 黑判获牌/黑牌作闪' : unit.skill === 'qingguo' ? '倾国 · 黑色手牌可当闪' : unit.skill === 'keji' ? '克己 · 未出杀则跳过弃牌' : unit.skill === 'kurou' ? '苦肉 · 失去体力并摸两张' : unit.skill === 'tieqi' ? '马术/铁骑 · 距离-1/红判禁闪' : unit.skill === 'mashu' ? '马术 · 计算距离时始终-1' : skillCopy[unit.skill]
@@ -1053,7 +1053,7 @@ function Tutorial({ close }: { close: () => void }) {
     <div className="steps">
       <div><b>01</b><strong>身份</strong><p>你是主公；其余三人的忠臣、反贼、内奸身份每局随机并保持隐藏。找出敌人，误杀忠臣会失去所有牌。</p></div>
       <div><b>02</b><strong>战棋</strong><p>选将前可选择 {MAP_IDS.length} 张战场和标准或扩展牌池。每回合获得 3 点移动力，从官道开始回合则获得 4 点；涉水、泥沼与深雪耗 2 点，桥梁只耗 1 点。森林提供掩护；{deckMode === 'expanded' ? '扩展牌池中，森林火焰伤害 +1，水域火焰伤害 -1，水域和泥沼的雷电伤害 +1；' : ''}山脊射程 +1，瞭望台射程 +2；营地结束补牌，受伤时在村落结束回合可回复体力。邻接设施后选一张手牌再点击：军需箱弃一摸二，医庐回血，战鼓补充移动与出杀机会，烽燧公开最近角色的身份；所有设施每轮重新补给。</p></div>
-      <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；忠臣可发动护驾；遭遇杀与群体锦囊时亲自响应。</p></div>
+      <div><b>03</b><strong>牌局</strong><p>选中【杀】后，棋盘红圈显示当前有效攻击范围；击杀反贼摸三张；魏势力己方角色可响应【护驾】；遭遇杀与群体锦囊时亲自响应。</p></div>
     </div>
     <button className="primary" onClick={close}>进入战场</button>
   </section></div>
@@ -1071,7 +1071,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'longdan', name: '赵云', title: '少年将军', faction: '蜀', portrait: '/heroes/zhao-ling.png', skillName: '龙胆', copy: '【杀】与【闪】可以相互转化。' },
   { skill: 'ganglie', name: '夏侯惇', title: '独眼的罗刹', faction: '魏', portrait: '/heroes/xiahou-lie.png', skillName: '刚烈', copy: '受伤后判定，反击伤害来源。' },
   { skill: 'feedback', name: '司马懿', title: '狼顾之鬼', faction: '魏', portrait: '/heroes/sima-xuan.png', skillName: '反馈 · 鬼才', copy: '受伤后获得来源牌；判定时可选择一张手牌改判。' },
-  { skill: 'jianxiong', name: '曹操', title: '魏武帝', faction: '魏', portrait: '/heroes/cao-cao.png', skillName: '奸雄 · 护驾', copy: '受到伤害后获得造成伤害的牌；魏势力忠臣可替你出闪。' },
+  { skill: 'jianxiong', name: '曹操', title: '魏武帝', faction: '魏', portrait: '/heroes/cao-cao.png', skillName: '奸雄 · 护驾', copy: '受到伤害后获得造成伤害的牌；其他魏势力角色可替你打出【闪】。' },
   { skill: 'yiji', name: '郭嘉', title: '早终的先知', faction: '魏', portrait: '/heroes/guo-jia.png', skillName: '天妒 · 遗计', copy: '获得自己的判定牌；每受到一次伤害摸两张牌。' },
   { skill: 'qingnang', name: '华佗', title: '神医', faction: '群', portrait: '/heroes/hua-tuo.png', skillName: '青囊 · 急救', copy: '每回合弃一张手牌治疗任意受伤角色；回合外红牌可当【桃】。' },
   { skill: 'yingzi', name: '周瑜', title: '大都督', faction: '吴', portrait: '/heroes/zhou-yu.png', skillName: '英姿 · 反间', copy: '摸牌阶段摸三张；每回合赠出一张牌让目标猜花色。' },
@@ -1083,7 +1083,7 @@ const GENERAL_OPTIONS: { skill: GeneralSkill; name: string; title: string; facti
   { skill: 'jizhi', name: '黄月英', title: '归隐的杰女', faction: '蜀', portrait: '/heroes/huang-yueying.png', skillName: '集智 · 奇才', copy: '普通锦囊摸一张；锦囊牌无距离限制。' },
   { skill: 'qixi', name: '甘宁', title: '锦帆游侠', faction: '吴', portrait: '/heroes/gan-ning.png', skillName: '奇袭', copy: '黑色牌可以当【过河拆桥】使用。' },
   { skill: 'biyue', name: '貂蝉', title: '绝世的舞姬', faction: '群', portrait: '/heroes/diao-chan.png', skillName: '离间 · 闭月', copy: '每回合弃一张牌，令两名男性角色决斗；结束阶段摸一张牌。' },
-  { skill: 'zhiheng', name: '孙权', title: '年轻的贤君', faction: '吴', portrait: '/heroes/sun-quan.png', skillName: '制衡 · 救援', copy: '每回合换任意手牌；吴势力忠臣用桃救援时额外回复一点。' },
+  { skill: 'zhiheng', name: '孙权', title: '年轻的贤君', faction: '吴', portrait: '/heroes/sun-quan.png', skillName: '制衡 · 救援', copy: '每回合换任意手牌；其他吴势力角色以【桃】救援时额外回复一点。' },
   { skill: 'wushuang', name: '吕布', title: '武的化身', faction: '群', portrait: '/heroes/lu-bu.png', skillName: '无双', copy: '杀与决斗要求对方连续打出两张响应牌。' },
 ]
 

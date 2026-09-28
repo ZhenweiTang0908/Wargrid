@@ -1023,12 +1023,12 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
-  it('doubles a Wu player Peach when rescuing an AI lord with Jiuyuan', () => {
+  it('doubles Peach from any other Wu character through Jiuyuan regardless of identity', () => {
     useGameStore.getState().selectGeneral('zhiheng')
     const slash = card('slash'), peach = card('peach', 'heart')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
       ...state.units,
-      player: { ...state.units.player, identity: 'loyalist', hand: [peach] },
+      player: { ...state.units.player, identity: 'renegade', faction: 'wu', hand: [peach] },
       north: { ...state.units.north, identity: 'lord', hp: 1, hand: [], skills: ['jiuyuan'] },
       east: { ...state.units.east, position: { x: 4, y: 1 }, hand: [slash] },
     } }))
@@ -2302,6 +2302,25 @@ describe('standard card scenarios', () => {
     useGameStore.setState(state => ({
       currentUnit: 'east', phase: 'ai',
       units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] }, north: { ...state.units.north, faction: 'shu', hand: [dodge] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hand).toContainEqual(dodge)
+  })
+
+  it('does not force a hostile Wei character to answer Hujia', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const slash = card('slash'), dodge = card('dodge', 'heart', 2)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: {
+        ...state.units,
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] },
+        north: { ...state.units.north, identity: 'rebel', faction: 'wei', hand: [dodge] },
+      },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
     useGameStore.getState().respond(null)

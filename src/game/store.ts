@@ -178,8 +178,8 @@ export function greenDragonChoices(state: GameState, attackerId: Team, targetId:
 const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuard = (state: GameState, targetId: Team) => {
   if (state.units[targetId].identity !== 'lord' || !state.units[targetId].skills.includes('hujia')) return null
-  for (const unit of Object.values(state.units)) {
-    const dodge = unit.identity === 'loyalist' && unit.faction === 'wei' && unit.hp > 0 ? responseCard(unit, 'dodge') : undefined
+  for (const unit of alliesFor(state, targetId)) {
+    const dodge = unit.id !== targetId && unit.faction === 'wei' && unit.hp > 0 ? responseCard(unit, 'dodge') : undefined
     if (dodge) return { unit, dodge }
   }
   return null
@@ -1187,7 +1187,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return
       }
       const assistant = action.lordAssist ? state.units[action.lordAssist] : undefined
-      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.skills.includes('jijiang') && assistant.hp > 0 && assistant.identity === 'loyalist' && assistant.faction === 'shu'
+      const validJijiang = assistant && action.unit === 'player' && unit.identity === 'lord' && unit.skills.includes('jijiang') && assistant.hp > 0 && assistant.faction === 'shu' && alliesFor(state, action.unit).some(candidate => candidate.id === assistant.id)
       const assistedCard = validJijiang ? slashResponses(assistant)[0] : undefined
       if (action.lordAssist && (!assistedCard || assistedCard.id !== action.cardId)) return
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
@@ -2149,8 +2149,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateJijiang: () => {
     const state = get(), lord = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || lord.identity !== 'lord' || !lord.skills.includes('jijiang') || lord.attacksUsed >= slashLimit(lord)) return
-    const helper = Object.values(state.units).find(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && slashResponses(unit).length)
-    if (!helper) { set({ message: '没有蜀势力忠臣可以响应【激将】' }); return }
+    const helper = alliesFor(state, 'player').find(unit => unit.id !== 'player' && unit.faction === 'shu' && unit.hp > 0 && slashResponses(unit).length)
+    if (!helper) { set({ message: '没有蜀势力己方角色响应【激将】' }); return }
     const offered = slashResponses(helper)[0]
     set({ selectedCardId: offered.id, selectedAsSlash: true, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: helper.id, message: `${helper.name}响应【激将】，请选择攻击范围内的敌将` })
   },
