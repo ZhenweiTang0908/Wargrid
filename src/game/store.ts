@@ -92,6 +92,15 @@ const nextSeat = (state: GameState, team: Team) => {
   }
   return team
 }
+const nextLightningTarget = (state: GameState, team: Team): Team | null => {
+  const start = state.turnOrder.indexOf(team)
+  for (let offset = 1; offset <= state.turnOrder.length; offset++) {
+    const candidate = state.turnOrder[(start + offset) % state.turnOrder.length]
+    const unit = state.units[candidate]
+    if (unit.hp > 0 && !unit.judgement.some(card => card.kind === 'lightning')) return candidate
+  }
+  return null
+}
 export const targetsFor = (state: GameState, team: Team) => {
   const actor = state.units[team], alive = Object.values(state.units).filter(unit => unit.id !== team && unit.hp > 0)
   if (actor.identity === 'lord' || actor.identity === 'loyalist') {
@@ -896,9 +905,11 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
         working = { ...working, message, history: log(working, message), ...elementalDamage(working, team, team, 3, 'thunder') }
       }
       else {
-        const opponent = nextSeat(working, team)
-        const message = `${owner.name}的【闪电】判定为${judgeName}，传递给${working.units[opponent].name}`
-        working = { ...working, units: { ...working.units, [opponent]: { ...working.units[opponent], judgement: [...working.units[opponent].judgement, delayed] } }, discard: working.discard.filter(c => c.id !== delayed.id), message, history: log(working, message) }
+        const opponent = nextLightningTarget(working, team)
+        const message = opponent ? `${owner.name}的【闪电】判定为${judgeName}，传递给${working.units[opponent].name}` : `${owner.name}的【闪电】判定为${judgeName}，无人可承接，弃置【闪电】`
+        working = opponent
+          ? { ...working, units: { ...working.units, [opponent]: { ...working.units[opponent], judgement: [...working.units[opponent].judgement, delayed] } }, discard: working.discard.filter(c => c.id !== delayed.id), message, history: log(working, message) }
+          : { ...working, message, history: log(working, message) }
       }
     }
   }
@@ -1616,18 +1627,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const isSupplyShortage = pending.delayed.kind === 'supplyShortage'
     const failed = isLightning ? judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9 : isSupplyShortage ? judge.suit !== 'club' : judge.suit !== 'heart'
     const passedLightning = isLightning && !failed
-    const discarded = [...(passedLightning ? [] : [pending.delayed]), pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
     const playerAfter = replacement ? { ...player, hand: player.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } : player
     const ownerAfter = pending.team === 'player' ? playerAfter : owner
     const units = { ...state.units, player: playerAfter,
       [pending.team]: { ...ownerAfter, hand: tiandu ? [...ownerAfter.hand, judge] : ownerAfter.hand },
     }
-    const nextTarget = passedLightning ? nextSeat(state, pending.team) : null
-    if (nextTarget) units[nextTarget] = { ...units[nextTarget], judgement: [...units[nextTarget].judgement, pending.delayed] }
+    const nextTarget = passedLightning ? nextLightningTarget(state, pending.team) : null
+    const transferredLightning = passedLightning && !!nextTarget
+    if (transferredLightning && nextTarget) units[nextTarget] = { ...units[nextTarget], judgement: [...units[nextTarget].judgement, pending.delayed] }
     const delayedName = isLightning ? '闪电' : isSupplyShortage ? '兵粮寸断' : '乐不思蜀'
-    const result = isLightning ? failed ? '受到 3 点雷电伤害' : `传递给${units[nextTarget!].name}` : failed ? isSupplyShortage ? '判定失败，跳过摸牌阶段' : '判定失败，跳过出牌阶段' : '判定通过'
+    const result = isLightning ? failed ? '受到 3 点雷电伤害' : transferredLightning ? `传递给${units[nextTarget!].name}` : '无人可承接，弃置【闪电】' : failed ? isSupplyShortage ? '判定失败，跳过摸牌阶段' : '判定失败，跳过出牌阶段' : '判定通过'
     const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : ''}${owner.name}的【${delayedName}】${result}`
-    let settled: GameState = { ...state, units, discard: [...state.discard, ...discarded], pendingJudgement: null, message, history: log(state, message) }
+    const settledDiscard = [...state.discard, ...(transferredLightning ? [] : [pending.delayed]), pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
+    let settled: GameState = { ...state, units, discard: settledDiscard, pendingJudgement: null, message, history: log(state, message) }
     if (isLightning && failed) settled = { ...settled, ...elementalDamage(settled, pending.team, pending.team, 3, 'thunder') }
     const skipPlay = pending.skipPlay || (!isLightning && !isSupplyShortage && failed)
     const skipDraw = pending.skipDraw || (isSupplyShortage && failed)

@@ -1443,6 +1443,31 @@ describe('standard card scenarios', () => {
     expect(result.history.some(entry => entry.includes('传递给'))).toBe(true)
   })
 
+  it('skips a living seat that already has Lightning when transferring a missed judgement', () => {
+    const lightning = card('lightning'), existing = card('lightning', 'heart', 12), safeJudge = card('peach', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [safeJudge, drawA, drawB]
+    state.units.player = { ...state.units.player, judgement: [lightning] }
+    state.units.north = { ...state.units.north, judgement: [existing] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.north.judgement).toEqual([existing])
+    expect(result.units.east.judgement).toEqual([lightning])
+    expect(result.discard).not.toContainEqual(lightning)
+    expect(result.history.some(entry => entry.includes('传递给夏侯惇'))).toBe(true)
+  })
+
+  it('discards a missed Lightning when every living seat already has one', () => {
+    const lightning = card('lightning'), safeJudge = card('peach', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [safeJudge, drawA, drawB]
+    state.units.player = { ...state.units.player, judgement: [lightning] }
+    for (const team of ['north', 'east', 'west'] as const) state.units[team] = { ...state.units[team], judgement: [card('lightning', 'heart', 12)] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.judgement).toHaveLength(0)
+    expect(result.discard).toContainEqual(lightning)
+    expect(result.history.some(entry => entry.includes('无人可承接'))).toBe(true)
+  })
+
   it('amplifies lightning damage on wet terrain', () => {
     const lightning = card('lightning'), hit = card('slash', 'spade', 5), drawA = card('slash'), drawB = card('dodge')
     const state = createInitialState([])
