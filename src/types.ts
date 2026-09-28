@@ -195,7 +195,8 @@ export interface PendingQilin {
 
 export interface PendingDoubleSword {
   source: Team
-  target: 'player'
+  target: Team
+  mode: 'attackerChoice' | 'defenderChoice'
   originCardId?: string
   tieqiChecked?: boolean
   tieqiLocked?: boolean

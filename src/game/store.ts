@@ -30,7 +30,7 @@ interface GameStore extends GameState {
   confirmHalberd: () => void
   cancelHalberd: () => void
   chooseQilinMount: (slot: 'offensiveMount' | 'defensiveMount' | null) => void
-  chooseDoubleSword: (choice: 'discard' | 'draw', cardId?: string) => void
+  chooseDoubleSword: (choice: 'activate' | 'decline' | 'discard' | 'draw', cardId?: string) => void
   chooseYijiRecipient: (cardId: string, recipient: Team) => void
   selectCard: (id: string | null) => void
   toggleDiscard: (id: string) => void
@@ -922,7 +922,7 @@ function continuePlayerSlashAfterTieqi(state: GameState, continuation: PendingTi
   const sourceCards = sourceCardsFor(state, continuation.sourceCardIds, slash)
   if (!continuation.doubleSwordChecked && attacker.equipment.weapon?.kind === 'doubleSword' && attacker.gender !== target.gender && target.hand.length) {
     const prompt = `${attacker.name}发动【雌雄双股剑】，请选择弃置一张手牌，或让其摸一张牌`
-    return { ...state, pendingDoubleSword: { source: continuation.attacker, target: 'player', originCardId: slash?.id, tieqiChecked: true, tieqiLocked: locked, sourceCardIds: continuation.sourceCardIds, forcedSlashAttacksUsed: continuation.forcedSlashAttacksUsed }, message: prompt, history: log(state, prompt) }
+    return { ...state, pendingDoubleSword: { source: continuation.attacker, target: 'player', mode: 'defenderChoice', originCardId: slash?.id, tieqiChecked: true, tieqiLocked: locked, sourceCardIds: continuation.sourceCardIds, forcedSlashAttacksUsed: continuation.forcedSlashAttacksUsed }, message: prompt, history: log(state, prompt) }
   }
   const blackSlash = sourceCards.length ? sourceCards.every(card => !isRed(card)) : !!slash && !isRed(slash)
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && blackSlash && attacker.equipment.weapon?.kind !== 'qinggang'
@@ -960,20 +960,25 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     const redirected = liuliRedirect(state, attackerId, targetId)
     if (redirected) return resolveSlash(redirected.state, attackerId, redirected.targetId, undefined, false, slashCard, false, sourceCards)
   }
-  let attacker = state.units[attackerId], target = state.units[targetId]
+  let attacker = state.units[attackerId], target = state.units[targetId], tieqiLocked = tieqiChecked && armorChecked && manualResponse === null
   if (manualResponse === undefined && !tieqiChecked) {
     const continuation: PendingTieqiContinuation = { attacker: attackerId, target: targetId, slashId: slashCard?.id, sourceCardIds: sourceCards.map(card => card.id), mode: targetId === 'player' && attackerId !== 'player' ? 'playerResponse' : 'resolve', doubleSwordChecked }
     const tieqi = judgeTieqi(state, attackerId, sourceCards, continuation)
     state = tieqi.state
     if (tieqi.pending) return state
     if (continuation.mode === 'playerResponse') return continuePlayerSlashAfterTieqi(state, continuation, tieqi.locked)
+    tieqiLocked = tieqi.locked
     if (tieqi.locked) { manualResponse = null; armorChecked = true }
     attacker = state.units[attackerId]; target = state.units[targetId]
   }
   if (!doubleSwordChecked && attacker.equipment.weapon?.kind === 'doubleSword' && attacker.gender !== target.gender) {
+    if (attackerId === 'player' && targetId !== 'player') {
+      const prompt = `${attacker.name}可以发动【雌雄双股剑】，令${target.name}弃置一张手牌，否则你摸一张牌`
+      return { ...state, pendingDoubleSword: { source: attackerId, target: targetId, mode: 'attackerChoice', originCardId: slashCard?.id, tieqiChecked: true, tieqiLocked, sourceCardIds: sourceCards.map(card => card.id) }, message: prompt, history: log(state, prompt) }
+    }
     if (targetId === 'player' && attackerId !== 'player' && target.hand.length) {
       const prompt = `${attacker.name}发动【雌雄双股剑】，请选择弃置一张手牌，或让其摸一张牌`
-      return { ...state, pendingDoubleSword: { source: attackerId, target: 'player', originCardId: slashCard?.id, tieqiChecked: true }, message: prompt, history: log(state, prompt) }
+      return { ...state, pendingDoubleSword: { source: attackerId, target: 'player', mode: 'defenderChoice', originCardId: slashCard?.id, tieqiChecked: true }, message: prompt, history: log(state, prompt) }
     }
     if (target.hand.length) {
       const paid = target.hand[0], message = `${attacker.name}发动【雌雄双股剑】，${target.name}弃置一张手牌`
@@ -2427,9 +2432,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   chooseDoubleSword: (choice, cardId) => {
     const state = get(), pending = state.pendingDoubleSword, player = state.units.player, attacker = pending ? state.units[pending.source] : null
-    if (!pending || !attacker || state.winner || player.hp <= 0 || attacker.hp <= 0 || attacker.equipment.weapon?.kind !== 'doubleSword') return
+    if (!pending || !attacker || state.winner || attacker.hp <= 0 || attacker.equipment.weapon?.kind !== 'doubleSword') return
     const slash = state.discard.find(card => card.id === pending.originCardId)
     let working: GameState = { ...state, pendingDoubleSword: null }
+    if (pending.mode === 'attackerChoice') {
+      if (pending.source !== 'player' || !['activate', 'decline'].includes(choice)) return
+      const target = working.units[pending.target]
+      if (!target || target.hp <= 0 || attacker.gender === target.gender) return
+      if (choice === 'activate') {
+        if (target.hand.length) {
+          const discarded = target.hand[0]
+          const message = `${attacker.name}发动【雌雄双股剑】，${target.name}弃置一张手牌`
+          working = { ...working, units: { ...working.units, [pending.target]: { ...target, hand: target.hand.slice(1), animation: 'cast' } }, discard: [...working.discard, discarded], message, history: log(working, message) }
+          working = triggerLianying(working, pending.target, [discarded])
+        } else {
+          const draw = drawCards(working.deck, working.discard, 1, Math.random, slash ? [slash.id] : [])
+          const currentAttacker = working.units[pending.source]
+          const message = `${attacker.name}发动【雌雄双股剑】，摸一张牌`
+          working = { ...working, units: { ...working.units, [pending.source]: { ...currentAttacker, hand: [...currentAttacker.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(working, message) }
+        }
+      } else {
+        const message = `${attacker.name}不发动【雌雄双股剑】`
+        working = { ...working, message, history: log(working, message) }
+      }
+      const sourceCards = sourceCardsFor(working, pending.sourceCardIds ?? [], slash)
+      const continuation: PendingTieqiContinuation = { attacker: pending.source, target: pending.target, slashId: slash?.id, sourceCardIds: sourceCards.map(card => card.id), mode: 'resolve', doubleSwordChecked: true, forcedSlashAttacksUsed: pending.forcedSlashAttacksUsed }
+      const resolved = restoreForcedSlashCount({ ...working, ...resolveSlash(working, pending.source, pending.target, pending.tieqiLocked ? null : undefined, pending.tieqiLocked ?? false, slash, true, sourceCards, true) }, continuation)
+      set(resolved)
+      if (resolved.phase === 'ai' && !resolved.pendingResponse && !resolved.winner) setTimeout(() => void get().runAI(), 120)
+      return
+    }
+    if (pending.mode !== 'defenderChoice' || pending.target !== 'player' || player.hp <= 0 || !['discard', 'draw'].includes(choice)) return
     if (choice === 'discard') {
       const discarded = cardId ? player.hand.find(card => card.id === cardId) : undefined
       if (!discarded) return

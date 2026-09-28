@@ -1237,9 +1237,16 @@ function QilinWindow() {
 function DoubleSwordWindow() {
   const pending = useGameStore(s => s.pendingDoubleSword)
   const attacker = useGameStore(s => pending ? s.units[pending.source] : null)
+  const target = useGameStore(s => pending ? s.units[pending.target] : null)
   const player = useGameStore(s => s.units.player)
   const choose = useGameStore(s => s.chooseDoubleSword)
-  if (!pending || !attacker) return null
+  if (!pending || !attacker || !target) return null
+  if (pending.mode === 'attackerChoice') return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">使用【杀】时 · 雌雄双股剑</span>
+    <h1>是否发动【雌雄双股剑】？</h1>
+    <p>{target.name}与你性别不同。发动后，其须弃置一张手牌；若其没有手牌，你摸一张牌。</p>
+    <div className="guanxing-actions"><button className="decline-response" onClick={() => choose('decline')}>不发动</button><button className="primary" onClick={() => choose('activate')}>发动武器技能</button></div>
+  </section></div>
   return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
     <span className="eyebrow">受到【杀】时 · 雌雄双股剑</span>
     <h1>{attacker.name}发动【雌雄双股剑】</h1>

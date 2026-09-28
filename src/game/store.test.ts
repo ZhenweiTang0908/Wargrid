@@ -3387,10 +3387,41 @@ describe('standard card scenarios', () => {
     const slash = card('slash'), weapon = card('doubleSword'), payment = card('peach')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, gender: 'male', position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } }, north: { ...state.units.north, gender: 'female', position: { x: 4, y: 0 }, hand: [payment] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingDoubleSword).toMatchObject({ source: 'player', target: 'north', mode: 'attackerChoice' })
+    useGameStore.getState().chooseDoubleSword('activate')
     const state = useGameStore.getState()
     expect(state.units.north.hand).toHaveLength(0)
     expect(state.units.north.hp).toBe(3)
     expect(state.discard).toContainEqual(payment)
+  })
+
+  it('lets the player decline Double Sword before the target pays', () => {
+    const slash = card('slash'), weapon = card('doubleSword'), payment = card('peach')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, gender: 'male', position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } },
+      north: { ...state.units.north, gender: 'female', position: { x: 4, y: 0 }, hand: [payment] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseDoubleSword('decline')
+    const state = useGameStore.getState()
+    expect(state.pendingDoubleSword).toBeNull()
+    expect(state.units.north.hand).toEqual([payment])
+    expect(state.units.north.hp).toBe(3)
+    expect(state.history.some(entry => entry.includes('不发动【雌雄双股剑】'))).toBe(true)
+  })
+
+  it('draws for the player when Double Sword targets an empty-handed general', () => {
+    const slash = card('slash'), weapon = card('doubleSword'), reward = card('peach')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units,
+      player: { ...state.units.player, gender: 'male', position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } },
+      north: { ...state.units.north, gender: 'female', position: { x: 4, y: 0 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseDoubleSword('activate')
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toContainEqual(slash)
   })
 
   it('lets the player choose the Double Sword cost before answering Slash', () => {
@@ -3811,6 +3842,7 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, position: { x: 4, y: 0 }, gender: 'female', hand: [redPayment], equipment: { armor: shield } },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: blackSlash.id, target: 'north' })
+    useGameStore.getState().chooseDoubleSword('activate')
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(4)
     expect(state.units.north.hand).toHaveLength(0)
@@ -4908,6 +4940,7 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, name: '陆逊', gender: 'female', position: { x: 4, y: 0 }, skill: 'qianxun', skills: ['qianxun', 'lianying'], hand: [payment] },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseDoubleSword('activate')
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(4)
     expect(state.units.north.hand).toHaveLength(1)
