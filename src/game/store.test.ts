@@ -3540,6 +3540,23 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(lion)
   })
 
+  it('resolves Silver Lion healing and Xiaoji draws together when armor is replaced', () => {
+    const lion = card('silverLion'), replacement = card('bagua'), first = card('dodge'), second = card('peach')
+    useGameStore.setState(state => ({ deck: [first, second], discard: [], units: { ...state.units, player: {
+      ...state.units.player,
+      name: '孙尚香', skill: 'jieyin', skills: ['jieyin', 'xiaoji'], hp: 2, maxHp: 3,
+      hand: [replacement], equipment: { armor: lion },
+    } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: replacement.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(3)
+    expect(state.units.player.hand).toEqual([first, second])
+    expect(state.units.player.equipment.armor).toEqual(replacement)
+    expect(state.discard).toContainEqual(lion)
+    expect(state.message).toContain('白银狮子')
+    expect(state.message).toContain('枭姬')
+  })
+
   it('makes ordinary Slash ineffective against Vine Armor', () => {
     const slash = card('slash'), armor = card('vineArmor')
     useGameStore.setState(state => ({ units: {
