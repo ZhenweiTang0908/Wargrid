@@ -4724,6 +4724,40 @@ describe('standard card scenarios', () => {
     expect(state.history.filter(entry => entry.includes('仁德')).length).toBeGreaterThanOrEqual(2)
   })
 
+  it('lets AI Liu Bei actively request a Slash through Jijiang', async () => {
+    const assisted = card('slash', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, identity: 'lord', skill: 'rende', skills: ['rende', 'jijiang'], position: state.controlPoint, hand: [] },
+      player: { ...state.units.player, faction: 'wei', hand: [] },
+      east: { ...state.units.east, identity: 'rebel', revealed: true, position: { x: 5, y: 4 }, hp: 3, maxHp: 3, hand: [] },
+      west: { ...state.units.west, identity: 'loyalist', revealed: true, faction: 'shu', hand: [assisted] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(2)
+    expect(state.units.west.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(assisted)
+    expect(state.history.some(entry => entry.includes('激将'))).toBe(true)
+  })
+
+  it('lets AI Jijiang use Guan Yu red equipment as Slash', async () => {
+    const mount = card('redHare', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, identity: 'lord', skill: 'rende', skills: ['rende', 'jijiang'], position: state.controlPoint, hand: [] },
+      player: { ...state.units.player, faction: 'wei', hand: [] },
+      east: { ...state.units.east, identity: 'rebel', revealed: true, position: { x: 5, y: 4 }, hp: 3, maxHp: 3, hand: [] },
+      west: { ...state.units.west, name: '关羽', identity: 'loyalist', revealed: true, faction: 'shu', skill: 'wusheng', skills: ['wusheng'], hand: [], equipment: { offensiveMount: mount } },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(2)
+    expect(state.units.west.equipment.offensiveMount).toBeUndefined()
+    expect(state.discard).toContainEqual(mount)
+    expect(state.history.some(entry => entry.includes('激将'))).toBe(true)
+  })
+
   it('lets AI Diao Chan make two male enemies duel through Lijian', async () => {
     const payment = card('nullify')
     useGameStore.setState(state => ({ deck: [card('nullify', 'heart')], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
