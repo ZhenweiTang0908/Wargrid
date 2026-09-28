@@ -27,6 +27,43 @@ function Polearm({ kind, accent }: { kind: 'guandao' | 'spear' | 'serpent' | 'ha
   </group>
 }
 
+function FeatherFan({ accent }: { accent: string }) {
+  return <group position={[.34, .66, .16]} rotation={[.08, -.22, -.42]}>
+    <mesh position-y={-.22} castShadow><capsuleGeometry args={[.027, .36, 5, 9]} /><meshStandardMaterial color="#5e3c29" roughness={.76} /></mesh>
+    {[-2, -1, 0, 1, 2].map(index => <group key={index} position={[index * .055, .13 + Math.abs(index) * -.025, 0]} rotation-z={index * -.13}>
+      <mesh position-y={.15} scale={[.7, 1.4, .34]} castShadow><capsuleGeometry args={[.052, .22, 5, 9]} /><meshStandardMaterial color={index === 0 ? '#f1ead7' : '#d8d1bf'} roughness={.92} /></mesh>
+      <mesh position-y={.02}><cylinderGeometry args={[.009, .012, .31, 7]} /><meshStandardMaterial color={index === 0 ? accent : '#a99b7c'} roughness={.77} /></mesh>
+    </group>)}
+    <mesh position-y={-.03}><cylinderGeometry args={[.045, .035, .09, 9]} /><meshStandardMaterial color="#c9a766" metalness={.66} roughness={.34} /></mesh>
+  </group>
+}
+
+function BowAndQuiver({ accent }: { accent: string }) {
+  return <group>
+    <group position={[.37, .73, .05]} rotation={[0, -.18, -.2]}>
+      <mesh rotation-z={Math.PI / 2} castShadow><torusGeometry args={[.3, .024, 7, 24, Math.PI * 1.45]} /><meshStandardMaterial color="#75462d" roughness={.72} /></mesh>
+      <mesh position={[-.03, 0, .006]} rotation-z={-.23}><boxGeometry args={[.018, .54, .014]} /><meshStandardMaterial color="#d8c9a0" roughness={.68} /></mesh>
+      <mesh position={[.13, -.02, .015]}><cylinderGeometry args={[.034, .034, .1, 8]} /><meshStandardMaterial color={accent} roughness={.58} /></mesh>
+    </group>
+    <group position={[-.3, .78, -.2]} rotation={[.12, 0, .2]}>
+      <mesh castShadow><cylinderGeometry args={[.075, .095, .5, 10]} /><meshStandardMaterial color="#50362b" roughness={.82} /></mesh>
+      {[-1, 0, 1].map(index => <group key={index} position={[index * .035, .36 + Math.abs(index) * -.025, 0]} rotation-z={index * .07}>
+        <mesh><cylinderGeometry args={[.009, .009, .46, 6]} /><meshStandardMaterial color="#bca679" roughness={.72} /></mesh>
+        <mesh position-y={.25}><coneGeometry args={[.038, .13, 5]} /><meshStandardMaterial color={index === 0 ? accent : '#d7d0b7'} roughness={.78} /></mesh>
+      </group>)}
+    </group>
+  </group>
+}
+
+function ScrollCase({ accent }: { accent: string }) {
+  return <group position={[.33, .58, .05]} rotation-z={-.18}>
+    <mesh castShadow><cylinderGeometry args={[.075, .075, .48, 12]} /><meshStandardMaterial color="#b39a6d" roughness={.82} /></mesh>
+    {[-1, 1].map(side => <mesh key={side} position-y={side * .255}><cylinderGeometry args={[.095, .095, .055, 12]} /><meshStandardMaterial color="#654431" roughness={.7} /></mesh>)}
+    <mesh position={[0, 0, .076]}><boxGeometry args={[.11, .18, .018]} /><meshStandardMaterial color={accent} roughness={.62} /></mesh>
+    <mesh position={[0, 0, .09]} rotation-z={Math.PI / 4}><boxGeometry args={[.045, .045, .012]} /><meshStandardMaterial color="#c9a766" metalness={.62} roughness={.34} /></mesh>
+  </group>
+}
+
 function SignatureGear({ unit, accent }: { unit: Unit; accent: string }) {
   if (!unit.equipment.weapon) {
     if (unit.skill === 'wusheng') return <Polearm kind="guandao" accent={accent} />
@@ -51,6 +88,9 @@ function SignatureGear({ unit, accent }: { unit: Unit; accent: string }) {
     <mesh position-y={.16}><cylinderGeometry args={[.035, .045, .09, 9]} /><meshStandardMaterial color="#60452e" roughness={.8} /></mesh>
     <mesh position={[0, .11, .075]} rotation-x={Math.PI / 2}><torusGeometry args={[.09, .012, 6, 14]} /><meshStandardMaterial color={accent} roughness={.7} /></mesh>
   </group>
+  if (unit.skill === 'guanxing' || unit.skill === 'jizhi') return <FeatherFan accent={accent} />
+  if (unit.skill === 'jieyin') return <BowAndQuiver accent={accent} />
+  if (unit.skill === 'feedback' || unit.skill === 'yiji' || unit.skill === 'luoshen') return <ScrollCase accent={accent} />
   return null
 }
 
