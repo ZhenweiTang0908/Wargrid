@@ -127,6 +127,34 @@ const alliesFor = (state: GameState, team: Team) => {
 const knownAlliesFor = (state: GameState, team: Team) => alliesFor(state, team).filter(unit => unit.id === team || unit.revealed)
 const isRed = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
 const equippedCards = (unit: Unit) => Object.values(unit.equipment).filter((card): card is Card => !!card)
+const sharesIdentitySide = (first: Unit, second: Unit) => first.id === second.id ||
+  ((first.identity === 'lord' || first.identity === 'loyalist') && (second.identity === 'lord' || second.identity === 'loyalist')) ||
+  (first.identity === 'rebel' && second.identity === 'rebel')
+
+function applyAutomaticGuicai(state: GameState, ownerId: Team, original: Card, isFavorable: (card: Card) => boolean) {
+  const owner = state.units[ownerId]
+  const actor = state.turnOrder.map(id => state.units[id]).find(candidate => {
+    if (candidate.id === 'player' || candidate.hp <= 0 || !candidate.skills.includes('guicai')) return false
+    if (candidate.id !== ownerId && !owner.revealed) return false
+    const desired = sharesIdentitySide(candidate, owner)
+    return isFavorable(original) !== desired && candidate.hand.some(card => isFavorable(card) === desired)
+  })
+  if (!actor) return { state, judge: original, displaced: [] as Card[] }
+  const desired = sharesIdentitySide(actor, owner)
+  const replacement = actor.hand.find(card => isFavorable(card) === desired)
+  if (!replacement) return { state, judge: original, displaced: [] as Card[] }
+  const message = `${actor.name}发动【鬼才】，以${replacement.suit}${replacement.rank}改判${owner.name}的判定`
+  return {
+    state: {
+      ...state,
+      units: { ...state.units, [actor.id]: { ...actor, hand: actor.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } },
+      message,
+      history: log(state, message),
+    },
+    judge: replacement,
+    displaced: [original],
+  }
+}
 const rescueCard = (state: GameState, unit: Unit) => unit.hand.find(card => card.kind === 'peach')
   ?? (state.currentUnit !== unit.id && unit.skills.includes('jijiu') ? [...unit.hand, ...equippedCards(unit)].find(isRed) : undefined)
 const selfRescueCard = (state: GameState, unit: Unit) => rescueCard(state, unit) ?? unit.hand.find(card => card.kind === 'wine')
@@ -391,8 +419,15 @@ function resolveDamageTriggers(state: GameState, attackerId: Team, targetId: Tea
   }
   if (!sourceLess && target.skill === 'ganglie') {
     const judged = drawWhileResolving(deck, discard, 1, sourceCards), judge = judged.drawn[0]
-    deck = judged.deck; discard = judge ? [...judged.discard, judge] : judged.discard
-    if (judge && judge.suit !== 'heart') {
+    deck = judged.deck; discard = judged.discard
+    const altered = judge ? applyAutomaticGuicai({ ...state, units, deck, discard }, targetId, judge, card => card.suit !== 'heart') : null
+    const finalJudge = altered?.judge ?? judge
+    if (altered) {
+      units = altered.state.units; deck = altered.state.deck
+      discard = [...altered.state.discard, ...altered.displaced, altered.judge]
+      if (altered.displaced.length) skillText += `；${altered.state.message}`
+    }
+    if (finalJudge && finalJudge.suit !== 'heart') {
       const attacker = units[attackerId]
       if (attacker.hand.length >= 2) {
         if (attackerId === 'player') {
@@ -407,7 +442,7 @@ function resolveDamageTriggers(state: GameState, attackerId: Team, targetId: Tea
         const retaliation = `${message}${skillText}；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
         return damage({ ...state, units, deck, discard }, targetId, attackerId, 1, retaliation)
       }
-    } else if (judge) skillText += `；【刚烈】判定为红桃，未生效`
+    } else if (finalJudge) skillText += `；【刚烈】判定为红桃，未生效`
   }
   const winner = determineWinner(units)
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${message}${skillText}`, history: log(state, `${message}${skillText}`) }
@@ -608,22 +643,26 @@ function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, 
 }
 
 function judgeBagua(state: GameState, targetId: Team, sourceCards: Card | Card[] = []) {
-  const draw = drawWhileResolving(state.deck, state.discard, 1, sourceCards), judge = draw.drawn[0]
-  if (!judge) return { state, success: false }
-  const success = judge.suit === 'heart' || judge.suit === 'diamond'
-  const target = state.units[targetId], tiandu = target.skills.includes('tiandu')
-  const message = `${target.name}发动【八卦阵】，判定${success ? '为红色，视为打出【闪】' : '为黑色，判定失败'}${tiandu ? '；【天妒】获得判定牌' : ''}`
-  return { state: { ...state, units: tiandu ? { ...state.units, [targetId]: { ...target, hand: [...target.hand, judge], animation: 'cast' } } : state.units, deck: draw.deck, discard: tiandu ? draw.discard : [...draw.discard, judge], message, history: log(state, message) }, success }
+  const draw = drawWhileResolving(state.deck, state.discard, 1, sourceCards), original = draw.drawn[0]
+  if (!original) return { state, success: false }
+  const altered = applyAutomaticGuicai({ ...state, deck: draw.deck, discard: draw.discard }, targetId, original, isRed)
+  const judge = altered.judge, success = isRed(judge)
+  const target = altered.state.units[targetId], tiandu = target.skills.includes('tiandu')
+  const guicaiText = altered.displaced.length ? `；${altered.state.message}` : ''
+  const message = `${target.name}发动【八卦阵】${guicaiText}，判定${success ? '为红色，视为打出【闪】' : '为黑色，判定失败'}${tiandu ? '；【天妒】获得判定牌' : ''}`
+  return { state: { ...altered.state, units: tiandu ? { ...altered.state.units, [targetId]: { ...target, hand: [...target.hand, judge], animation: 'cast' } } : altered.state.units, discard: [...altered.state.discard, ...altered.displaced, ...(tiandu ? [] : [judge])], message, history: log(altered.state, message) }, success }
 }
 
 function judgeTieqi(state: GameState, attackerId: Team, sourceCards: Card | Card[] = []) {
   const attacker = state.units[attackerId]
   if (!attacker.skills.includes('tieqi')) return { state, locked: false }
-  const draw = drawWhileResolving(state.deck, state.discard, 1, sourceCards), judge = draw.drawn[0]
-  if (!judge) return { state, locked: false }
-  const locked = judge.suit === 'heart' || judge.suit === 'diamond'
-  const message = `${attacker.name}发动【铁骑】，判定为${judge.suit}${judge.rank}${locked ? '，目标不能使用【闪】' : '，判定未生效'}`
-  return { state: { ...state, deck: draw.deck, discard: [judge, ...draw.discard], message, history: log(state, message) }, locked }
+  const draw = drawWhileResolving(state.deck, state.discard, 1, sourceCards), original = draw.drawn[0]
+  if (!original) return { state, locked: false }
+  const altered = applyAutomaticGuicai({ ...state, deck: draw.deck, discard: draw.discard }, attackerId, original, isRed)
+  const judge = altered.judge, locked = isRed(judge)
+  const guicaiText = altered.displaced.length ? `；${altered.state.message}` : ''
+  const message = `${attacker.name}发动【铁骑】${guicaiText}，判定为${judge.suit}${judge.rank}${locked ? '，目标不能使用【闪】' : '，判定未生效'}`
+  return { state: { ...altered.state, discard: [...altered.state.discard, ...altered.displaced, judge], message, history: log(altered.state, message) }, locked }
 }
 
 function greenDragonChase(state: GameState, attackerId: Team, targetId: Team): Partial<GameState> | null {
@@ -1003,24 +1042,8 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
     let judge = originalJudge, judgementDiscard = [originalJudge]
     const owner = working.units[team]
     const isUnfavorable = (card: Card) => delayed.kind === 'indulgence' ? card.suit !== 'heart' : delayed.kind === 'supplyShortage' ? card.suit !== 'club' : delayed.kind === 'lightning' ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 : false
-    const unfavorable = isUnfavorable(originalJudge)
-    const alliedWithOwner = (candidate: Unit) => candidate.id === team ||
-      (candidate.identity === 'lord' || candidate.identity === 'loyalist') && (owner.identity === 'lord' || owner.identity === 'loyalist') ||
-      candidate.identity === 'rebel' && owner.identity === 'rebel'
-    const guicaiActor = working.turnOrder.map(id => working.units[id]).find(candidate => {
-      if (candidate.hp <= 0 || !candidate.skills.includes('guicai') || candidate.id === 'player' && candidate.id !== team) return false
-      const desiredBad = !alliedWithOwner(candidate)
-      return unfavorable !== desiredBad && candidate.hand.some(card => isUnfavorable(card) === desiredBad)
-    })
-    if (guicaiActor) {
-      const desiredBad = !alliedWithOwner(guicaiActor)
-      const replacement = guicaiActor.hand.find(card => isUnfavorable(card) === desiredBad)
-      if (replacement) {
-        judge = replacement; judgementDiscard = [originalJudge, replacement]
-        const message = `${guicaiActor.name}发动【鬼才】，以${replacement.suit}${replacement.rank}改判${owner.name}的判定`
-        working = { ...working, units: { ...working.units, [guicaiActor.id]: { ...guicaiActor, hand: guicaiActor.hand.filter(card => card.id !== replacement.id), animation: 'cast' } }, message, history: log(working, message) }
-      }
-    }
+    const altered = applyAutomaticGuicai(working, team, originalJudge, card => !isUnfavorable(card))
+    working = altered.state; judge = altered.judge; judgementDiscard = [...altered.displaced, altered.judge]
     if (owner.skills.includes('tiandu')) {
       const currentOwner = working.units[team]
       working = { ...working, units: { ...working.units, [team]: { ...currentOwner, hand: [...currentOwner.hand, judge], animation: 'cast' } }, history: log(working, `${owner.name}发动【天妒】，获得判定牌`) }

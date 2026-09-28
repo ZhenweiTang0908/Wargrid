@@ -444,6 +444,66 @@ describe('standard card scenarios', () => {
     expect(result.discard).toEqual(expect.arrayContaining([goodJudge, replacement]))
   })
 
+  it('lets allied AI Sima Yi turn a failed Bagua judgement red through Guicai', () => {
+    const slash = card('slash', 'spade'), bagua = card('bagua'), blackJudge = card('duel', 'spade'), replacement = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { armor: bagua } },
+      east: { ...state.units.east, identity: 'rebel', position: { x: 4, y: 7 }, hand: [slash] },
+      west: { ...state.units.west, identity: 'loyalist', hand: [replacement] },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().activateBagua()
+
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.west.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([blackJudge, replacement]))
+    expect(state.message).toContain('鬼才')
+    expect(state.message).toContain('视为打出【闪】')
+  })
+
+  it('lets hostile AI Sima Yi break a red Tieqi judgement through Guicai', () => {
+    const slash = card('slash', 'club'), redJudge = card('peach', 'heart'), replacement = card('duel', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', deck: [redJudge], discard: [], units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] },
+      north: { ...state.units.north, name: '马超', skill: 'tieqi', skills: ['mashu', 'tieqi'], identity: 'rebel', revealed: true, position: { x: 4, y: 7 }, hand: [slash] },
+      west: { ...state.units.west, identity: 'loyalist', hand: [replacement] },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: slash.id, target: 'player' })
+
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toMatchObject({ effect: 'slash', required: 'dodge' })
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.west.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([redJudge, replacement]))
+    expect(state.message).toContain('【杀】')
+    expect(state.history.some(entry => entry.includes('鬼才'))).toBe(true)
+  })
+
+  it('lets allied AI Sima Yi make Ganglie succeed through Guicai', () => {
+    const slash = card('slash', 'club'), paymentA = card('dodge'), paymentB = card('peach'), heartJudge = card('peach', 'heart'), replacement = card('duel', 'spade')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [heartJudge], discard: [], units: {
+      ...state.units,
+      north: { ...state.units.north, name: '夏侯惇', skill: 'ganglie', skills: ['ganglie'], identity: 'loyalist', revealed: true, position: { x: 4, y: 0 }, hand: [] },
+      east: { ...state.units.east, identity: 'rebel', position: { x: 4, y: 1 }, hand: [slash, paymentA, paymentB] },
+      west: { ...state.units.west, identity: 'loyalist', hand: [replacement] },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'north' })
+
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.hand).toEqual([])
+    expect(state.units.west.hand).toEqual([])
+    expect(state.discard).toEqual(expect.arrayContaining([heartJudge, replacement, paymentA, paymentB]))
+    expect(state.history.some(entry => entry.includes('鬼才'))).toBe(true)
+    expect(state.history.some(entry => entry.includes('刚烈'))).toBe(true)
+  })
+
   it('lets Cao Cao gain the damage card through Jianxiong', () => {
     useGameStore.getState().selectGeneral('jianxiong')
     const slash = card('slash', 'spade')
@@ -2993,7 +3053,7 @@ describe('standard card scenarios', () => {
     const slash = card('slash', 'club'), bagua = card('bagua', 'spade', 2), judgement = card('peach', 'heart', 8)
     useGameStore.setState(state => ({
       deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
-      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { armor: bagua } } },
+      units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { armor: bagua } }, west: { ...state.units.west, hand: [] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
     expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', armorChecked: false })
@@ -3013,6 +3073,7 @@ describe('standard card scenarios', () => {
       ...state.units,
       east: { ...state.units.east, hand: [arrows] },
       player: { ...state.units.player, hand: [dodge], equipment: { armor: bagua } },
+      west: { ...state.units.west, hand: [] },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
     useGameStore.getState().respond(null)
@@ -3161,7 +3222,7 @@ describe('standard card scenarios', () => {
     const slash = card('slash', 'heart'), bagua = card('bagua'), judgement = card('peach', 'heart'), dodge = card('dodge', 'diamond')
     useGameStore.setState(state => ({
       deck: [judgement], discard: [], currentUnit: 'east', phase: 'ai',
-      units: { ...state.units, east: { ...state.units.east, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } } },
+      units: { ...state.units, east: { ...state.units.east, skill: 'wushuang', skills: ['wushuang'], position: { x: 4, y: 7 }, hand: [slash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge], equipment: { armor: bagua } }, west: { ...state.units.west, hand: [] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
     useGameStore.getState().activateBagua()
@@ -3832,7 +3893,7 @@ describe('standard card scenarios', () => {
   it('lets Ma Chao prevent dodge after a red Tieqi judgement', () => {
     useGameStore.getState().selectGeneral('tieqi')
     const slash = card('slash', 'spade'), dodge = card('dodge'), redJudge = card('peach', 'heart', 8)
-    useGameStore.setState(state => ({ deck: [redJudge], discard: [], units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] } } }))
+    useGameStore.setState(state => ({ deck: [redJudge], discard: [], units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] }, west: { ...state.units.west, hand: [] } } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(3)
