@@ -335,7 +335,7 @@ const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2, silverLion: 1, vineArmor: 1,
   gudingBlade: 1, vermilionFan: 1,
   doubleSword: 1, iceSword: 1,
-  arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
+  arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, supplyShortage: 2, lightning: 2,
   peachGarden: 2, harvest: 2, fireAttack: 3, ironChain: 3,
   redHare: 1, dayuan: 1, zixing: 1, dilu: 1, jueying: 1, zhaohuang: 1,
 }

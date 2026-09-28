@@ -7,7 +7,7 @@ export type CardKind =
   | 'slash' | 'fireSlash' | 'thunderSlash' | 'dodge' | 'peach' | 'wine'
   | 'duel' | 'dismantle' | 'snatch' | 'drawTwo'
   | 'borrowedSword'
-  | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'lightning'
+  | 'arrows' | 'barbarians' | 'nullify' | 'indulgence' | 'supplyShortage' | 'lightning'
   | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   | 'crossbow' | 'qinggang' | 'greenDragon' | 'spear' | 'axe' | 'halberd' | 'qilinBow' | 'gudingBlade' | 'vermilionFan'
   | 'doubleSword' | 'iceSword'
@@ -62,7 +62,7 @@ export interface PendingResponse {
   target: Team
   required: 'dodge' | 'slash' | 'peach' | 'nullify' | 'any'
   prompt: string
-  trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'drawTwo' | 'indulgence' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
+  trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'drawTwo' | 'indulgence' | 'supplyShortage' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   originCardId?: string
   resolvingResponseIds?: string[]
   armorChecked?: boolean
@@ -103,6 +103,7 @@ export interface PendingJudgement {
   delayed: Card
   original: Card
   skipPlay: boolean
+  skipDraw: boolean
 }
 
 export interface PendingGuanxing {
@@ -194,7 +195,7 @@ export interface GameState {
   pendingQilin: PendingQilin | null
   pendingDoubleSword: PendingDoubleSword | null
   pendingYiji: PendingYiji | null
-  pendingTurnStart: { team: Team; skipPlay: boolean } | null
+  pendingTurnStart: { team: Team; skipPlay: boolean; skipDraw: boolean } | null
   winner: Team | null
   message: string
   history: string[]
@@ -216,7 +217,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   doubleSword: '雌雄双股剑', iceSword: '寒冰剑',
   spear: '丈八蛇矛', axe: '贯石斧', halberd: '方天画戟', qilinBow: '麒麟弓', bagua: '八卦阵', silverLion: '白银狮子',
   gudingBlade: '古锭刀', vermilionFan: '朱雀羽扇',
-  arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', lightning: '闪电',
+  arrows: '万箭齐发', barbarians: '南蛮入侵', nullify: '无懈可击', indulgence: '乐不思蜀', supplyShortage: '兵粮寸断', lightning: '闪电',
   peachGarden: '桃园结义', harvest: '五谷丰登', fireAttack: '火攻', ironChain: '铁索连环',
   redHare: '赤兔', dayuan: '大宛', zixing: '紫骍', dilu: '的卢', jueying: '绝影', zhaohuang: '爪黄飞电',
 }
@@ -231,7 +232,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   gudingBlade: '攻击范围 2；无手牌目标受到伤害 +1', vermilionFan: '攻击范围 4；普通【杀】改为火焰伤害',
   shield: '使黑色【杀】失效', bagua: '需要打出【闪】时可判定，红色视为打出【闪】', silverLion: '受到的伤害最多为 1；失去时回复 1 点体力', vineArmor: '普通【杀】、万箭和南蛮对其无效；受到火焰伤害 +1',
   arrows: '所有其他角色需打出【闪】', barbarians: '所有其他角色需打出【杀】', nullify: '抵消锦囊或反制另一张【无懈可击】',
-  indulgence: '置于其他角色判定区，可能跳过出牌', lightning: '判定为黑桃 2～9 时造成 3 点雷电伤害',
+  indulgence: '置于其他角色判定区，可能跳过出牌', supplyShortage: '置于其他角色判定区，♣2～9 时跳过摸牌', lightning: '判定为黑桃 2～9 时造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '亮出等量牌，所有存活角色依次各选一张',
   fireAttack: '目标展示手牌；弃置同花色牌造成 1 点火焰伤害', ironChain: '令角色横置或重置并传导属性伤害；也可重铸摸一张牌',
   redHare: '进攻坐骑：计算距离 -1', dayuan: '进攻坐骑：计算距离 -1', zixing: '进攻坐骑：计算距离 -1',

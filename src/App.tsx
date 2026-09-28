@@ -400,7 +400,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
     (selectedKind === 'slash' && canSlash(state, attackSource, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && plunderableCards(unit).length > 0) ||
     canBorrowedWielder || canBorrowedVictim ||
-    selectedKind === 'indulgence' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
+    selectedKind === 'indulgence' || selectedKind === 'supplyShortage' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
     (selectedKind === 'snatch' && plunderableCards(unit).length > 0 && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
   ))
 
@@ -702,9 +702,9 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
       {unit.animation === 'hit' && <Sparkles count={18} scale={1.15} size={3.2} speed={1.8} color="#ff5549" position-y={.7} />}
       {unit.animation === 'cast' && <Sparkles count={24} scale={1.3} size={3.3} speed={1.1} color="#69d9e8" position-y={.8} />}
       {unit.judgement.map((card, index) => <group key={card.id} position={[-.34 + index * .28, 1.95, 0]}>
-        <mesh><boxGeometry args={[.22, .3, .035]} /><meshStandardMaterial color={card.kind === 'lightning' ? '#33285e' : '#8b6531'} emissive={card.kind === 'lightning' ? '#4f35a3' : '#70410f'} emissiveIntensity={.85} /></mesh>
-        <mesh position-z={.022}><ringGeometry args={[.045, .065, 12]} /><meshBasicMaterial color={card.kind === 'lightning' ? '#b9a8ff' : '#ffd57b'} /></mesh>
-        <Sparkles count={5} scale={.35} size={1.5} speed={.35} color={card.kind === 'lightning' ? '#b9a8ff' : '#ffd57b'} />
+        <mesh><boxGeometry args={[.22, .3, .035]} /><meshStandardMaterial color={card.kind === 'lightning' ? '#33285e' : card.kind === 'supplyShortage' ? '#355a42' : '#8b6531'} emissive={card.kind === 'lightning' ? '#4f35a3' : card.kind === 'supplyShortage' ? '#2a8a55' : '#70410f'} emissiveIntensity={.85} /></mesh>
+        <mesh position-z={.022}><ringGeometry args={[.045, .065, 12]} /><meshBasicMaterial color={card.kind === 'lightning' ? '#b9a8ff' : card.kind === 'supplyShortage' ? '#9ee7ad' : '#ffd57b'} /></mesh>
+        <Sparkles count={5} scale={.35} size={1.5} speed={.35} color={card.kind === 'lightning' ? '#b9a8ff' : card.kind === 'supplyShortage' ? '#9ee7ad' : '#ffd57b'} />
       </group>)}
       {unit.hp <= 0 && <mesh position-y={.5}><sphereGeometry args={[.8]} /><meshBasicMaterial color="#000" transparent opacity={.6} /></mesh>}
     </group>
@@ -1102,7 +1102,7 @@ function GeneralSelect() {
     <p className="battlefield-lore">{MAP_LORE[mapId]}</p>
     <div className="map-options" aria-label="选择牌池">
       <button className={deckMode === 'standard' ? 'active' : ''} onClick={() => selectDeckMode('standard')}><strong>标准牌池 · 108 张</strong><span>标准包与 EX 牌的花色、点数及数量</span></button>
-      <button className={deckMode === 'expanded' ? 'active' : ''} onClick={() => selectDeckMode('expanded')}><strong>扩展牌池 · 117 张</strong><span>加入火杀、雷杀、酒、藤甲与军争锦囊</span></button>
+      <button className={deckMode === 'expanded' ? 'active' : ''} onClick={() => selectDeckMode('expanded')}><strong>扩展牌池 · 119 张</strong><span>加入火杀、雷杀、酒、藤甲、兵粮寸断与军争锦囊</span></button>
     </div>
     <div className="general-grid">
       {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}${previewSkill === option.skill ? ' active' : ''}`} onClick={() => setPreviewSkill(option.skill)} aria-pressed={previewSkill === option.skill}>
@@ -1150,12 +1150,16 @@ function JudgementWindow() {
   if (!pending || !owner) return null
   const original = pending.original
   const lightning = pending.delayed.kind === 'lightning'
+  const supplyShortage = pending.delayed.kind === 'supplyShortage'
+  const delayedName = lightning ? '闪电' : supplyShortage ? '兵粮寸断' : '乐不思蜀'
   const outcome = (card: Card) => lightning
     ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 ? '命中：受到 3 点雷电伤害' : '未命中：传给下一位武将'
-    : card.suit === 'heart' ? '判定通过' : '跳过出牌阶段'
+    : supplyShortage
+      ? card.suit === 'club' && card.rank >= 2 && card.rank <= 9 ? '判定失败：跳过摸牌阶段' : '判定通过'
+      : card.suit === 'heart' ? '判定通过' : '跳过出牌阶段'
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">鬼才 · 判定响应</span>
-    <h1>{owner.name}的【{lightning ? '闪电' : '乐不思蜀'}】</h1>
+    <h1>{owner.name}的【{delayedName}】</h1>
     <p>当前判定：{SUIT_GLYPH[original.suit]} {original.rank}，{outcome(original)}。选择一张手牌替换，或保留当前结果。</p>
     <div className="response-cards">
       {player.hand.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => chooseJudgementCard(card.id)}>

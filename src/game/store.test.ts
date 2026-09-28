@@ -101,7 +101,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().selectDeckMode('expanded')
     let state = useGameStore.getState()
     expect(state.deckMode).toBe('expanded')
-    expect(state.deck.length + Object.values(state.units).reduce((total, unit) => total + unit.hand.length, 0)).toBe(117)
+    expect(state.deck.length + Object.values(state.units).reduce((total, unit) => total + unit.hand.length, 0)).toBe(119)
     useGameStore.getState().selectGeneral('wusheng')
     useGameStore.getState().selectDeckMode('standard')
     expect(useGameStore.getState().deckMode).toBe('expanded')
@@ -1290,6 +1290,40 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: delayed.id, target: 'north' })
     expect(useGameStore.getState().units.north.judgement).toEqual([delayed])
     expect(useGameStore.getState().discard.some(c => c.id === delayed.id)).toBe(false)
+  })
+
+  it('places supply shortage into the target judgement area and rejects a duplicate', () => {
+    const first = card('supplyShortage', 'heart', 4), duplicate = card('supplyShortage', 'club', 7)
+    useGameStore.setState(state => ({
+      units: { ...state.units, player: { ...state.units.player, hand: [first, duplicate] }, north: { ...state.units.north, hand: [] } },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: first.id, target: 'north' })
+    expect(useGameStore.getState().units.north.judgement).toEqual([first])
+    useGameStore.setState(state => ({ selectedCardId: duplicate.id }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duplicate.id, target: 'north' })
+    expect(useGameStore.getState().units.north.judgement).toHaveLength(1)
+    expect(useGameStore.getState().units.player.hand).toContainEqual(duplicate)
+  })
+
+  it('skips drawing but keeps the play stage when supply shortage hits', () => {
+    const shortage = card('supplyShortage', 'heart', 4), badJudge = card('slash', 'club', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [badJudge, drawA, drawB]
+    state.units.player = { ...state.units.player, judgement: [shortage], hand: [] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hand).toHaveLength(0)
+    expect(result.turnStage).toBe('play')
+    expect(result.message).toContain('跳过摸牌')
+  })
+
+  it('draws normally when supply shortage does not hit', () => {
+    const shortage = card('supplyShortage', 'heart', 4), safeJudge = card('slash', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [safeJudge, drawA, drawB]
+    state.units.player = { ...state.units.player, judgement: [shortage], hand: [] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hand).toEqual([drawA, drawB])
+    expect(result.message).toContain('摸两张牌')
   })
 
   it('rejects duplicate delayed tactics in the same judgement area', () => {
