@@ -4758,6 +4758,29 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('激将'))).toBe(true)
   })
 
+  it('lets AI Halberd attack three targets with its final hand Slash', async () => {
+    const slash = card('slash', 'heart'), halberd = card('halberd')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', units: {
+      ...state.units,
+      north: { ...state.units.north, identity: 'rebel', revealed: true, position: state.controlPoint, hand: [slash], equipment: { weapon: halberd }, movement: 0 },
+      player: { ...state.units.player, position: { x: 4, y: 5 }, hand: [] },
+      east: { ...state.units.east, identity: 'loyalist', revealed: true, position: { x: 5, y: 4 }, hand: [] },
+      west: { ...state.units.west, identity: 'renegade', revealed: true, position: { x: 3, y: 4 }, hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    let state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.west.hp).toBe(2)
+    expect(state.units.player.hp).toBe(5)
+    expect(state.pendingResponse).toMatchObject({ effect: 'slash', source: 'north', target: 'player' })
+    expect(state.history.some(entry => entry.includes('方天画戟'))).toBe(true)
+    useGameStore.getState().respond(null)
+    state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.attacksUsed).toBe(1)
+    expect(state.discard).toContainEqual(slash)
+  })
+
   it('lets AI Diao Chan make two male enemies duel through Lijian', async () => {
     const payment = card('nullify')
     useGameStore.setState(state => ({ deck: [card('nullify', 'heart')], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {

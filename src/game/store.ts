@@ -115,6 +115,12 @@ export const targetsFor = (state: GameState, team: Team) => {
   }
   return alive.sort((a, b) => a.hp - b.hp || (a.identity === 'lord' ? 1 : -1))
 }
+const aiHalberdTargets = (state: GameState, team: Team, slash: Card) => {
+  const actor = state.units[team]
+  if (actor.equipment.weapon?.kind !== 'halberd' || actor.hand.length !== 1 || actor.hand[0].id !== slash.id) return []
+  const legal = targetsFor(state, team).filter(target => canSlash(state, actor, target))
+  return [...legal.filter(target => target.id !== 'player'), ...legal.filter(target => target.id === 'player')].slice(0, 3).map(target => target.id)
+}
 const primaryTarget = (state: GameState, team: Team) => targetsFor(state, team)[0]?.id ?? team
 const alliesFor = (state: GameState, team: Team) => {
   const actor = state.units[team]
@@ -1550,17 +1556,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (tieqi.pending) { set(base); return }
           set(continuePlayerSlashAfterTieqi(base, continuation, tieqi.locked)); return
         }
-        if (action.unit === 'player' && attackUnit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
+        if (attackUnit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0 && (action.unit === 'player' || (action.targets?.length ?? 0) > 1)) {
           const requested = action.targets?.length ? [...new Set(action.targets)] : [targetId, ...state.turnOrder.filter(id => id !== action.unit && id !== targetId && state.units[id].hp > 0 && combatDistance(base, attackUnit, state.units[id]) <= effectiveAttackRange(base, attackUnit))]
           const legal = requested.filter(id => id !== action.unit && state.units[id]?.hp > 0 && canSlash(base, attackUnit, state.units[id])).slice(0, 3)
           if (!legal.length || legal[0] !== targetId) return
-          let working = base
+          const skillMessage = `${unit.name}发动【方天画戟】，一杀攻击${legal.map(id => state.units[id].name).join('、')}`
+          let working = { ...base, message: skillMessage, history: log(base, skillMessage) }
           for (const id of legal) {
             working = { ...working, ...resolveSlash(working, action.unit, id, undefined, false, slashEffectCard, false, playedCards) }
             if (working.pendingResponse || working.winner) break
             working = { ...working, units: { ...working.units, [action.unit]: { ...working.units[action.unit], attacksUsed: unit.attacksUsed } } }
           }
-          if (!working.pendingResponse) working = { ...working, units: { ...working.units, [action.unit]: { ...working.units[action.unit], attacksUsed: unit.attacksUsed + 1 } }, message: `${unit.name}发动【方天画戟】，一杀多目标` }
+          if (!working.pendingResponse) working = { ...working, units: { ...working.units, [action.unit]: { ...working.units[action.unit], attacksUsed: unit.attacksUsed + 1 } }, message: skillMessage }
           set(working); return
         }
         set({ ...base, ...resolveSlash(base, action.unit, targetId, undefined, false, slashEffectCard, false, playedCards) }); return
@@ -2710,7 +2717,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'slash' && !canSlash(state, equippedCards(ai).some(item => item.id === card.id) ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== card.id)) as Unit['equipment'] } : ai, target)) continue
       if (kind === 'snatch' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
       if (kind === 'supplyShortage' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle', lordAssist: jijiang?.unit.id }); await wait(420); state = get(); ai = state.units[aiId]
+      const halberdTargets = kind === 'slash' && !jijiang ? aiHalberdTargets(state, aiId, card) : []
+      if (halberdTargets.length > 1) target = state.units[halberdTargets[0]]
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle', lordAssist: jijiang?.unit.id }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
       if (state.phase === 'finished') return
     }
@@ -2725,9 +2734,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (!slash) break
       const afterPayment = equippedCards(ai).some(item => item.id === slash.id)
         ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== slash.id)) as Unit['equipment'] } : ai
-      const victim = targetsFor(state, aiId).find(candidate => canSlash(state, afterPayment, candidate))
+      const halberdTargets = jijiang ? [] : aiHalberdTargets(state, aiId, slash)
+      const victim = halberdTargets.length > 1 ? state.units[halberdTargets[0]] : targetsFor(state, aiId).find(candidate => canSlash(state, afterPayment, candidate))
       if (!victim) break
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, asSlash: !isSlashKind(slash.kind), lordAssist: jijiang?.unit.id })
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: !isSlashKind(slash.kind), lordAssist: jijiang?.unit.id })
       await wait(420)
       if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().pendingHalberd || get().pendingQilin || get().pendingDoubleSword || get().pendingYiji || get().winner) return
     }
