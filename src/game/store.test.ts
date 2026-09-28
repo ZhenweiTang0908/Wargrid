@@ -1666,6 +1666,35 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('赵云') && entry.includes('无懈可击'))).toBe(true)
   })
 
+  it('lets an AI character nullify only its own low-value Harvest pick', () => {
+    const harvest = card('harvest'), nullify = card('nullify'), pool = [card('dismantle'), card('dismantle'), card('dismantle'), card('dismantle')]
+    useGameStore.setState(state => ({
+      ...state,
+      phase: 'ai', turnStage: 'play', currentUnit: 'north',
+      deck: pool,
+      discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, hand: [] },
+        north: { ...state.units.north, hand: [harvest, nullify] },
+        east: { ...state.units.east, hand: [] },
+        west: { ...state.units.west, hand: [] },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: harvest.id })
+    const state = useGameStore.getState()
+
+    expect(state.units.north.hand).not.toContainEqual(nullify)
+    expect(state.units.north.hand).not.toContainEqual(expect.objectContaining({ kind: 'dismantle' }))
+    expect(state.discard).toContainEqual(nullify)
+    expect(state.units.east.hand).toContainEqual(expect.objectContaining({ kind: 'dismantle' }))
+    expect(state.pendingHarvest?.order[0]).toBe('player')
+    expect(state.pendingHarvest?.pool).toHaveLength(2)
+    expect(state.history.some(entry => entry.includes('北') || entry.includes('赵云'))).toBe(true)
+    expect(state.history.some(entry => entry.includes('无懈可击') && entry.includes('五谷丰登'))).toBe(true)
+  })
+
   it('restores Peach Garden recovery when the source counters nullify', () => {
     const garden = card('peachGarden', 'heart'), nullify = card('nullify', 'spade'), counter = card('nullify', 'club')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [garden, counter] }, player: { ...state.units.player, hand: [nullify], hp: 3 } } }))

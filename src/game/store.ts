@@ -196,6 +196,19 @@ function advanceHarvest(state: GameState, pool: Card[], order: Team[]): GameStat
   while (waiting.length && waiting[0] !== 'player') {
     const team = waiting.shift()!, unit = working.units[team]
     if (unit.hp <= 0 || !available.length) continue
+    const nullify = unit.hand.find(card => card.kind === 'nullify')
+    const bestCardValue = Math.max(...available.map(card => harvestCardValue(unit, card)))
+    if (nullify && bestCardValue <= 40) {
+      const message = `${unit.name}以【无懈可击】取消自己的【五谷丰登】取牌效果`
+      working = triggerLianying({
+        ...working,
+        units: { ...working.units, [team]: { ...unit, hand: unit.hand.filter(card => card.id !== nullify.id), animation: 'cast' as const } },
+        discard: [...working.discard, nullify],
+        message,
+        history: log(working, message),
+      }, team, [nullify])
+      continue
+    }
     const chosen = [...available].sort((a, b) => harvestCardValue(unit, b) - harvestCardValue(unit, a))[0]
     available = available.filter(card => card.id !== chosen.id)
     const message = `${unit.name}从【五谷丰登】中选择【${CARD_LABEL[chosen.kind]}】`
