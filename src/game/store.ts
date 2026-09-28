@@ -858,6 +858,21 @@ function offerPlayerLiuli(state: GameState, attackerId: Team, slashCard: Card, f
   return { ...state, pendingLiuli: { source: attackerId, originCardId: slashCard.id, forcedSlashAttacksUsed }, message, history: log(state, message) }
 }
 
+function payAxeCost(state: GameState, attackerId: Team, paid: Card[], slashCard?: Card): GameState {
+  const attacker = state.units[attackerId], paidIds = new Set(paid.map(card => card.id)), equipment = { ...attacker.equipment }
+  const lostEquipment = Object.values(equipment).filter((card): card is Card => !!card && paidIds.has(card.id))
+  for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot] && paidIds.has(equipment[slot]!.id)) delete equipment[slot]
+  const resolvingCards = [...paid, ...(slashCard ? [slashCard] : [])]
+  const recovery = resolveEquipmentLoss(attacker, lostEquipment, state.deck, [...state.discard, ...paid], resolvingCards.map(card => card.id))
+  const paidState: GameState = {
+    ...state,
+    units: { ...state.units, [attackerId]: { ...attacker, hp: recovery.hp, hand: [...attacker.hand.filter(card => !paidIds.has(card.id)), ...recovery.drawn], equipment, animation: recovery.healed ? 'heal' : 'attack' } },
+    deck: recovery.deck,
+    discard: recovery.discard,
+  }
+  return triggerLianying(paidState, attackerId, resolvingCards)
+}
+
 function axeAfterDodge(state: GameState, attackerId: Team, targetId: Team, slashCard: Card | undefined, amount: number): Partial<GameState> | null {
   const attacker = state.units[attackerId]
   if (attacker.equipment.weapon?.kind !== 'axe') return null
@@ -867,9 +882,16 @@ function axeAfterDodge(state: GameState, attackerId: Team, targetId: Team, slash
     const message = `${attacker.name}的【贯石斧】可弃置两张牌，令对${state.units[targetId].name}的【杀】强制命中`
     return { ...state, pendingAxe: { target: targetId, originCardId: slashCard.id, amount }, message, history: log(state, message) }
   }
-  if (attacker.hand.length < 2) return null
-  const paid = attacker.hand.slice(0, 2)
-  const forced = triggerLianying({ ...state, units: { ...state.units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2) } }, discard: [...state.discard, ...paid] }, attackerId)
+  const available = [...attacker.hand, ...equippedCards(attacker)]
+  if (available.length < 2) return null
+  const value = (card: Card) => card.kind === 'axe' ? 120
+    : card.kind === 'peach' ? 100
+      : card.kind === 'dodge' ? 80
+        : card.kind === 'nullify' ? 75
+          : card.kind === 'silverLion' && attacker.hp < attacker.maxHp ? 5
+            : isEquipment(card.kind) ? 45 : 25
+  const paid = [...available].sort((first, second) => value(first) - value(second)).slice(0, 2)
+  const forced = payAxeCost(state, attackerId, paid, slashCard)
   return damage(forced, attackerId, targetId, amount, `${attacker.name}发动【贯石斧】弃置两张牌，强制命中${state.units[targetId].name}`, false, slashCard)
 }
 
@@ -2338,14 +2360,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const available = [...player.hand, ...Object.values(player.equipment).filter((card): card is Card => !!card)]
       const paid = available.filter(card => cardIds.includes(card.id))
       if (cardIds.length !== 2 || new Set(cardIds).size !== 2 || paid.length !== 2 || state.units[pending.target].hp <= 0) return
-      const paidIds = new Set(cardIds)
-      const equipment = { ...player.equipment }
-      const lostEquipment = Object.values(equipment).filter((card): card is Card => !!card && paidIds.has(card.id))
-      for (const slot of Object.keys(equipment) as (keyof typeof equipment)[]) if (equipment[slot] && paidIds.has(equipment[slot]!.id)) delete equipment[slot]
-      const recovery = resolveEquipmentLoss(player, lostEquipment, state.deck, [...state.discard, ...paid])
       const message = `${player.name}发动【贯石斧】，弃置两张牌强制命中${state.units[pending.target].name}`
-      const base: GameState = { ...state, pendingAxe: null, units: { ...state.units, player: { ...player, hp: recovery.hp, hand: [...player.hand.filter(card => !paidIds.has(card.id)), ...recovery.drawn], equipment, animation: 'attack' } }, deck: recovery.deck, discard: recovery.discard, message, history: log(state, message) }
-      const slash = base.discard.find(card => card.id === pending.originCardId)
+      const slash = state.discard.find(card => card.id === pending.originCardId)
+      const paidState = payAxeCost({ ...state, pendingAxe: null }, 'player', paid, slash)
+      const base: GameState = { ...paidState, message, history: log(paidState, message) }
       set({ ...base, ...damage(base, 'player', pending.target, pending.amount, message, false, slash) })
     }
     if (state.phase === 'ai' && !get().pendingResponse && !get().pendingAxe && !get().winner) setTimeout(() => void get().runAI(), 120)

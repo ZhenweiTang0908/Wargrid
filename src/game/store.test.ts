@@ -2848,6 +2848,20 @@ describe('standard card scenarios', () => {
     expect(state.discard).toEqual(expect.arrayContaining([cost, mount]))
   })
 
+  it('triggers Lianying when player Stone Axe spends the final two hand cards', () => {
+    const slash = card('slash'), costA = card('peach'), costB = card('nullify'), dodge = card('dodge'), axe = card('axe'), reward = card('drawTwo')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units,
+      player: { ...state.units.player, name: '陆逊', skill: 'qianxun', skills: ['qianxun', 'lianying'], position: { x: 4, y: 1 }, hand: [slash, costA, costB], equipment: { weapon: axe } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseAxe([costA.id, costB.id])
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
   it('offers Stone Axe after a successful Bagua judgement', () => {
     const slash = card('slash', 'heart'), axe = card('axe'), bagua = card('bagua'), judge = card('peach', 'heart'), costA = card('duel'), costB = card('snatch')
     useGameStore.setState(state => ({ deck: [judge], discard: [], units: {
@@ -4875,6 +4889,23 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(4)
     expect(state.units.north.hand).toEqual([reward])
     expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
+  })
+
+  it('lets AI Stone Axe pay with a hand card and equipment', () => {
+    const slash = card('slash'), cost = card('duel'), dodge = card('dodge'), axe = card('axe'), mount = card('redHare')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', deck: [], discard: [], units: { ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [dodge] },
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [slash, cost], equipment: { weapon: axe, offensiveMount: mount } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.hand).toEqual([])
+    expect(state.units.north.equipment.weapon).toEqual(axe)
+    expect(state.units.north.equipment.offensiveMount).toBeUndefined()
+    expect(state.discard).toEqual(expect.arrayContaining([cost, mount]))
+    expect(state.message).toContain('贯石斧')
   })
 
   it('lets AI Hua Tuo heal the weakest allied character through Qingnang', async () => {
