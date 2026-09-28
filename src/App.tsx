@@ -1,11 +1,11 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Sparkles } from '@react-three/drei'
-import { CircleHelp, Map as MapIcon, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
+import { BookOpen, CircleHelp, Map as MapIcon, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
-import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
+import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, createDeck, createStandardDeck, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
@@ -1117,6 +1117,39 @@ function BattlefieldGuide({ close }: { close: () => void }) {
   </section></div>
 }
 
+const BASIC_CARD_KINDS = new Set<Card['kind']>(['slash', 'fireSlash', 'thunderSlash', 'dodge', 'peach', 'wine'])
+const EQUIPMENT_CARD_KINDS = new Set<Card['kind']>(['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'vineArmor', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'])
+
+function CardGuide({ close }: { close: () => void }) {
+  const deckMode = useGameStore(state => state.deckMode)
+  const catalog = useMemo(() => {
+    const cards = deckMode === 'standard' ? createStandardDeck(() => .5) : createDeck()
+    const counts = new Map<Card['kind'], number>()
+    for (const card of cards) counts.set(card.kind, (counts.get(card.kind) ?? 0) + 1)
+    return (Object.keys(CARD_LABEL) as Card['kind'][]).filter(kind => counts.has(kind)).map(kind => ({
+      kind,
+      label: CARD_LABEL[kind],
+      copy: CARD_COPY[kind],
+      count: counts.get(kind) ?? 0,
+      family: BASIC_CARD_KINDS.has(kind) ? '基本牌' : EQUIPMENT_CARD_KINDS.has(kind) ? '装备牌' : '锦囊牌',
+    }))
+  }, [deckMode])
+  const groups = ['基本牌', '锦囊牌', '装备牌']
+  return <div className="overlay card-guide-overlay"><section className="card-guide panel">
+    <button className="icon-button close" onClick={close} aria-label="关闭牌表"><X /></button>
+    <span className="eyebrow">军略牌表 · {deckMode === 'standard' ? '标准牌池 108 张' : '扩展牌池 119 张'}</span>
+    <h1>三国杀牌面</h1>
+    <p className="card-guide-intro">数量按当前牌池的完整配置显示；实际对局中，牌会分布在牌堆、手牌、装备区和弃牌堆。</p>
+    {groups.map(group => <div className="card-guide-section" key={group}>
+      <div className="detail-section-title"><span>{group}</span><small>{catalog.filter(card => card.family === group).reduce((sum, card) => sum + card.count, 0)} 张</small></div>
+      <div className="card-guide-grid">{catalog.filter(card => card.family === group).map(card => <article className={`card-guide-item ${card.kind}`} key={card.kind}>
+        <div><strong>{card.label}</strong><span>{card.count} 张</span></div>
+        <p>{card.copy}</p>
+      </article>)}</div>
+    </div>)}
+  </section></div>
+}
+
 function GeneralSelect() {
   const selectGeneral = useGameStore(s => s.selectGeneral)
   const selectMap = useGameStore(s => s.selectMap)
@@ -1576,6 +1609,7 @@ function App() {
   const [sound, setSound] = useState(() => localStorage.getItem('wargrid-sound') !== 'off')
   const [showHistory, setShowHistory] = useState(false)
   const [showMapGuide, setShowMapGuide] = useState(false)
+  const [showCardGuide, setShowCardGuide] = useState(false)
   const [inspectedUnit, setInspectedUnit] = useState<{ team: Team; portrait: string; skillText: string } | null>(null)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
@@ -1643,6 +1677,7 @@ function App() {
       <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
         <button className="icon-button" onClick={() => setShowMapGuide(true)} aria-label="查看战场手册"><MapIcon /></button>
+        <button className="icon-button" onClick={() => setShowCardGuide(true)} aria-label="查看牌表"><BookOpen /></button>
         <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>
         <button className="icon-button" onClick={() => setTutorial(true)} aria-label="查看规则"><CircleHelp /></button>
         <button className="icon-button" onClick={() => setSound(value => { const next = !value; localStorage.setItem('wargrid-sound', next ? 'on' : 'off'); setAudioEnabled(next); return next })} aria-label={sound ? '关闭音效' : '开启音效'} aria-pressed={sound}>{sound ? <Volume2 /> : <VolumeX />}</button>
@@ -1709,6 +1744,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingFireAttack && <FireAttackWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
     {state.generalSelected && showMapGuide && <BattlefieldGuide close={() => setShowMapGuide(false)} />}
+    {state.generalSelected && showCardGuide && <CardGuide close={() => setShowCardGuide(false)} />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>

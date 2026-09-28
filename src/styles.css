@@ -97,6 +97,19 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .overlay { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: #020608d9; backdrop-filter: blur(7px); }
 .panel { position: relative; width: min(660px, 92vw); padding: 30px; border: 1px solid #45636a; background: radial-gradient(circle at top, #18333a, #09171c 70%); box-shadow: 0 20px 80px #000, inset 0 1px #ffffff13; clip-path: polygon(0 14px, 14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px)); text-align: center; }
 .panel .close { position: absolute; right: 15px; top: 15px; }
+.card-guide { width: min(920px, 96vw); max-height: calc(100dvh - 24px); overflow-y: auto; text-align: left; }
+.card-guide h1 { text-align: center; margin-bottom: 8px; }
+.card-guide-intro { margin: 0 auto 18px; max-width: 680px; color: #8fa7aa; font-size: 12px; line-height: 1.55; text-align: center; }
+.card-guide-section { margin-top: 16px; }
+.card-guide-section .detail-section-title { margin-bottom: 8px; }
+.card-guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 7px; }
+.card-guide-item { min-height: 74px; padding: 9px 10px; border: 1px solid #2e4b51; background: linear-gradient(145deg, #10252a, #0b181d); }
+.card-guide-item > div { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; }
+.card-guide-item strong { color: #e9c77d; font: 700 15px serif; }
+.card-guide-item span { color: #7fa3a8; font-size: 10px; white-space: nowrap; }
+.card-guide-item p { margin: 5px 0 0; color: #a4b7b8; font-size: 10px; line-height: 1.4; }
+.card-guide-item.basic, .card-guide-item.slash, .card-guide-item.fireSlash, .card-guide-item.thunderSlash, .card-guide-item.dodge, .card-guide-item.peach, .card-guide-item.wine { border-left: 2px solid #c36b61; }
+.card-guide-item.equipment, .card-guide-item.crossbow, .card-guide-item.qinggang, .card-guide-item.greenDragon, .card-guide-item.spear, .card-guide-item.axe, .card-guide-item.halberd, .card-guide-item.qilinBow, .card-guide-item.gudingBlade, .card-guide-item.vermilionFan, .card-guide-item.doubleSword, .card-guide-item.iceSword, .card-guide-item.shield, .card-guide-item.bagua, .card-guide-item.silverLion, .card-guide-item.vineArmor, .card-guide-item.redHare, .card-guide-item.dayuan, .card-guide-item.zixing, .card-guide-item.dilu, .card-guide-item.jueying, .card-guide-item.zhaohuang { border-left: 2px solid #c6a45d; }
 .eyebrow { color: var(--gold); font-size: 11px; letter-spacing: .28em; }
 .panel h1 { margin: 8px 0 25px; font-family: serif; font-size: clamp(25px, 4vw, 38px); letter-spacing: .08em; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #345159; text-align: left; }
