@@ -46,6 +46,7 @@ export interface Unit {
   skills: GeneralSkill[]
   movement: number
   attacksUsed: number
+  slashUsedOrPlayed: boolean
   wineUsed: boolean
   drunk: boolean
   luoyiActive: boolean

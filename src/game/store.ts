@@ -811,6 +811,9 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCa
     }
     const message = `${responder.name}${slashes.length > 1 ? '连续打出两张【杀】响应【无双决斗】' : responseText(responder, slashes[0], 'slash') + '响应【决斗】'}`
     for (const slash of slashes) working = payRescueCard(working, current, slash, sourceCard ? [sourceCard] : [])
+    if (current === working.currentUnit && working.turnStage === 'play') {
+      working = { ...working, units: { ...working.units, [current]: { ...working.units[current], slashUsedOrPlayed: true } } }
+    }
     working = { ...working, message, history: log(working, message) }
     ;[current, other] = [other, current]
   }
@@ -1081,7 +1084,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
   const drawCount = skipDraw ? 0 : tuxiCount ? 0 : luoyiActive ? 1 : unit.skills.includes('yingzi') ? 3 : 2
   const draw = drawCards(working.deck, working.discard, drawCount)
   const movement = turnMovement(working, unit)
-  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement, attacksUsed: 0, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
+  const refreshed: Unit = { ...unit, hand: [...unit.hand, ...draw.drawn], movement, attacksUsed: 0, slashUsedOrPlayed: false, wineUsed: false, drunk: false, luoyiActive, rendeGiven: 0, skillUsed: false, animation: 'idle' }
   const drawText = skipDraw ? '【兵粮寸断】跳过摸牌' : tuxiCount ? `发动【突袭】获得 ${tuxiCount} 张牌` : luoyiActive ? '发动【裸衣】摸一张牌' : drawCount === 3 ? '发动【英姿】摸三张牌' : '摸两张牌'
   const roadText = movement > 3 ? ' · 官道疾行，移动力 +1' : ''
   const stageMessage = skipPlay ? `${refreshed.name}的【乐不思蜀】判定失败，跳过出牌阶段` : `${team === 'player' ? '你的' : refreshed.name}出牌阶段 · ${drawText}${roadText}`
@@ -1280,6 +1283,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         playedDeck = loss.deck; playedDiscard = loss.discard
       }
       let base: GameState = { ...state, units: unitsAfterPlay, deck: playedDeck, discard: playedDiscard, selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
+      if (isSlashKind(kind)) {
+        const actor = base.units[action.unit]
+        base = { ...base, units: { ...base.units, [action.unit]: { ...actor, slashUsedOrPlayed: true } } }
+      }
       if (!equippedVirtual && !assistedEquipment) base = triggerLianying(base, assistant?.id ?? action.unit, playedCards)
       const instantTricks: Card['kind'][] = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'drawTwo', 'arrows', 'barbarians', 'peachGarden', 'harvest', 'fireAttack', 'ironChain']
       if (unit.skill === 'jizhi' && instantTricks.includes(kind)) {
@@ -1434,7 +1441,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (action.type === 'END_TURN' && state.phase === 'player') {
       const player = state.units.player, excess = Math.max(0, player.hand.length - player.hp)
-      const keji = player.skills.includes('keji') && player.attacksUsed === 0 && excess > 0
+      const keji = player.skills.includes('keji') && !player.slashUsedOrPlayed && excess > 0
       let turnState = state
       if (state.turnStage !== 'discard' && excess > 0 && !keji) {
         const message = `弃牌阶段 · 请选择 ${excess} 张手牌`
@@ -1448,7 +1455,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         turnState = { ...state, units, discard: [...state.discard, ...chosen], history: log(state, message), message }
       }
       if (keji) {
-        const message = `${player.name}发动【克己】，本回合未使用【杀】，跳过弃牌阶段`
+        const message = `${player.name}发动【克己】，出牌阶段未使用或打出【杀】，跳过弃牌阶段`
         turnState = { ...turnState, message, history: log(turnState, message) }
       }
       let next = resolveEndSkill({ ...turnState, turnStage: 'finish', discardSelection: [] }, 'player'); next = resolveEndTurnTerrain(next, 'player'); next = scoreControlPoint(next, 'player')
@@ -1711,10 +1718,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if ((pending.requiredCount ?? 1) > 1) {
           const remaining = (pending.requiredCount ?? 1) - 1, prompt = `【无双决斗】还需打出 ${remaining} 张【杀】`
           base = payRescueCard(base, 'player', card)
+          if (base.currentUnit === 'player' && base.turnStage === 'play') base = { ...base, units: { ...base.units, player: { ...base.units.player, slashUsedOrPlayed: true } } }
           base = { ...base, pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, responseMessage) }
           set(base); return
         }
         base = payRescueCard(base, 'player', card)
+        if (base.currentUnit === 'player' && base.turnStage === 'play') base = { ...base, units: { ...base.units, player: { ...base.units.player, slashUsedOrPlayed: true } } }
         base = { ...base, message: responseMessage, history: log(base, responseMessage) }
         base = { ...base, ...continueDuel(base, pending.source, 'player', base.discard.find(candidate => candidate.id === pending.originCardId)) }
       } else {
@@ -2500,7 +2509,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       await wait(420)
       if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().pendingHalberd || get().pendingQilin || get().pendingDoubleSword || get().pendingYiji || get().winner) return
     }
-    state = get(); let next = discardOverflow({ ...state, turnStage: 'discard' }, aiId); next = resolveEndSkill(next, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
+    state = get()
+    const aiAtDiscard = state.units[aiId]
+    const aiUsesKeji = aiAtDiscard.skills.includes('keji') && !aiAtDiscard.slashUsedOrPlayed && aiAtDiscard.hand.length > aiAtDiscard.hp
+    let next = aiUsesKeji
+      ? { ...state, turnStage: 'discard' as const, message: `${aiAtDiscard.name}发动【克己】，跳过弃牌阶段`, history: log(state, `${aiAtDiscard.name}发动【克己】，出牌阶段未使用或打出【杀】`) }
+      : discardOverflow({ ...state, turnStage: 'discard' }, aiId)
+    next = resolveEndSkill(next, aiId); next = resolveEndTurnTerrain(next, aiId); next = scoreControlPoint(next, aiId)
     if (next.winner) { set(next); return }
     const nextId = nextSeat(next, aiId), nextState = beginTurn({ ...next, turn: nextId === 'player' ? next.turn + 1 : next.turn, turnStage: 'finish' }, nextId)
     set(nextState); if (nextId !== 'player') void get().runAI()

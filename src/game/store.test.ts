@@ -3908,11 +3908,59 @@ describe('standard card scenarios', () => {
   it('requires Lu Meng to discard after using a slash', () => {
     useGameStore.getState().selectGeneral('keji')
     const hand = Array.from({ length: 7 }, () => card('dodge'))
-    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand, attacksUsed: 1 } } }))
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand, attacksUsed: 1, slashUsedOrPlayed: true } } }))
     useGameStore.getState().dispatch({ type: 'END_TURN' })
     const state = useGameStore.getState()
     expect(state.turnStage).toBe('discard')
     expect(state.message).toContain('请选择 2 张手牌')
+  })
+
+  it('prevents Keji after Lu Meng plays a Slash during his own Duel', () => {
+    useGameStore.getState().selectGeneral('keji')
+    const duel = card('duel'), responseSlash = card('slash', 'heart'), enemySlash = card('slash', 'club')
+    const retained = Array.from({ length: 7 }, () => card('dodge'))
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [duel, responseSlash, ...retained] },
+      north: { ...state.units.north, hand: [enemySlash] },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'duel', required: 'slash' })
+    useGameStore.getState().respond(responseSlash.id)
+    expect(useGameStore.getState().units.player.slashUsedOrPlayed).toBe(true)
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    const state = useGameStore.getState()
+    expect(state.turnStage).toBe('discard')
+    expect(state.message).toContain('请选择 2 张手牌')
+  })
+
+  it('does not restore Keji eligibility when Slash count is replenished', () => {
+    useGameStore.getState().selectGeneral('keji')
+    const slash = card('slash'), hand = Array.from({ length: 8 }, () => card('dodge'))
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, position: { x: 1, y: 7 }, hand: [slash, ...hand] },
+      north: { ...state.units.north, position: { x: 2, y: 7 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().units.player).toMatchObject({ attacksUsed: 1, slashUsedOrPlayed: true })
+    useGameStore.getState().dispatch({ type: 'INTERACT', unit: 'player', objectId: 'west-drum', cardId: hand[0].id })
+    expect(useGameStore.getState().units.player).toMatchObject({ attacksUsed: 0, slashUsedOrPlayed: true })
+    useGameStore.getState().dispatch({ type: 'END_TURN' })
+    expect(useGameStore.getState()).toMatchObject({ turnStage: 'discard', message: expect.stringContaining('请选择 2 张手牌') })
+  })
+
+  it('lets AI Lu Meng retain excess cards through Keji', async () => {
+    const hand = Array.from({ length: 7 }, () => card('dodge'))
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', turnOrder: ['north', 'player', 'east', 'west'], units: {
+      ...state.units,
+      north: { ...state.units.north, name: '吕蒙', skill: 'keji', skills: ['keji'], hp: 4, maxHp: 4, hand, movement: 0, slashUsedOrPlayed: false },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.hand).toEqual(expect.arrayContaining(hand))
+    expect(state.units.north.hand.length).toBeGreaterThanOrEqual(hand.length)
+    expect(state.history.some(entry => entry.includes('克己'))).toBe(true)
   })
 
   it('lets Zhen Ji collect consecutive black judgements through Luoshen', () => {
