@@ -3,7 +3,7 @@ import { ContactShadows, OrbitControls, Sparkles } from '@react-three/drei'
 import { BookOpen, CircleHelp, Map as MapIcon, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
-import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
+import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices, jijiangChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canDuelTarget, canSlash, combatDistance, createDeck, createStandardDeck, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
@@ -1222,6 +1222,7 @@ function ResponseWindow() {
   const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
   const responseEquipment = pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') || pending.required === 'slash' && player.skills.includes('wusheng')
   const responses = pending.effect === 'borrowedSword' ? borrowedSwordChoices(state, pending.source, 'player') : [...player.hand, ...(responseEquipment ? Object.values(player.equipment).filter((card): card is Card => !!card) : [])].filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
+  const jijiang = pending.required === 'slash' ? jijiangChoices(state, 'player')[0] : undefined
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
@@ -1231,10 +1232,10 @@ function ResponseWindow() {
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
         <strong>{CARD_LABEL[card.kind]}</strong><small>{pending.effect === 'ganglie' ? '弃置此牌' : card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? `${player.hand.some(held => held.id === card.id) ? '手牌' : '装备'} · 急救 → 桃` : player.skills.includes('wusheng') && pending.required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `${player.hand.some(held => held.id === card.id) ? '手牌' : '装备'} · 武圣 → 杀` : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${requiredLabel}`}</small>
       </button>)}
-      {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : `没有可用的【${requiredLabel}】`}</span>}
+      {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : jijiang ? `${jijiang.unit.name}可响应【激将】` : `没有可用的【${requiredLabel}】`}</span>}
     </div>
     {((pending.effect === 'slash' && attackerWeapon !== 'qinggang') || pending.effect === 'arrows') && player.equipment.armor?.kind === 'bagua' && !pending.armorChecked && <button className="decline-response" onClick={activateBagua}>发动【八卦阵】判定：红色视为打出【闪】</button>}
-    {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => dispatch({ type: 'RESPOND', cardId: null })}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
+    {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => dispatch({ type: 'RESPOND', cardId: null })}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : jijiang ? `发动【激将】· ${jijiang.unit.name}代出杀` : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
   </section></div>
 }
 

@@ -2213,6 +2213,117 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(4)
   })
 
+  it('lets a Shu loyalist answer Duel for the player lord through Jijiang', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const duel = card('duel'), assisted = card('slash', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, skill: 'kurou', skills: ['kurou'], hand: [duel] },
+      player: { ...state.units.player, hand: [] },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'shu', hand: [assisted] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'duel', required: 'slash' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(assisted)
+    expect(state.history.some(entry => entry.includes('激将'))).toBe(true)
+  })
+
+  it('lets Jijiang provide two Slashes against Wushuang Duel sequentially', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const duel = card('duel'), first = card('slash', 'heart'), second = card('slash', 'diamond')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, skill: 'wushuang', hand: [duel] },
+      player: { ...state.units.player, hand: [] },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'shu', hand: [first, second] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: duel.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse?.requiredCount).toBe(1)
+    expect(useGameStore.getState().units.north.hand).toEqual([second])
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+  })
+
+  it('lets Jijiang answer Barbarians for the player lord', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const barbarians = card('barbarians'), assisted = card('slash', 'club')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [barbarians] },
+      player: { ...state.units.player, hand: [] },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'shu', hand: [assisted] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: barbarians.id })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'barbarians', required: 'slash' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(assisted)
+  })
+
+  it('lets Jijiang supply a forced Slash for Borrowed Sword', () => {
+    useGameStore.getState().selectGeneral('rende')
+    const trick = card('borrowedSword'), weapon = card('qinggang'), assisted = card('slash', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, hand: [trick] },
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [], equipment: { weapon } },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'shu', hand: [assisted] },
+      west: { ...state.units.west, skill: 'kurou', skills: ['kurou'], position: { x: 4, y: 7 }, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: trick.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'borrowedSword', required: 'slash' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toEqual(weapon)
+    expect(state.units.west.hp).toBe(2)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(assisted)
+    expect(state.history.some(entry => entry.includes('激将'))).toBe(true)
+  })
+
+  it('lets an AI Shu lord invoke Jijiang against Duel and Barbarians', () => {
+    const duel = card('duel'), barbarians = card('barbarians'), first = card('slash', 'heart'), second = card('slash', 'diamond')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [duel, barbarians] },
+      north: { ...state.units.north, identity: 'lord', skills: ['rende', 'jijiang'], hand: [] },
+      east: { ...state.units.east, identity: 'loyalist', faction: 'shu', hand: [first, second] },
+      west: { ...state.units.west, hp: 0, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    let state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.east.hand).toEqual([second])
+    expect(state.pendingResponse).toMatchObject({ effect: 'duel', target: 'player', required: 'slash' })
+    useGameStore.getState().respond(null)
+    state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+
+    useGameStore.setState(current => ({ currentUnit: 'player', phase: 'player', turnStage: 'play', units: { ...current.units, player: { ...current.units.player, hand: [barbarians] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: barbarians.id })
+    state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.discard).toContainEqual(second)
+    expect(state.history.some(entry => entry.includes('激将'))).toBe(true)
+  })
+
   it('spends red equipment through Wusheng when answering Barbarians', () => {
     useGameStore.getState().selectGeneral('wusheng')
     const armor = card('silverLion', 'diamond')
