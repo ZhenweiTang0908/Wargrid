@@ -90,6 +90,11 @@ export interface PendingResponse {
     sourceCardIds?: string[]
     sourceLess?: boolean
     hpLoss?: boolean
+    qilinAfterRescue?: {
+      originCardId?: string
+      amount: number
+      nature: 'fire' | 'thunder' | null
+    }
   }
 }
 

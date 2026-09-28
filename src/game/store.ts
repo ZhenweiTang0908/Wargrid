@@ -1057,6 +1057,22 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   const effectText = `${target.name}受到 ${amount} 点${nature === 'fire' ? '火焰' : nature === 'thunder' ? '雷电' : ''}伤害${emptyHandBonus ? '；【古锭刀】伤害 +1' : ''}`
   const result = nature ? elementalDamage(base, attackerId, targetId, amount, nature, slashCard, false, sourceCards) : damage(base, attackerId, targetId, amount, effectText, false, slashCard, false, sourceCards)
   const afterDamage: GameState = { ...base, ...result }
+  if (afterDamage.pendingResponse?.effect === 'dying'
+    && afterDamage.pendingResponse.target === targetId
+    && attacker.equipment.weapon?.kind === 'qilinBow'
+    && (target.equipment.offensiveMount || target.equipment.defensiveMount)
+    && afterDamage.pendingResponse.damageResolution) {
+    return {
+      ...result,
+      pendingResponse: {
+        ...afterDamage.pendingResponse,
+        damageResolution: {
+          ...afterDamage.pendingResponse.damageResolution,
+          qilinAfterRescue: { originCardId: slashCard?.id, amount, nature },
+        },
+      },
+    }
+  }
   return resolveQilinAfterDamage(afterDamage, attackerId, targetId, slashCard, amount, nature) ?? result
 }
 
@@ -1118,7 +1134,7 @@ function resolveQilinAfterDamage(state: GameState, attackerId: Team, targetId: T
   if (attacker.equipment.weapon?.kind !== 'qilinBow' || target.hp <= 0) return null
   const mounts = [target.equipment.offensiveMount, target.equipment.defensiveMount].filter((card): card is Card => !!card)
   if (!mounts.length) return null
-  if (attackerId === 'player' && mounts.length > 1 && slashCard) {
+  if (attackerId === 'player' && slashCard) {
     const message = `${attacker.name}发动【麒麟弓】，请选择要弃置${target.name}的哪一匹坐骑`
     return { ...state, pendingQilin: { target: targetId, originCardId: slashCard.id, amount, nature }, message, history: log(state, message) }
   }
@@ -1798,6 +1814,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         base = resolution.hpLoss
           ? { ...base, ...finishHpLoss(base, resolvedMessage) }
           : { ...base, ...resolveDamageTriggers(base, resolution.source, resolution.target, resolution.amount, resolvedMessage, sourceCards, resolution.sourceLess) }
+        if (resolution.qilinAfterRescue && !base.winner && base.units[resolution.target].hp > 0) {
+          const qilinCard = resolution.qilinAfterRescue.originCardId
+            ? base.discard.find(candidate => candidate.id === resolution.qilinAfterRescue!.originCardId)
+            : undefined
+          const qilin = resolveQilinAfterDamage(base, resolution.source, resolution.target, qilinCard, resolution.qilinAfterRescue.amount, resolution.qilinAfterRescue.nature)
+          if (qilin) base = { ...base, ...qilin }
+        }
       }
       if (pending.kurouDraw && !hasDamageResolutionPrompt(base) && !base.winner && base.units[pending.kurouDraw.team].hp > 0) {
         base = resolveKurouDraw(base, pending.kurouDraw.team, pending.kurouDraw.count)

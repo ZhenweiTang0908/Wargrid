@@ -1225,10 +1225,10 @@ function QilinWindow() {
   return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
     <span className="eyebrow">武器技能 · 麒麟弓</span>
     <h1>选择弃置{target.name}的坐骑</h1>
-    <p>【麒麟弓】命中后可以弃置目标的一匹坐骑；若两匹坐骑同时存在，请选择其中一匹。</p>
+    <p>【麒麟弓】造成伤害后可以弃置目标的一匹坐骑；你也可以不发动。</p>
     <div className="response-cards">{choices.map(choice => <button key={choice.slot} className={`card ${choice.card.kind}`} onClick={() => choose(choice.slot)}>
       <span className={`card-suit ${choice.card.suit === 'heart' || choice.card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[choice.card.suit]} {choice.card.rank}</span>
-      <strong>{CARD_LABEL[choice.card.kind]}</strong><small>{choice.label} · 弃置并结算伤害</small>
+      <strong>{CARD_LABEL[choice.card.kind]}</strong><small>{choice.label} · 弃置坐骑</small>
     </button>)}</div>
     <button className="decline-response" onClick={() => choose(null)}>不弃置坐骑</button>
   </section></div>

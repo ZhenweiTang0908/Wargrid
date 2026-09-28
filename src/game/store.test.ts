@@ -2895,6 +2895,8 @@ describe('standard card scenarios', () => {
       units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [slash], equipment: { weapon: bow } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { defensiveMount: mount } } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().pendingQilin).toMatchObject({ target: 'north' })
+    useGameStore.getState().chooseQilinMount('defensiveMount')
     const state = useGameStore.getState()
     expect(state.units.north.hp).toBe(3)
     expect(state.units.north.equipment.defensiveMount).toBeUndefined()
@@ -2930,11 +2932,46 @@ describe('standard card scenarios', () => {
       north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { defensiveMount: mount }, skill: 'jieyin', skills: ['jieyin', 'xiaoji'] },
     } }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseQilinMount('defensiveMount')
     const state = useGameStore.getState()
     expect(state.units.north.equipment.defensiveMount).toBeUndefined()
     expect(state.units.north.hand).toEqual([first, second])
     expect(state.units.north.hp).toBe(3)
     expect(state.message).toContain('枭姬')
+  })
+
+  it('lets the player decline Qilin Bow with only one mount available', () => {
+    const slash = card('slash', 'heart'), bow = card('qilinBow'), mount = card('dilu')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [slash], equipment: { weapon: bow } },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { defensiveMount: mount } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    useGameStore.getState().chooseQilinMount(null)
+    const state = useGameStore.getState()
+    expect(state.pendingQilin).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.north.equipment.defensiveMount).toEqual(mount)
+  })
+
+  it('resolves AI Qilin Bow after the player survives dying rescue', () => {
+    const slash = card('slash', 'spade'), bow = card('qilinBow'), mount = card('dilu'), peach = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', units: {
+      ...state.units,
+      north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [slash], equipment: { weapon: bow } },
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [peach], equipment: { defensiveMount: mount } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse?.effect).toBe('slash')
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse?.effect).toBe('dying')
+    useGameStore.getState().respond(peach.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.equipment.defensiveMount).toBeUndefined()
+    expect(state.discard).toContainEqual(mount)
+    expect(state.message).toContain('麒麟弓')
   })
 
   it('lets Serpent Spear convert two selected hand cards into slash', () => {
