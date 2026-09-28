@@ -834,6 +834,16 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
       const prompt = `你的判定区有【${delayedName}】，是否在判定前打出【无懈可击】？`
       return { ...working, pendingResponse: { effect: 'nullify', source: team, target: 'player', required: 'nullify', trick: delayed.kind, originCardId: delayed.id, judgementOwner: team, prompt }, message: prompt, history: log(working, prompt) }
     }
+    if (!resume && team !== 'player' && (delayed.kind === 'indulgence' || delayed.kind === 'supplyShortage' || delayed.kind === 'lightning')) {
+      const defender = working.units[team]
+      const nullify = defender.hand.find(card => card.kind === 'nullify')
+      if (nullify) {
+        const delayedName = delayed.kind === 'lightning' ? '闪电' : delayed.kind === 'supplyShortage' ? '兵粮寸断' : '乐不思蜀'
+        const message = `${defender.name}在判定前打出【无懈可击】，取消判定区的【${delayedName}】`
+        working = { ...working, units: { ...working.units, [team]: { ...defender, hand: defender.hand.filter(card => card.id !== nullify.id), judgement: defender.judgement.filter(card => card.id !== delayed.id), animation: 'cast' } }, discard: [...working.discard, delayed, nullify], message, history: log(working, message) }
+        continue
+      }
+    }
     const judged = drawCards(working.deck, working.discard, 1)
     const originalJudge = judged.drawn[0]; if (!originalJudge) break
     if ((delayed.kind === 'indulgence' || delayed.kind === 'supplyShortage' || delayed.kind === 'lightning') && working.units.player.hp > 0 && working.units.player.skills.includes('guicai') && working.units.player.hand.length) {

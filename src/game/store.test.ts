@@ -1362,6 +1362,18 @@ describe('standard card scenarios', () => {
     expect(result.units.player.hand).toEqual([nullify])
   })
 
+  it('lets an AI unit nullify its own delayed judgement before revealing a card', () => {
+    const delayed = card('lightning', 'heart', 12), nullify = card('nullify', 'club', 2), judge = card('slash', 'spade', 7), drawA = card('dodge', 'heart', 4), drawB = card('peach', 'heart', 3)
+    const state = createInitialState([])
+    state.deck = [judge, drawA, drawB]
+    state.units.north = { ...state.units.north, judgement: [delayed], hand: [nullify] }
+    const result = beginTurn(state, 'north')
+    expect(result.units.north.judgement).toHaveLength(0)
+    expect(result.units.north.hand).toEqual([judge, drawA])
+    expect(result.discard).toEqual(expect.arrayContaining([delayed, nullify]))
+    expect(result.history.some(entry => entry.includes('判定前') && entry.includes('闪电'))).toBe(true)
+  })
+
   it('places supply shortage into the target judgement area and rejects a duplicate', () => {
     const first = card('supplyShortage', 'heart', 4), duplicate = card('supplyShortage', 'club', 7)
     useGameStore.setState(state => ({
