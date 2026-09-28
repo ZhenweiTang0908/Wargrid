@@ -85,7 +85,7 @@ export interface PendingResponse {
     target: Team
     amount: number
     message: string
-    sourceCardId?: string
+    sourceCardIds?: string[]
     sourceLess?: boolean
   }
 }

@@ -2639,6 +2639,57 @@ describe('standard card scenarios', () => {
     expect(state.spearMode).toBe(false)
   })
 
+  it('keeps both Serpent Spear materials together through judgement and Jianxiong', () => {
+    const spear = card('spear'), materialA = card('peach', 'heart'), materialB = card('drawTwo', 'club'), rescue = card('peach', 'diamond'), bagua = card('bagua')
+    useGameStore.setState(state => ({
+      deck: [], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [materialA, materialB], equipment: { weapon: spear } },
+        north: { ...state.units.north, name: '曹操', skill: 'jianxiong', skills: ['jianxiong', 'hujia'], position: { x: 4, y: 0 }, hp: 1, hand: [rescue], equipment: { armor: bagua } },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: materialA.id, target: 'north', asSlash: true, materialIds: [materialA.id, materialB.id] })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(1)
+    expect(state.units.north.hand).toEqual([materialA, materialB])
+    expect(state.discard).toContainEqual(rescue)
+    expect(state.discard.map(card => card.id)).not.toContain(materialA.id)
+    expect(state.discard.map(card => card.id)).not.toContain(materialB.id)
+    expect(state.message).toContain('2 张伤害牌')
+  })
+
+  it('treats mixed-color Serpent Spear materials as a colorless Slash', () => {
+    const spear = card('spear'), black = card('drawTwo', 'club'), red = card('peach', 'heart'), shield = card('shield')
+    useGameStore.setState(state => ({
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [black, red], equipment: { weapon: spear } },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { armor: shield } },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: black.id, target: 'north', asSlash: true, materialIds: [black.id, red.id] })
+    expect(useGameStore.getState().units.north.hp).toBe(3)
+  })
+
+  it('treats elemental cards used by Serpent Spear as a normal Slash', () => {
+    const spear = card('spear'), fire = card('fireSlash', 'heart'), material = card('dodge', 'club'), vine = card('vineArmor')
+    useGameStore.setState(state => ({
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 2 }, hand: [fire, material], equipment: { weapon: spear } },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { armor: vine } },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: fire.id, target: 'north', asSlash: true, materialIds: [fire.id, material.id] })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.message).toContain('藤甲')
+  })
+
   it('lets Halberd attack up to three targets with the final hand slash', () => {
     const slash = card('slash', 'heart'), halberd = card('halberd')
     useGameStore.setState(state => ({
@@ -3241,7 +3292,7 @@ describe('standard card scenarios', () => {
 
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
     useGameStore.getState().respond(null)
-    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', damageResolution: { sourceCardId: slash.id } })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', damageResolution: { sourceCardIds: [slash.id] } })
 
     useGameStore.getState().respond(peach.id)
     const state = useGameStore.getState()
