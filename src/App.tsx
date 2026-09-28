@@ -49,7 +49,54 @@ function BattleLighting() {
   </>
 }
 
-function ControlBeacon({ owner }: { owner: Team | null }) {
+function ControlLandmark({ mapId, color }: { mapId: MapId; color: string }) {
+  if (mapId === 'river' || mapId === 'wetland' || mapId === 'dockyard') return <group position-y={.2}>
+    {[-1, 1].map(side => <group key={side} position-x={side * .28}>
+      <mesh position-y={.22} castShadow><cylinderGeometry args={[.1, .14, .44, 6]} /><meshStandardMaterial color="#726653" roughness={.94} /></mesh>
+      <mesh position-y={.48} rotation-z={side * .12}><boxGeometry args={[.08, .42, .08]} /><meshStandardMaterial color="#967248" roughness={.86} /></mesh>
+    </group>)}
+    <mesh position-y={.56} rotation-x={Math.PI / 2}><torusGeometry args={[.34, .025, 6, 24]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.8} transparent opacity={.75} /></mesh>
+    <mesh position-y={.62}><octahedronGeometry args={[.11]} /><meshStandardMaterial color="#8dd9dd" emissive="#2e9da5" emissiveIntensity={1.2} metalness={.42} roughness={.28} /></mesh>
+  </group>
+  if (mapId === 'siege' || mapId === 'pass') return <group position-y={.2}>
+    {[-1, 1].map(side => <group key={side} position-x={side * .27}>
+      <mesh position-y={.38} castShadow><boxGeometry args={[.15, .76, .18]} /><meshStandardMaterial color="#72675b" roughness={.98} /></mesh>
+      <mesh position={[side * -.02, .79, 0]} rotation-z={side * .1}><boxGeometry args={[.24, .12, .22]} /><meshStandardMaterial color="#948679" roughness={.96} /></mesh>
+    </group>)}
+    <mesh position-y={.77}><boxGeometry args={[.42, .13, .16]} /><meshStandardMaterial color="#82684b" roughness={.9} /></mesh>
+    <mesh position={[.06, .95, -.02]}><cylinderGeometry args={[.018, .022, .8, 6]} /><meshStandardMaterial color="#68462e" roughness={.9} /></mesh>
+    <mesh position={[.17, 1.14, -.02]} rotation-z={-.12}><planeGeometry args={[.22, .28]} /><meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={.84} /></mesh>
+  </group>
+  if (mapId === 'winter') return <group position-y={.16}>
+    <mesh position-y={.36} rotation-y={Math.PI / 4} castShadow><coneGeometry args={[.33, .72, 6]} /><meshStandardMaterial color="#9dc6cf" emissive="#527f8b" emissiveIntensity={.25} roughness={.72} metalness={.18} /></mesh>
+    <mesh position-y={.82} rotation-y={Math.PI / 6}><coneGeometry args={[.18, .35, 6]} /><meshStandardMaterial color="#e8f5f0" roughness={.55} /></mesh>
+    <pointLight position-y={.58} color="#8ad7ed" intensity={1.4} distance={1.8} />
+  </group>
+  if (mapId === 'desert') return <group position-y={.2}>
+    <mesh position-y={.22} castShadow><cylinderGeometry args={[.3, .38, .42, 8]} /><meshStandardMaterial color="#9b754d" roughness={1} flatShading /></mesh>
+    <mesh position-y={.47} rotation-y={Math.PI / 4}><cylinderGeometry args={[.21, .21, .06, 8]} /><meshStandardMaterial color="#c7a36d" roughness={.86} /></mesh>
+    <mesh position-y={.82}><cylinderGeometry args={[.018, .018, .68, 6]} /><meshStandardMaterial color="#66452d" roughness={.9} /></mesh>
+    <mesh position={[.1, 1.03, 0]} rotation-z={-.38}><boxGeometry args={[.045, .3, .035]} /><meshStandardMaterial color="#d5bc7b" roughness={.86} /></mesh>
+  </group>
+  if (mapId === 'bamboo' || mapId === 'maple') return <group position-y={.18}>
+    <mesh position-y={.34} castShadow><cylinderGeometry args={[.12, .17, .68, 8]} /><meshStandardMaterial color="#655038" roughness={.92} /></mesh>
+    <mesh position-y={.77}><cylinderGeometry args={[.2, .2, .1, 8]} /><meshStandardMaterial color="#b88b49" metalness={.55} roughness={.46} /></mesh>
+    <mesh position-y={1.02}><sphereGeometry args={[.105, 10, 8]} /><meshStandardMaterial color="#ffd47d" emissive="#d86a2a" emissiveIntensity={1.5} /></mesh>
+    <pointLight position-y={1.02} color="#ffb35c" intensity={1.8} distance={2} />
+  </group>
+  if (mapId === 'highland' || mapId === 'terraces') return <group position-y={.18}>
+    {[-1, 1].map(side => <mesh key={side} position={[side * .2, .25, 0]} rotation-z={side * .12} castShadow><dodecahedronGeometry args={[.22, 0]} /><meshStandardMaterial color="#687060" roughness={1} flatShading /></mesh>)}
+    <mesh position-y={.55} castShadow><cylinderGeometry args={[.18, .25, .64, 6]} /><meshStandardMaterial color="#89917b" roughness={.96} flatShading /></mesh>
+    <mesh position-y={.94} rotation-y={Math.PI / 4}><coneGeometry args={[.2, .28, 4]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.45} roughness={.7} /></mesh>
+  </group>
+  return <group position-y={.18}>
+    <mesh position-y={.28} castShadow><cylinderGeometry args={[.28, .34, .52, 8]} /><meshStandardMaterial color="#74624f" roughness={.96} /></mesh>
+    <mesh position-y={.62}><torusGeometry args={[.22, .035, 7, 18]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.7} metalness={.55} /></mesh>
+    <mesh position-y={.9}><coneGeometry args={[.14, .36, 6]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.1} transparent opacity={.86} /></mesh>
+  </group>
+}
+
+function ControlBeacon({ owner, mapId }: { owner: Team | null; mapId: MapId }) {
   const ring = useRef<THREE.Mesh>(null)
   const colors: Record<Team, string> = { player: '#55c7ff', north: '#ef5350', east: '#ae72e8', west: '#ef9b43' }
   const color = owner ? colors[owner] : '#f2c66d'
@@ -68,6 +115,7 @@ function ControlBeacon({ owner }: { owner: Team | null }) {
     <mesh position={[.3, .68, -.17]} rotation-z={-.18}><planeGeometry args={[.2, .29]} /><meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={.82} /></mesh>
     <mesh position-y={.24}><cylinderGeometry args={[.12, .16, .11, 8]} /><meshStandardMaterial color="#614b36" roughness={.8} /></mesh>
     <mesh position-y={.34}><coneGeometry args={[.085, .22, 7]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.2} transparent opacity={.82} /></mesh>
+    <ControlLandmark mapId={mapId} color={color} />
     <pointLight position-y={.35} color={color} intensity={owner ? 1.3 : .7} distance={1.6} />
     <Sparkles count={owner ? 10 : 6} scale={.65} size={1.5} speed={.32} color={color} />
   </group>
@@ -112,7 +160,7 @@ function Tile({ position }: { position: Position }) {
         <ringGeometry args={[.31, .335, 32]} />
         <meshBasicMaterial color="#b9f4eb" transparent opacity={.74} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>}
-      {control && !obstacle && <ControlBeacon owner={occupant?.team ?? null} />}
+      {control && !obstacle && <ControlBeacon owner={occupant?.team ?? null} mapId={state.mapId} />}
       {attackPreview && !obstacle && <mesh position-y={.085} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[.34, .43, 24]} />
         <meshBasicMaterial color="#ff725f" transparent opacity={.7} side={THREE.DoubleSide} />
