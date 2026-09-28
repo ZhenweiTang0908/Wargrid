@@ -936,6 +936,26 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('过河拆桥')
   })
 
+  it('lets Gan Ning convert a black equipped card into Dismantle through Qixi', () => {
+    useGameStore.getState().selectGeneral('qixi')
+    const payment = card('qinggang', 'club'), victimCard = card('peach', 'heart')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hand: [], equipment: { weapon: payment } },
+      east: { ...state.units.east, hand: [victimCard] },
+    } }))
+
+    useGameStore.getState().activateQixi()
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: payment.id, target: 'east', asDismantle: true })
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ target: 'east', gain: false })
+    useGameStore.getState().choosePlunderCard(victimCard.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toBeUndefined()
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([payment, victimCard]))
+    expect(state.message).toContain('过河拆桥')
+  })
+
   it('lets the player choose a specific equipment with Dismantle', () => {
     const dismantle = card('dismantle'), hidden = card('peach'), armor = card('shield')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [dismantle] }, east: { ...state.units.east, hand: [hidden], equipment: { armor } } } }))
@@ -1042,6 +1062,29 @@ describe('standard card scenarios', () => {
     expect(state.units.player.skillUsed).toBe(true)
     expect(state.units.east.hp).toBe(3)
     expect(state.lijianMode).toBe(false)
+    expect(state.discard).toContainEqual(payment)
+    expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
+  })
+
+  it('lets Diao Chan discard an equipped card for Lijian', () => {
+    useGameStore.getState().selectGeneral('biyue')
+    const payment = card('qinggang', 'spade')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [], equipment: { weapon: payment } },
+      north: { ...state.units.north, gender: 'male', hand: [] },
+      east: { ...state.units.east, gender: 'male', hand: [] },
+    } }))
+
+    useGameStore.getState().activateLijian()
+    expect(useGameStore.getState().lijianMode).toBe(true)
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().selectLijianTarget('north')
+    useGameStore.getState().selectLijianTarget('east')
+    const state = useGameStore.getState()
+    expect(state.units.player.equipment.weapon).toBeUndefined()
+    expect(state.units.player.skillUsed).toBe(true)
+    expect(state.units.east.hp).toBe(3)
     expect(state.discard).toContainEqual(payment)
     expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
   })
@@ -5014,6 +5057,41 @@ describe('standard card scenarios', () => {
     expect(state.units.west.hp).toBe(3)
     expect(state.discard).toContainEqual(payment)
     expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
+  })
+
+  it('lets AI Diao Chan discard equipment for Lijian', async () => {
+    const payment = card('qinggang', 'spade')
+    useGameStore.setState(state => ({ deck: [card('nullify', 'heart')], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, skill: 'lijian', skills: ['lijian', 'biyue'], position: state.controlPoint, hand: [], equipment: { weapon: payment } },
+      east: { ...state.units.east, gender: 'male', hand: [] },
+      west: { ...state.units.west, gender: 'male', hand: [] },
+    } }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.skillUsed).toBe(true)
+    expect(state.units.north.equipment.weapon).toBeUndefined()
+    expect(state.discard).toContainEqual(payment)
+    expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
+  })
+
+  it('lets AI Gan Ning use black equipment through Qixi', async () => {
+    const payment = card('qinggang', 'club'), victimCard = card('peach', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {
+      ...state.units,
+      north: { ...state.units.north, identity: 'rebel', revealed: true, skill: 'qixi', skills: ['qixi'], position: state.controlPoint, hand: [], equipment: { weapon: payment }, movement: 0 },
+      player: { ...state.units.player, hand: [victimCard] },
+      east: { ...state.units.east, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+    await useGameStore.getState().runAI()
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'dismantle', source: 'north', target: 'player' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.north.equipment.weapon).toBeUndefined()
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([payment, victimCard]))
+    expect(state.history.some(entry => entry.includes('过河拆桥'))).toBe(true)
   })
 
   it('preserves elemental slash nature when AI attacks', async () => {
