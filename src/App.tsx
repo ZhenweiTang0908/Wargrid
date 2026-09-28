@@ -5,7 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
-import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, createDeck, createStandardDeck, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
+import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canDuelTarget, canSlash, combatDistance, createDeck, createStandardDeck, effectiveAttackRange, isSlashKind, movementCost, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
 import { CharacterBody } from './CharacterBody'
@@ -457,7 +457,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
   const selectedKind = state.qingnangMode || state.jieyinMode ? undefined : selectedAsSlash ? 'slash' : state.selectedAsDismantle ? 'dismantle' : state.selectedAsGuose ? 'indulgence' : state.units.player.hand.find(c => c.id === selectedCardId)?.kind
   const attackSource = selectedAsSlash && Object.values(state.units.player.equipment).some(card => card?.id === selectedCardId)
     ? { ...state.units.player, equipment: Object.fromEntries(Object.entries(state.units.player.equipment).filter(([, card]) => card?.id !== selectedCardId)) as Unit['equipment'] } : state.units.player
-  const canLijianTarget = state.lijianMode && team !== 'player' && unit.hp > 0 && unit.gender === 'male' && !state.lijianTargets.includes(team)
+  const canLijianTarget = state.lijianMode && team !== 'player' && unit.hp > 0 && unit.gender === 'male' && !state.lijianTargets.includes(team) && (state.lijianTargets.length ? canDuelTarget(unit) : Object.values(state.units).some(candidate => candidate.id !== 'player' && candidate.id !== team && candidate.gender === 'male' && canDuelTarget(candidate)))
   const canQingnangTarget = state.qingnangMode && !!selectedCardId && unit.hp > 0 && unit.hp < unit.maxHp
   const canJieyinTarget = state.jieyinMode && state.jieyinSelection.length === 2 && team !== 'player' && unit.hp > 0 && unit.hp < unit.maxHp && unit.gender === 'male'
   const lijianSelected = state.lijianTargets.includes(team)
@@ -1662,7 +1662,8 @@ function App() {
   const canRende = state.units.player.skills.includes('rende') && !!selectedCard
   const canKurou = state.units.player.skills.includes('kurou') && state.units.player.hp > 0
   const canGuose = state.units.player.skills.includes('guose') && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => card.suit === 'diamond')
-  const canLijian = state.units.player.skills.includes('lijian') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.gender === 'male').length >= 2
+  const lijianMales = Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.gender === 'male')
+  const canLijian = state.units.player.skills.includes('lijian') && !state.units.player.skillUsed && !!selectedCard && lijianMales.some(duelist => lijianMales.some(challenged => challenged.id !== duelist.id && canDuelTarget(challenged)))
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
   const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired

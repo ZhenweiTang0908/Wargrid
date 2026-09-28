@@ -477,6 +477,7 @@ export function combatDistance(state: GameState, attacker: Unit, target: Unit) {
   return Math.max(1, base - attackBonus - cavalryBonus + defenseBonus + forestCover)
 }
 export const effectiveAttackRange = (state: GameState, attacker: Unit) => attackRange(attacker) + (terrainAt(state, attacker.position) === 'ridge' ? 1 : terrainAt(state, attacker.position) === 'watchtower' ? 2 : 0)
+export const canDuelTarget = (target: Unit) => target.hp > 0 && !(target.skills.includes('kongcheng') && target.hand.length === 0)
 export const canSlash = (state: GameState, attacker: Unit, target: Unit) => attacker.hp > 0 && target.hp > 0 && !(target.skills.includes('kongcheng') && target.hand.length === 0) && attacker.attacksUsed < slashLimit(attacker) && combatDistance(state, attacker, target) <= effectiveAttackRange(state, attacker)
 export const canBorrowedSwordTarget = (state: GameState, wielder: Unit, victim: Unit) => !!wielder.equipment.weapon && wielder.hp > 0 && victim.hp > 0 && wielder.id !== victim.id && !(victim.skills.includes('kongcheng') && victim.hand.length === 0) && combatDistance(state, wielder, victim) <= effectiveAttackRange(state, wielder)
 export const canPeach = (unit: Unit) => unit.hp > 0 && unit.hp < unit.maxHp

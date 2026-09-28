@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type PendingResponse, type Position, type Team, type Unit } from '../types'
-import { attackRange, canBorrowedSwordTarget, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, plunderableCards, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
+import { attackRange, canBorrowedSwordTarget, canDuelTarget, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, plunderableCards, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 import { resolveEquipmentLoss } from './equipment'
 
 interface GameStore extends GameState {
@@ -1226,7 +1226,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'borrowedSword' && action.unit !== 'player' && !targetsFor(state, targetId).some(candidate => candidate.id !== action.unit && canBorrowedSwordTarget(state, target, candidate))) return
       if ((kind === 'dismantle' || kind === 'snatch') && (targetId === action.unit || target.hp <= 0 || !plunderableCards(target).length)) return
       if (target.skills.includes('qianxun') && (kind === 'snatch' || kind === 'indulgence')) return
-      if (kind === 'duel' && target.skills.includes('kongcheng') && target.hand.length === 0) return
+      if (kind === 'duel' && !canDuelTarget(target)) return
       if ((kind === 'indulgence' || kind === 'supplyShortage') && target.judgement.some(delayed => delayed.kind === kind)) return
       if (card.kind === 'lightning' && unit.judgement.some(delayed => delayed.kind === 'lightning')) return
       const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
@@ -2252,14 +2252,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), player = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('lijian') || player.skillUsed || !state.selectedCardId) return
     const targets = Object.values(state.units).filter(unit => unit.id !== 'player' && unit.hp > 0 && unit.gender === 'male')
-    if (targets.length < 2) { set({ message: '场上没有两名可发动【离间】的男性角色' }); return }
+    const hasPair = targets.some(duelist => targets.some(challenged => challenged.id !== duelist.id && canDuelTarget(challenged)))
+    if (!hasPair) { set({ message: '场上没有符合【离间】条件的两名男性角色' }); return }
     const active = !state.lijianMode
     set({ lijianMode: active, lijianTargets: [], selectedAsSlash: false, selectedAsDismantle: false, selectedAsFanjian: false, selectedAsRende: false, selectedAsGuose: false, message: active ? '【离间】请选择第一名男性角色' : '已取消离间' })
   },
   selectLijianTarget: team => {
     const state = get(), player = state.units.player, target = state.units[team]
     if (!state.lijianMode || !state.selectedCardId || team === 'player' || target.hp <= 0 || target.gender !== 'male' || state.lijianTargets.includes(team)) return
-    if (!state.lijianTargets.length) { set({ lijianTargets: [team], message: `已选择${target.name}，请再选择一名男性角色` }); return }
+    if (!state.lijianTargets.length) {
+      const hasChallenged = Object.values(state.units).some(candidate => candidate.id !== 'player' && candidate.id !== team && candidate.gender === 'male' && canDuelTarget(candidate))
+      if (!hasChallenged) return
+      set({ lijianTargets: [team], message: `已选择${target.name}，请选择一名能成为【决斗】目标的男性角色` }); return
+    }
+    if (!canDuelTarget(target)) { set({ message: `${target.name}处于【空城】，不能成为【决斗】目标` }); return }
     const payment = player.hand.find(card => card.id === state.selectedCardId)
     if (!payment) return
     const duelist = state.units[state.lijianTargets[0]], challenged = target
@@ -2329,8 +2335,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const prioritized = [...targetsFor(state, aiId), ...Object.values(state.units).filter(unit => unit.id !== aiId)]
       const males = prioritized.filter((unit, index, list) => unit.hp > 0 && unit.gender === 'male' && list.findIndex(candidate => candidate.id === unit.id) === index)
       const payment = ai.hand.find(card => card.kind !== 'peach' && card.kind !== 'dodge') ?? ai.hand[0]
-      if (males.length >= 2 && payment) {
-        const [duelist, challenged] = males, message = `${ai.name}发动【离间】，弃置一张牌，令${duelist.name}视为对${challenged.name}使用【决斗】`
+      const pair = males.flatMap(duelist => males.filter(challenged => challenged.id !== duelist.id && canDuelTarget(challenged)).map(challenged => [duelist, challenged] as const))[0]
+      if (pair && payment) {
+        const [duelist, challenged] = pair, message = `${ai.name}发动【离间】，弃置一张牌，令${duelist.name}视为对${challenged.name}使用【决斗】`
         const lijianState: GameState = { ...state, units: { ...state.units, [aiId]: { ...ai, hand: ai.hand.filter(card => card.id !== payment.id), skillUsed: true, animation: 'cast' } }, discard: [...state.discard, payment], message, history: log(state, message) }
         set({ ...lijianState, ...continueDuel(lijianState, challenged.id, duelist.id) })
         await wait(280); state = get(); ai = state.units[aiId]

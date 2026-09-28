@@ -986,6 +986,42 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('离间'))).toBe(true)
   })
 
+  it('does not let Lijian make an empty-handed Kongcheng general the Duel target', () => {
+    useGameStore.getState().selectGeneral('biyue')
+    const payment = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hand: [payment] },
+      north: { ...state.units.north, gender: 'male', hand: [] },
+      east: { ...state.units.east, name: '诸葛亮', skill: 'guanxing', skills: ['guanxing', 'kongcheng'], gender: 'male', hand: [] },
+    } }))
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().activateLijian()
+    useGameStore.getState().selectLijianTarget('north')
+    useGameStore.getState().selectLijianTarget('east')
+    const blocked = useGameStore.getState()
+    expect(blocked.lijianTargets).toEqual(['north'])
+    expect(blocked.units.player.hand).toContainEqual(payment)
+    expect(blocked.message).toContain('空城')
+  })
+
+  it('allows an empty-handed Kongcheng general to be the Lijian Duel user', () => {
+    useGameStore.getState().selectGeneral('biyue')
+    const payment = card('dodge')
+    useGameStore.setState(state => ({ units: { ...state.units,
+      player: { ...state.units.player, hand: [payment] },
+      north: { ...state.units.north, name: '诸葛亮', skill: 'guanxing', skills: ['guanxing', 'kongcheng'], gender: 'male', hand: [] },
+      east: { ...state.units.east, skill: 'kurou', skills: ['kurou'], gender: 'male', hand: [] },
+    } }))
+    useGameStore.getState().selectCard(payment.id)
+    useGameStore.getState().activateLijian()
+    useGameStore.getState().selectLijianTarget('north')
+    useGameStore.getState().selectLijianTarget('east')
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.player.skillUsed).toBe(true)
+  })
+
   it('lets a Wu loyalist Peach rescue Sun Quan for two health through Jiuyuan', () => {
     useGameStore.getState().selectGeneral('zhiheng')
     const slash = card('slash'), peach = card('peach', 'heart')
