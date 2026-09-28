@@ -70,6 +70,8 @@ export interface PendingResponse {
   forcedSlashAttacksUsed?: number
   doubleSwordChecked?: boolean
   counteredBy?: Team
+  nullifyTarget?: Team
+  nullifyTargets?: Team[]
   judgementOwner?: Team
   groupResolvedTargets?: Team[]
   peachGardenTarget?: Team

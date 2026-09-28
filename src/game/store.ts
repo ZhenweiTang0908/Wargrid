@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type Position, type Team, type Unit } from '../types'
+import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type PendingResponse, type Position, type Team, type Unit } from '../types'
 import { attackRange, canBorrowedSwordTarget, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, plunderableCards, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 import { resolveEquipmentLoss } from './equipment'
 
@@ -235,6 +235,44 @@ function resolveDrawTwo(state: GameState, source: Team, card: Card): GameState {
   const draw = drawCards(state.deck, state.discard.filter(item => item.id !== card.id), 2)
   const actor = state.units[source], message = `${actor.name}使用【无中生有】，摸两张牌`
   return { ...state, units: { ...state.units, [source]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], message, history: log(state, message) }
+}
+
+function resolvePlayerTrickAfterNullify(state: GameState, pending: PendingResponse): GameState {
+  const trick = pending.trick
+  const targetId = pending.nullifyTarget
+  const resolving = state.discard.find(card => card.id === pending.originCardId)
+  if (trick === 'drawTwo' && resolving) return resolveDrawTwo(state, 'player', resolving)
+  if (!trick || !targetId || !resolving) return state
+  const target = state.units[targetId]
+
+  if (trick === 'duel') return { ...state, ...continueDuel(state, targetId, 'player', resolving) }
+  if (trick === 'dismantle' || trick === 'snatch') {
+    const gain = trick === 'snatch'
+    const message = `请选择${gain ? '获得' : '弃置'}${target.name}的一张牌`
+    return { ...state, pendingPlunder: { source: 'player', target: targetId, gain }, message, history: log(state, message) }
+  }
+  if (trick === 'borrowedSword') return { ...state, ...resolveBorrowedSword(state, 'player', targetId, undefined, pending.nullifyTargets?.[1]) }
+  if (trick === 'fireAttack') return { ...state, ...resolveFireAttack(state, 'player', targetId, resolving) }
+  if (trick === 'ironChain') {
+    const targets = [...new Set(pending.nullifyTargets?.length ? pending.nullifyTargets : [targetId])].filter(team => state.units[team]?.hp > 0).slice(0, 2)
+    let working = state
+    for (const team of targets) working = { ...working, ...resolveIronChain(working, 'player', team) }
+    const message = `${state.units.player.name}使用【铁索连环】，令${targets.map(team => state.units[team].name).join('、')}的连环状态改变`
+    return { ...working, message, history: log(working, message) }
+  }
+  if (trick === 'indulgence' || trick === 'supplyShortage') {
+    const delayed = resolving.kind === trick ? resolving : { ...resolving, kind: trick }
+    const delayedName = trick === 'supplyShortage' ? '兵粮寸断' : '乐不思蜀'
+    const message = `${state.units.player.name}将【${delayedName}】置入${target.name}的判定区`
+    return {
+      ...state,
+      units: { ...state.units, [targetId]: { ...target, judgement: [...target.judgement, delayed], animation: 'cast' } },
+      discard: state.discard.filter(card => card.id !== resolving.id),
+      message,
+      history: log(state, message),
+    }
+  }
+  return state
 }
 
 function resolvePeachGarden(state: GameState, source: Team, order: Team[], originCardId: string, cancelledNames: string[] = []): GameState {
@@ -1253,7 +1291,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (nullify) {
         const message = `${target.name}打出【无懈可击】，抵消【${CARD_LABEL[kind]}】`
         const nullified: GameState = { ...base, units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(base, message) }
-        set(triggerLianying(nullified, targetId)); return
+        const ready = triggerLianying(nullified, targetId, [card, nullify])
+        if (action.unit === 'player' && ready.units.player.hand.some(item => item.kind === 'nullify')) {
+          const trick = kind as NonNullable<PendingResponse['trick']>
+          const prompt = `${target.name}抵消了你的【${CARD_LABEL[kind]}】，是否打出【无懈可击】反制？`
+          set({ ...ready, pendingResponse: { effect: 'nullify', source: 'player', target: 'player', required: 'nullify', trick, originCardId: card.id, counteredBy: targetId, nullifyTarget: targetId, nullifyTargets: action.targets?.length ? action.targets : [targetId], prompt }, message: prompt, history: log(ready, prompt) })
+        } else set(ready)
+        return
       }
       if (kind === 'peach') {
         if (!canPeach(unit)) return
@@ -1511,25 +1555,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return
       }
       if (pending.counteredBy) {
+        const trickName = pending.trick ? CARD_LABEL[pending.trick] : '锦囊'
         if (!card) {
-          const message = `${base.units.player.name}放弃反制，【无中生有】被抵消`
+          const message = `${base.units.player.name}放弃反制，【${trickName}】被抵消`
           set({ ...base, message, history: log(base, message) }); return
         }
         const player = base.units.player
-        const reply = `${player.name}打出【无懈可击】，反制对【无中生有】的抵消`
+        const reply = `${player.name}打出【无懈可击】，反制对【${trickName}】的抵消`
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(item => item.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message: reply, history: log(base, reply) }
+        const resolvingCards = base.discard.filter(item => item.id === pending.originCardId || item.id === card.id)
+        base = triggerLianying(base, 'player', resolvingCards)
         const defender = base.units[pending.counteredBy], nextCounter = defender.hand.find(item => item.kind === 'nullify')
         if (nextCounter) {
           const message = `${defender.name}再次打出【无懈可击】，抵消${player.name}的反制`
           base = { ...base, units: { ...base.units, [defender.id]: { ...defender, hand: defender.hand.filter(item => item.id !== nextCounter.id), animation: 'cast' } }, discard: [...base.discard, nextCounter], message, history: log(base, message) }
+          base = triggerLianying(base, defender.id, [...resolvingCards, nextCounter])
           if (base.units.player.hand.some(item => item.kind === 'nullify')) {
-            const prompt = `${defender.name}再次抵消了你的【无中生有】，是否继续反制？`
+            const prompt = `${defender.name}再次抵消了你的【${trickName}】，是否继续反制？`
             base = { ...base, pendingResponse: { ...pending, prompt }, message: prompt, history: log(base, prompt) }
           }
-        } else {
-          const resolving = base.discard.find(item => item.id === pending.originCardId)
-          if (resolving) base = resolveDrawTwo(base, 'player', resolving)
-        }
+        } else base = resolvePlayerTrickAfterNullify(base, pending)
         set(base); return
       }
       const applyUnderlying = (working: GameState): GameState => {

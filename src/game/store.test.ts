@@ -1498,6 +1498,71 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(c => c.kind)).toEqual(expect.arrayContaining(['duel', 'nullify']))
   })
 
+  it('lets the player counter an AI Nullify on a targeted trick', () => {
+    const duel = card('duel'), playerNullify = card('nullify', 'heart'), aiNullify = card('nullify', 'club')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [duel, playerNullify] },
+      north: { ...state.units.north, hand: [aiNullify] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'duel', counteredBy: 'north', nullifyTarget: 'north' })
+    useGameStore.getState().respond(playerNullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toEqual(expect.arrayContaining([duel, playerNullify, aiNullify]))
+  })
+
+  it('keeps a player targeted trick cancelled when counter-Nullify is declined', () => {
+    const duel = card('duel'), playerNullify = card('nullify', 'heart'), aiNullify = card('nullify', 'club')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [duel, playerNullify] },
+      north: { ...state.units.north, hand: [aiNullify] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.player.hand).toContainEqual(playerNullify)
+  })
+
+  it('continues an outgoing Nullify chain until its parity restores the trick', () => {
+    const duel = card('duel'), first = card('nullify', 'heart'), second = card('nullify', 'diamond'), aiFirst = card('nullify', 'club'), aiSecond = card('nullify', 'spade')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [duel, first, second] },
+      north: { ...state.units.north, hand: [aiFirst, aiSecond] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    useGameStore.getState().respond(first.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', counteredBy: 'north' })
+    useGameStore.getState().respond(second.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.discard).toEqual(expect.arrayContaining([duel, first, second, aiFirst, aiSecond]))
+  })
+
+  it('resumes the player card choice after countering Nullify on Dismantle', () => {
+    const dismantle = card('dismantle'), playerNullify = card('nullify', 'heart'), aiNullify = card('nullify', 'club'), dodge = card('dodge', 'diamond')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [dismantle, playerNullify] },
+      north: { ...state.units.north, hand: [aiNullify, dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: dismantle.id, target: 'north' })
+    useGameStore.getState().respond(playerNullify.id)
+    expect(useGameStore.getState().pendingPlunder).toMatchObject({ source: 'player', target: 'north', gain: false })
+    useGameStore.getState().choosePlunderCard(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingPlunder).toBeNull()
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([dismantle, playerNullify, aiNullify, dodge]))
+  })
+
   it('pauses duel whenever the player must play slash', () => {
     const duel = card('duel', 'spade'), playerSlash = card('slash', 'heart'), enemySlash = card('slash', 'club')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel, playerSlash] }, north: { ...state.units.north, hand: [enemySlash] } } }))
