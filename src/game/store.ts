@@ -1333,13 +1333,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (kind === 'peach') {
         if (!canPeach(unit)) return
-        const healed = { ...unit, hand: removed.hand, hp: unit.hp + 1, animation: 'heal' as const }; const message = `${unit.name}使用【桃】，回复 1 点体力`
-        set({ units: { ...state.units, [action.unit]: healed }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
+        const actor = base.units[action.unit]
+        const healed = { ...actor, hp: actor.hp + 1, animation: 'heal' as const }; const message = `${unit.name}使用【桃】，回复 1 点体力`
+        set({ ...base, units: { ...base.units, [action.unit]: healed }, selectedCardId: null, message, history: log(base, message) }); return
       }
       if (kind === 'wine') {
         if (unit.wineUsed) return
+        const actor = base.units[action.unit]
         const message = `${unit.name}饮【酒】，下一张【杀】伤害 +1`
-        set({ units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, wineUsed: true, drunk: true, animation: 'heal' } }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
+        set({ ...base, units: { ...base.units, [action.unit]: { ...actor, wineUsed: true, drunk: true, animation: 'heal' } }, selectedCardId: null, message, history: log(base, message) }); return
       }
       if (kind === 'peachGarden') {
         const sourceIndex = base.turnOrder.indexOf(action.unit)
@@ -1350,10 +1352,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set(beginHarvest(base, action.unit, card)); return
       }
       if (isEquipment(kind)) {
-        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' || card.kind === 'vineArmor' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
-        const recovery = resolveEquipmentLoss(unit, old ? [old] : [], state.deck, old ? [...state.discard, old] : state.discard)
-        const equipped = { ...unit, hp: recovery.hp, hand: [...removed.hand, ...recovery.drawn], equipment: { ...unit.equipment, [slot]: card }, animation: recovery.healed ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${recovery.healed ? '，失去白银狮子并回复 1 点体力' : ''}${recovery.drawn.length ? `；发动【枭姬】摸${recovery.drawn.length}张牌` : ''}`
-        set({ units: { ...state.units, [action.unit]: equipped }, deck: recovery.deck, discard: recovery.discard, selectedCardId: null, message, history: log(state, message) }); return
+        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' || card.kind === 'vineArmor' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon'
+        const actor = base.units[action.unit], old = actor.equipment[slot]
+        const equipmentDiscard = [...base.discard.filter(item => item.id !== card.id), ...(old ? [old] : [])]
+        const recovery = resolveEquipmentLoss(actor, old ? [old] : [], base.deck, equipmentDiscard, [card.id])
+        const equipped = { ...actor, hp: recovery.hp, hand: [...actor.hand, ...recovery.drawn], equipment: { ...actor.equipment, [slot]: card }, animation: recovery.healed ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${recovery.healed ? '，失去白银狮子并回复 1 点体力' : ''}${recovery.drawn.length ? `；发动【枭姬】摸${recovery.drawn.length}张牌` : ''}`
+        set({ ...base, units: { ...base.units, [action.unit]: equipped }, deck: recovery.deck, discard: recovery.discard, selectedCardId: null, message, history: log(base, message) }); return
       }
       if (isSlashKind(kind)) {
         const attackUnit = base.units[action.unit]
@@ -1415,7 +1419,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (kind === 'lightning') {
         const actor = base.units[action.unit], message = `${unit.name}将【闪电】置入判定区`
-        set({ units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: state.discard, message, history: log(base, message) }); return
+        set({ ...base, units: { ...base.units, [action.unit]: { ...actor, judgement: [...actor.judgement, card] } }, discard: base.discard.filter(item => item.id !== card.id), message, history: log(base, message) }); return
       }
       if (kind === 'dismantle' || kind === 'snatch') {
         const gain = kind === 'snatch'

@@ -4179,6 +4179,54 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('连营'))).toBe(true)
   })
 
+  it('preserves Lianying draw when Lu Xun uses his final Peach', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const peach = card('peach'), reward = card('slash')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units, player: { ...state.units.player, hp: 3, hand: [peach] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: peach.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.deck).toHaveLength(0)
+    expect(state.discard).toContainEqual(peach)
+  })
+
+  it('preserves Lianying draw when Lu Xun drinks his final Wine', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const wine = card('wine'), reward = card('dodge')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [wine] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: wine.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.units.player).toMatchObject({ wineUsed: true, drunk: true })
+    expect(state.deck).toHaveLength(0)
+    expect(state.discard).toContainEqual(wine)
+  })
+
+  it('preserves Lianying draw while moving the final Equipment card out of discard', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const weapon = card('qinggang'), reward = card('peach')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [weapon] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: weapon.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.units.player.equipment.weapon).toEqual(weapon)
+    expect(state.deck).toHaveLength(0)
+    expect(state.discard).not.toContainEqual(weapon)
+  })
+
+  it('preserves Lianying draw while moving the final Lightning into judgement', () => {
+    useGameStore.getState().selectGeneral('qianxun')
+    const lightning = card('lightning'), reward = card('peach')
+    useGameStore.setState(state => ({ deck: [reward], discard: [], units: { ...state.units, player: { ...state.units.player, hand: [lightning], judgement: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: lightning.id })
+    const state = useGameStore.getState()
+    expect(state.units.player.hand).toEqual([reward])
+    expect(state.units.player.judgement).toContainEqual(lightning)
+    expect(state.deck).toHaveLength(0)
+    expect(state.discard).not.toContainEqual(lightning)
+  })
+
   it('does not let Lianying return the resolving card to Lu Xun', () => {
     useGameStore.getState().selectGeneral('qianxun')
     const trick = card('drawTwo'), reward = card('peach')
