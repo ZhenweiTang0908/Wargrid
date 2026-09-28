@@ -4781,6 +4781,27 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(slash)
   })
 
+  it('lets AI Serpent Spear turn two hand cards into Slash', async () => {
+    const first = card('dodge', 'heart'), second = card('nullify', 'club'), spear = card('spear')
+    useGameStore.setState(state => ({ currentUnit: 'north', phase: 'ai', turnStage: 'play', units: {
+      ...state.units,
+      north: { ...state.units.north, identity: 'rebel', revealed: true, skill: 'keji', skills: ['keji'], position: { x: 4, y: 4 }, hand: [first, second], equipment: { weapon: spear }, movement: 0 },
+      player: { ...state.units.player, position: { x: 4, y: 5 }, hand: [] },
+      east: { ...state.units.east, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+    await useGameStore.getState().runAI()
+    let state = useGameStore.getState()
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+    expect(state.pendingResponse).toMatchObject({ effect: 'slash', source: 'north', target: 'player' })
+    expect(state.history.some(entry => entry.includes('丈八蛇矛'))).toBe(true)
+    useGameStore.getState().respond(null)
+    state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.units.north.attacksUsed).toBe(1)
+  })
+
   it('lets AI Diao Chan make two male enemies duel through Lijian', async () => {
     const payment = card('nullify')
     useGameStore.setState(state => ({ deck: [card('nullify', 'heart')], discard: [], currentUnit: 'north', phase: 'ai', turnStage: 'play', scores: { ...state.scores, north: 2 }, units: {

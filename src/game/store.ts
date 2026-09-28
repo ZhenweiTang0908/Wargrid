@@ -121,6 +121,16 @@ const aiHalberdTargets = (state: GameState, team: Team, slash: Card) => {
   const legal = targetsFor(state, team).filter(target => canSlash(state, actor, target))
   return [...legal.filter(target => target.id !== 'player'), ...legal.filter(target => target.id === 'player')].slice(0, 3).map(target => target.id)
 }
+const aiSpearMaterials = (unit: Unit) => {
+  if (unit.equipment.weapon?.kind !== 'spear' || unit.hand.length < 2) return []
+  const value = (card: Card) => card.kind === 'peach' ? 100
+    : card.kind === 'dodge' ? 80
+      : card.kind === 'nullify' ? 75
+        : card.kind === 'wine' ? 65
+          : isEquipment(card.kind) ? 45
+            : 30
+  return [...unit.hand].sort((first, second) => value(first) - value(second)).slice(0, 2)
+}
 const primaryTarget = (state: GameState, team: Team) => targetsFor(state, team)[0]?.id ?? team
 const alliesFor = (state: GameState, team: Team) => {
   const actor = state.units[team]
@@ -1461,6 +1471,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const skillMessage = `${unit.name}发动【激将】，${assistant.name}代其使用【杀】`
         base = { ...base, message: skillMessage, history: log(base, skillMessage) }
       }
+      if (spearMaterials.length === 2) {
+        const skillMessage = `${unit.name}发动【丈八蛇矛】，将两张手牌当【杀】使用`
+        base = { ...base, message: skillMessage, history: log(base, skillMessage) }
+      }
       if (isSlashKind(kind)) {
         const actor = base.units[action.unit]
         base = { ...base, units: { ...base.units, [action.unit]: { ...actor, slashUsedOrPlayed: true } } }
@@ -2660,8 +2674,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let target = targetsFor(state, aiId)[0]
     if (!target) return
     const directAggressive = responseCard(ai, 'slash') ?? (ai.skills.includes('wusheng') ? equippedCards(ai).find(isRed) : undefined)
-    const aggressiveAssistance = directAggressive ? undefined : jijiangChoices(state, aiId)[0]
-    const aggressive = directAggressive ?? aggressiveAssistance?.slash
+    const aggressiveSpearMaterials = directAggressive ? [] : aiSpearMaterials(ai)
+    const aggressiveAssistance = directAggressive || aggressiveSpearMaterials.length ? undefined : jijiangChoices(state, aiId)[0]
+    const aggressive = directAggressive ?? aggressiveSpearMaterials[0] ?? aggressiveAssistance?.slash
     const attackUnit = aggressive && equippedCards(ai).some(card => card.id === aggressive.id)
       ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, card]) => card?.id !== aggressive.id)) as Unit['equipment'] } : ai
     if (!aggressive || !canSlash(state, attackUnit, target)) {
@@ -2708,8 +2723,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     for (const kind of ['ironChain', 'fireAttack', 'indulgence', 'supplyShortage', 'dismantle', 'snatch', 'borrowedSword', 'arrows', 'barbarians', 'duel', 'slash'] as const) {
       const directSlash = kind === 'slash' ? responseCard(ai, 'slash') ?? (ai.skills.includes('wusheng') ? equippedCards(ai).find(isRed) : undefined) : undefined
-      const jijiang = kind === 'slash' && !directSlash ? jijiangChoices(state, aiId)[0] : undefined
-      const card = kind === 'slash' ? directSlash ?? jijiang?.slash : kind === 'dismantle' ? ai.hand.find(c => c.kind === 'dismantle') ?? (ai.skills.includes('qixi') ? ai.hand.find(c => c.suit === 'spade' || c.suit === 'club') : undefined) : ai.hand.find(c => c.kind === kind); if (!card) continue
+      const spearMaterials = kind === 'slash' && !directSlash ? aiSpearMaterials(ai) : []
+      const jijiang = kind === 'slash' && !directSlash && !spearMaterials.length ? jijiangChoices(state, aiId)[0] : undefined
+      const card = kind === 'slash' ? directSlash ?? spearMaterials[0] ?? jijiang?.slash : kind === 'dismantle' ? ai.hand.find(c => c.kind === 'dismantle') ?? (ai.skills.includes('qixi') ? ai.hand.find(c => c.suit === 'spade' || c.suit === 'club') : undefined) : ai.hand.find(c => c.kind === kind); if (!card) continue
       if (kind === 'borrowedSword') target = targetsFor(state, aiId).find(unit => !!unit.equipment.weapon) ?? target
       if (kind === 'borrowedSword' && !target.equipment.weapon) continue
       if (kind === 'dismantle' || kind === 'snatch') target = targetsFor(state, aiId).find(unit => plunderableCards(unit).length > 0) ?? target
@@ -2719,7 +2735,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'supplyShortage' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
       const halberdTargets = kind === 'slash' && !jijiang ? aiHalberdTargets(state, aiId, card) : []
       if (halberdTargets.length > 1) target = state.units[halberdTargets[0]]
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle', lordAssist: jijiang?.unit.id }); await wait(420); state = get(); ai = state.units[aiId]
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: kind === 'slash' && (!isSlashKind(card.kind) || spearMaterials.length === 2), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle', materialIds: spearMaterials.length === 2 ? spearMaterials.map(material => material.id) : undefined, lordAssist: jijiang?.unit.id }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
       if (state.phase === 'finished') return
     }
@@ -2729,15 +2745,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       state = get(); ai = state.units[aiId]
       if (state.phase !== 'ai' || state.currentUnit !== aiId || ai.hp <= 0 || ai.attacksUsed >= slashLimit(ai)) break
       const directSlash = responseCard(ai, 'slash') ?? (ai.skills.includes('wusheng') ? equippedCards(ai).find(isRed) : undefined)
-      const jijiang = directSlash ? undefined : jijiangChoices(state, aiId)[0]
-      const slash = directSlash ?? jijiang?.slash
+      const spearMaterials = directSlash ? [] : aiSpearMaterials(ai)
+      const jijiang = directSlash || spearMaterials.length ? undefined : jijiangChoices(state, aiId)[0]
+      const slash = directSlash ?? spearMaterials[0] ?? jijiang?.slash
       if (!slash) break
       const afterPayment = equippedCards(ai).some(item => item.id === slash.id)
         ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== slash.id)) as Unit['equipment'] } : ai
       const halberdTargets = jijiang ? [] : aiHalberdTargets(state, aiId, slash)
       const victim = halberdTargets.length > 1 ? state.units[halberdTargets[0]] : targetsFor(state, aiId).find(candidate => canSlash(state, afterPayment, candidate))
       if (!victim) break
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: !isSlashKind(slash.kind), lordAssist: jijiang?.unit.id })
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: !isSlashKind(slash.kind) || spearMaterials.length === 2, materialIds: spearMaterials.length === 2 ? spearMaterials.map(material => material.id) : undefined, lordAssist: jijiang?.unit.id })
       await wait(420)
       if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().pendingHalberd || get().pendingQilin || get().pendingDoubleSword || get().pendingYiji || get().winner) return
     }
