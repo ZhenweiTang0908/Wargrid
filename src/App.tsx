@@ -1454,6 +1454,24 @@ function FanjianWindow() {
   </section></div>
 }
 
+function FireAttackWindow() {
+  const pending = useGameStore(s => s.pendingFireAttack)
+  const player = useGameStore(s => s.units.player)
+  const source = useGameStore(s => pending ? s.units[pending.source] : null)
+  const chooseFireAttackCard = useGameStore(s => s.chooseFireAttackCard)
+  if (!pending || !source) return null
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">火攻 · 展示手牌</span>
+    <h1>{source.name}请你选择一张手牌</h1>
+    <p>展示后，{source.name}若能弃置一张同花色牌，就会对你造成 1 点火焰伤害。手牌内容会在选择前保持隐藏。</p>
+    <div className="response-cards">
+      {player.hand.map((card, index) => <button key={card.id} className="hidden-card" onClick={() => chooseFireAttackCard(card.id)}>
+        <strong>战</strong><span>手牌 {index + 1} · 展示</span>
+      </button>)}
+    </div>
+  </section></div>
+}
+
 function PlunderWindow() {
   const pending = useGameStore(s => s.pendingPlunder)
   const choosePlunderCard = useGameStore(s => s.choosePlunderCard)
@@ -1631,6 +1649,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingIceSword && <IceSwordWindow />}
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
+    {state.generalSelected && !tutorial && state.pendingFireAttack && <FireAttackWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
     {state.generalSelected && showMapGuide && <BattlefieldGuide close={() => setShowMapGuide(false)} />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}

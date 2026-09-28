@@ -12,6 +12,7 @@ interface GameStore extends GameState {
   respond: (cardId: string | null) => void
   chooseHarvest: (cardId: string) => void
   chooseFanjianSuit: (suit: Card['suit']) => void
+  chooseFireAttackCard: (cardId: string) => void
   choosePlunderCard: (cardId: string) => void
   chooseJudgementCard: (cardId: string | null) => void
   activateBagua: () => void
@@ -389,20 +390,25 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
   return working
 }
 
-function resolveFireAttack(state: GameState, actorId: Team, targetId: Team, sourceCard?: Card): Partial<GameState> {
+function resolveFireAttack(state: GameState, actorId: Team, targetId: Team, sourceCard?: Card, revealedCard?: Card): Partial<GameState> {
   const actor = state.units[actorId], target = state.units[targetId]
-  const revealed = target.hand[0]
+  if (targetId === 'player' && actorId !== 'player' && !revealedCard && target.hand.length) {
+    const prompt = `${actor.name}使用【火攻】，请选择一张手牌展示`
+    return { ...state, pendingFireAttack: { source: actorId, target: 'player', originCardId: sourceCard?.id }, message: prompt, history: log(state, prompt) }
+  }
+  const revealed = revealedCard ?? target.hand[0]
   if (!revealed) {
     const message = `${target.name}没有手牌，【火攻】未生效`
     return { message, history: log(state, message) }
   }
   const paid = actor.hand.find(card => card.suit === revealed.suit)
   if (!paid) {
-    const message = `${target.name}展示${revealed.suit}牌，${actor.name}没有同花色牌可弃置`
+    const message = `${target.name}展示${SUIT_GLYPH[revealed.suit]}${revealed.rank}，${actor.name}没有同花色牌可弃置`
     return { message, history: log(state, message) }
   }
   const paidState: GameState = { ...state, units: { ...state.units, [actorId]: { ...actor, hand: actor.hand.filter(card => card.id !== paid.id), animation: 'cast' } }, discard: [...state.discard, paid] }
-  return elementalDamage(paidState, actorId, targetId, 1, 'fire', sourceCard)
+  const result = elementalDamage(paidState, actorId, targetId, 1, 'fire', sourceCard)
+  return { ...result, message: `${target.name}展示${SUIT_GLYPH[revealed.suit]}${revealed.rank}，${actor.name}弃置同花色牌并造成火焰伤害` }
 }
 
 function resolveIronChain(state: GameState, actorId: Team, targetId: Team): Partial<GameState> {
@@ -944,7 +950,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
     if (action.type === 'RESPOND') { get().respond(action.cardId); return }
-    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
+    const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingFireAttack || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
       if (state.currentUnit !== action.unit || state.turnStage !== 'play') return
@@ -1508,6 +1514,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set(resolved)
     if (resolved.phase === 'ai' && !resolved.pendingResponse && !resolved.winner) setTimeout(() => void get().runAI(), 120)
   },
+  chooseFireAttackCard: cardId => {
+    const state = get(), pending = state.pendingFireAttack
+    if (!pending || pending.target !== 'player' || state.winner) return
+    const revealed = state.units.player.hand.find(card => card.id === cardId)
+    if (!revealed) return
+    const sourceCard = pending.originCardId ? state.discard.find(card => card.id === pending.originCardId) : undefined
+    const resolved = { ...state, pendingFireAttack: null, message: `${state.units.player.name}选择展示一张手牌` }
+    set({ ...resolved, ...resolveFireAttack(resolved, pending.source, 'player', sourceCard, revealed) })
+    const next = get()
+    if (next.phase === 'ai' && !next.pendingResponse && !next.pendingFireAttack && !next.winner) setTimeout(() => void get().runAI(), 120)
+  },
   choosePlunderCard: cardId => {
     const state = get(), pending = state.pendingPlunder
     if (!pending) return
@@ -2006,7 +2023,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   resetAnimation: team => set(state => ({ units: { ...state.units, [team]: { ...state.units[team], animation: 'idle' } } })),
   runAI: async () => {
-    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
+    await wait(450); let state = get(); if (state.phase !== 'ai' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingFireAttack || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
     const aiId = state.currentUnit, aiUnit = state.units[aiId]
     if (!aiUnit || aiUnit.hp <= 0) {
       const next = nextSeat(state, aiId); set(beginTurn(state, next)); if (next !== 'player') void get().runAI(); return

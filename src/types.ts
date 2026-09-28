@@ -85,6 +85,12 @@ export interface PendingFanjian {
   card: Card
 }
 
+export interface PendingFireAttack {
+  source: Team
+  target: 'player'
+  originCardId?: string
+}
+
 export interface PendingPlunder {
   source: Team
   target: Team
@@ -173,6 +179,7 @@ export interface GameState {
   pendingResponse: PendingResponse | null
   pendingHarvest: PendingHarvest | null
   pendingFanjian: PendingFanjian | null
+  pendingFireAttack: PendingFireAttack | null
   pendingPlunder: PendingPlunder | null
   pendingJudgement: PendingJudgement | null
   pendingLuoshen: { gained: number } | null

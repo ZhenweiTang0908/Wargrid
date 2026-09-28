@@ -1135,6 +1135,32 @@ describe('standard card scenarios', () => {
     expect(state.discard.map(item => item.id)).toEqual(expect.arrayContaining([fire.id, payment.id]))
   })
 
+  it('lets the player choose which hidden hand card Fire Attack reveals', () => {
+    const fire = card('fireAttack', 'spade'), payment = card('slash', 'heart')
+    const wrongSuit = card('dodge', 'club'), matchingSuit = card('peach', 'heart')
+    useGameStore.setState(state => ({
+      phase: 'ai', currentUnit: 'east', turnStage: 'play',
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [wrongSuit, matchingSuit] },
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [fire, payment] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: fire.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingFireAttack).toMatchObject({ source: 'east', target: 'player' })
+    useGameStore.getState().chooseFireAttackCard(wrongSuit.id)
+    expect(useGameStore.getState().units.player.hp).toBe(5)
+
+    useGameStore.setState(state => ({
+      pendingFireAttack: { source: 'east', target: 'player', originCardId: fire.id },
+      units: { ...state.units, player: { ...state.units.player, hp: 4, hand: [wrongSuit, matchingSuit] }, east: { ...state.units.east, hand: [payment] } },
+    }))
+    useGameStore.getState().chooseFireAttackCard(matchingSuit.id)
+    expect(useGameStore.getState().units.player.hp).toBe(3)
+    expect(useGameStore.getState().units.player.hand).toEqual([wrongSuit, matchingSuit])
+  })
+
   it('amplifies fire in forests and extinguishes it in water', () => {
     const forestFire = card('fireAttack'), forestPayment = card('slash', 'heart'), forestReveal = card('dodge', 'heart')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [forestFire, forestPayment] }, north: { ...state.units.north, position: { x: 1, y: 1 }, hand: [forestReveal] } } }))
