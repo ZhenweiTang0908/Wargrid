@@ -237,6 +237,60 @@ function resolveDrawTwo(state: GameState, source: Team, card: Card): GameState {
   return { ...state, units: { ...state.units, [source]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], message, history: log(state, message) }
 }
 
+function resolvePeachGarden(state: GameState, source: Team, order: Team[], originCardId: string, cancelledNames: string[] = []): GameState {
+  let working = state
+  const waiting = [...order]
+  const cancelled = [...cancelledNames]
+  while (waiting.length) {
+    const team = waiting.shift()!
+    const unit = working.units[team]
+    if (unit.hp <= 0 || unit.hp >= unit.maxHp) continue
+
+    if (team === 'player' && source !== 'player') {
+      const rest = [...waiting]
+      const prompt = `${working.units[source].name}使用【桃园结义】，是否对自己的回复效果打出【无懈可击】？`
+      return {
+        ...working,
+        pendingResponse: { effect: 'nullify', source, target: 'player', required: 'nullify', trick: 'peachGarden', originCardId, peachGardenRemaining: rest, peachGardenCancelled: cancelled, prompt },
+        message: prompt,
+        history: log(working, prompt),
+      }
+    }
+
+    const nullify = team !== 'player' ? unit.hand.find(card => card.kind === 'nullify') : undefined
+    if (nullify) {
+      const rest = [...waiting]
+      if (source === 'player' && working.units.player.hand.some(card => card.kind === 'nullify')) {
+        const prompt = `${unit.name}以【无懈可击】取消自己的【桃园结义】回复，是否用【无懈可击】反制？`
+        return {
+          ...working,
+          pendingResponse: { effect: 'nullify', source, target: 'player', required: 'nullify', trick: 'peachGarden', originCardId, peachGardenTarget: team, peachGardenNullifyId: nullify.id, peachGardenRemaining: rest, peachGardenCancelled: cancelled, prompt },
+          message: prompt,
+          history: log(working, prompt),
+        }
+      }
+      const message = `${unit.name}以【无懈可击】取消自己的回复`
+      working = triggerLianying({
+        ...working,
+        units: { ...working.units, [team]: { ...unit, hand: unit.hand.filter(card => card.id !== nullify.id), animation: 'cast' as const } },
+        discard: [...working.discard, nullify],
+        message,
+        history: log(working, message),
+      }, team, [nullify])
+      cancelled.push(unit.name)
+      continue
+    }
+
+    working = {
+      ...working,
+      units: { ...working.units, [team]: { ...unit, hp: Math.min(unit.maxHp, unit.hp + 1), animation: 'heal' as const } },
+    }
+  }
+  const cancelledText = cancelled.length ? `；${cancelled.join('、')}以【无懈可击】取消自己的回复` : ''
+  const message = `${working.units[source].name}使用【桃园结义】，所有存活角色回复体力${cancelledText}`
+  return { ...working, pendingResponse: null, message, history: log(working, message) }
+}
+
 function rescueDyingPlayer(state: GameState, startingHp: number) {
   let working = state, hp = startingHp
   const helpers: string[] = []
@@ -1212,23 +1266,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ units: { ...state.units, [action.unit]: { ...unit, hand: removed.hand, wineUsed: true, drunk: true, animation: 'heal' } }, discard: base.discard, selectedCardId: null, message, history: log(state, message) }); return
       }
       if (kind === 'peachGarden') {
-        const playerCanRespond = action.unit !== 'player' && base.units.player.hp > 0 && base.units.player.hp < base.units.player.maxHp
-        const cancelled: { id: Team; card: Card }[] = []
-        const units = Object.fromEntries(Object.entries(base.units).map(([id, actor]) => {
-          if (actor.hp <= 0 || (playerCanRespond && id === 'player')) return [id, actor]
-          const nullify = id !== 'player' && actor.hp < actor.maxHp ? actor.hand.find(candidate => candidate.kind === 'nullify') : undefined
-          if (nullify) {
-            cancelled.push({ id: id as Team, card: nullify })
-            return [id, { ...actor, hand: actor.hand.filter(candidate => candidate.id !== nullify.id), animation: 'cast' as const }]
-          }
-          return [id, actor.hp < actor.maxHp ? { ...actor, hp: actor.hp + 1, animation: 'heal' as const } : actor]
-        })) as GameState['units']
-        let resolved: GameState = { ...base, units, discard: [...base.discard, ...cancelled.map(item => item.card)] }
-        for (const item of cancelled) resolved = triggerLianying(resolved, item.id, [item.card])
-        const cancelledText = cancelled.length ? `；${cancelled.map(item => `${base.units[item.id].name}以【无懈可击】取消自己的回复`).join('、')}` : ''
-        const message = `${unit.name}使用【桃园结义】，所有存活角色回复体力${cancelledText}`
-        const prompt = `${unit.name}使用【桃园结义】，是否对自己的回复效果打出【无懈可击】？`
-        set({ ...resolved, pendingResponse: playerCanRespond ? { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick: 'peachGarden', originCardId: card.id, prompt } : null, message: playerCanRespond ? prompt : message, history: log(base, message) }); return
+        const sourceIndex = base.turnOrder.indexOf(action.unit)
+        const order = [...base.turnOrder.slice(sourceIndex), ...base.turnOrder.slice(0, sourceIndex)].filter(team => base.units[team].hp > 0)
+        set(resolvePeachGarden(base, action.unit, order, card.id)); return
       }
       if (kind === 'harvest') {
         set(beginHarvest(base, action.unit, card)); return
@@ -1411,6 +1451,65 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
     if (pending.effect === 'nullify') {
+      if (pending.peachGardenTarget) {
+        const targetId = pending.peachGardenTarget
+        const target = base.units[targetId]
+        const nullify = target.hand.find(item => item.id === pending.peachGardenNullifyId) ?? target.hand.find(item => item.kind === 'nullify')
+        if (nullify) {
+          if (card) {
+            const responseMessage = `${player.name}打出【无懈可击】，反制${target.name}的【无懈可击】`
+            base = { ...base, units: {
+              ...base.units,
+              player: { ...base.units.player, hand: base.units.player.hand.filter(item => item.id !== card.id), animation: 'cast' },
+              [targetId]: { ...target, hand: target.hand.filter(item => item.id !== nullify.id), animation: 'cast' },
+            }, discard: [...base.discard, card, nullify], message: responseMessage, history: log(base, responseMessage) }
+            base = triggerLianying(base, 'player', [card])
+            base = triggerLianying(base, targetId, [nullify])
+            const healed = base.units[targetId]
+            base = { ...base, units: { ...base.units, [targetId]: { ...healed, hp: Math.min(healed.maxHp, healed.hp + 1), animation: 'heal' } } }
+          } else {
+            const responseMessage = `${target.name}以【无懈可击】取消自己的回复`
+            base = triggerLianying({
+              ...base,
+              units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(item => item.id !== nullify.id), animation: 'cast' } },
+              discard: [...base.discard, nullify],
+              message: responseMessage,
+              history: log(base, responseMessage),
+            }, targetId, [nullify])
+          }
+          const cancelled = [...(pending.peachGardenCancelled ?? [])]
+          if (!card) cancelled.push(target.name)
+          base = resolvePeachGarden(base, pending.source, pending.peachGardenRemaining ?? [], pending.originCardId ?? '', cancelled)
+        }
+        set(base)
+        if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
+        return
+      }
+      if (pending.trick === 'peachGarden' && pending.peachGardenRemaining) {
+        let responseMessage: string
+        if (card) {
+          responseMessage = `${player.name}打出【无懈可击】，抵消自己的【桃园结义】回复`
+          base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(item => item.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message: responseMessage, history: log(base, responseMessage) }
+          base = triggerLianying(base, 'player', [card])
+          const source = base.units[pending.source], counter = source.hand.find(item => item.kind === 'nullify')
+          if (counter) {
+            const counterMessage = `${source.name}打出【无懈可击】，反制${player.name}的抵消`
+            base = { ...base, units: { ...base.units, [pending.source]: { ...source, hand: source.hand.filter(item => item.id !== counter.id), animation: 'cast' } }, discard: [...base.discard, counter], message: counterMessage, history: log(base, counterMessage) }
+            base = triggerLianying(base, pending.source, [counter])
+            const healed = base.units.player
+            base = { ...base, units: { ...base.units, player: { ...healed, hp: Math.min(healed.maxHp, healed.hp + 1), animation: 'heal' } } }
+            responseMessage = `${counterMessage}，${player.name}仍受到【桃园结义】效果，回复 1 点体力`
+          }
+        } else {
+          const healed = base.units.player
+          responseMessage = `${player.name}受到【桃园结义】效果，回复 1 点体力`
+          base = { ...base, units: { ...base.units, player: { ...healed, hp: Math.min(healed.maxHp, healed.hp + 1), animation: 'heal' } }, message: responseMessage, history: log(base, responseMessage) }
+        }
+        base = resolvePeachGarden(base, pending.source, pending.peachGardenRemaining, pending.originCardId ?? '', pending.peachGardenCancelled)
+        set(base)
+        if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
+        return
+      }
       if (pending.counteredBy) {
         if (!card) {
           const message = `${base.units.player.name}放弃反制，【无中生有】被抵消`

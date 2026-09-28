@@ -72,6 +72,10 @@ export interface PendingResponse {
   counteredBy?: Team
   judgementOwner?: Team
   groupResolvedTargets?: Team[]
+  peachGardenTarget?: Team
+  peachGardenNullifyId?: string
+  peachGardenRemaining?: Team[]
+  peachGardenCancelled?: string[]
   groupContinuation?: { kind: 'arrows' | 'barbarians'; source: Team; originCardId?: string; resolvedTargets: Team[] }
 }
 

@@ -1666,6 +1666,43 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('赵云') && entry.includes('无懈可击'))).toBe(true)
   })
 
+  it('lets the player counter an AI target Nullify during Peach Garden', () => {
+    const garden = card('peachGarden', 'heart'), playerNullify = card('nullify', 'club'), aiNullify = card('nullify', 'spade')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 4, hand: [garden, playerNullify] },
+      north: { ...state.units.north, hp: 2, hand: [aiNullify] },
+      east: { ...state.units.east, hp: 2, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: garden.id })
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', trick: 'peachGarden', peachGardenTarget: 'north' })
+    expect(useGameStore.getState().units.north.hp).toBe(2)
+    useGameStore.getState().respond(playerNullify.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.discard).toEqual(expect.arrayContaining([garden, playerNullify, aiNullify]))
+  })
+
+  it('lets the player decline a counter to an AI target Nullify during Peach Garden', () => {
+    const garden = card('peachGarden', 'heart'), playerNullify = card('nullify', 'club'), aiNullify = card('nullify', 'spade')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hp: 4, hand: [garden, playerNullify] },
+      north: { ...state.units.north, hp: 2, hand: [aiNullify] },
+      east: { ...state.units.east, hp: 2, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: garden.id })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.player.hand).toContainEqual(playerNullify)
+    expect(state.discard).toEqual(expect.arrayContaining([garden, aiNullify]))
+  })
+
   it('lets an AI character nullify only its own low-value Harvest pick', () => {
     const harvest = card('harvest'), nullify = card('nullify'), pool = [card('dismantle'), card('dismantle'), card('dismantle'), card('dismantle')]
     useGameStore.setState(state => ({
