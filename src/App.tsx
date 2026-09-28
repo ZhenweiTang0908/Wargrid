@@ -1519,6 +1519,23 @@ function App() {
   const currentName = state.units[state.currentUnit]?.name
   const discardRequired = Math.max(0, state.units.player.hand.length - state.units.player.hp)
   const discardReady = state.turnStage !== 'discard' || state.discardSelection.length === discardRequired
+  const selectionHint = selectedCard
+    ? state.turnStage === 'discard'
+      ? `弃牌阶段：还需选择 ${discardRequired - state.discardSelection.length} 张手牌`
+      : state.spearMode
+        ? `丈八蛇矛：再选 ${Math.max(0, 2 - state.spearSelection.length)} 张手牌，然后点击目标`
+        : state.jieyinMode
+          ? `结姻：选择两张手牌，再点击一名受伤男性角色`
+          : state.zhihengMode
+            ? `制衡：选择要弃置的牌，再点击“制衡”结算`
+            : state.selectedAsRende
+              ? `仁德：点击一名其他角色，将这张牌交给他`
+              : state.selectedAsFanjian
+                ? `反间：点击一名其他角色，让他猜这张牌的花色`
+                : state.selectedAsGuose
+                  ? `国色：点击一名其他角色，将方片牌置入其判定区`
+                  : `${CARD_LABEL[selectedCard.kind as Card['kind']]}：${CARD_COPY[selectedCard.kind as Card['kind']]} · 选择目标或点击“取消”`
+    : state.turnStage === 'discard' ? `弃牌阶段：还需选择 ${discardRequired} 张手牌` : ''
   const closeTutorial = () => { localStorage.setItem('wargrid-tutorial', 'seen'); setTutorial(false) }
 
   useEffect(() => {
@@ -1561,7 +1578,7 @@ function App() {
     {inspectedUnit && <UnitDetails {...inspectedUnit} close={() => setInspectedUnit(null)} />}
     <div className="battlefield">{state.generalSelected && <Battlefield />}</div>
 
-    <div className="message-bar"><span className="message-pip" />{state.message}</div>
+    <div className="message-bar"><span className="message-pip" /><span>{state.message}</span>{selectionHint && <small className="selection-hint">{selectionHint}</small>}</div>
 
     <footer className="command-deck">
       <div className="movement"><span>{state.turnStage === 'play' ? `出牌阶段 · 移动 ${state.units.player.movement}` : state.turnStage === 'discard' ? `弃牌 ${state.discardSelection.length}/${discardRequired}` : state.turnStage}</span><div>{Array.from({ length: Math.max(3, state.units.player.movement) }, (_, index) => index + 1).map(n => <i key={n} className={state.turnStage === 'play' && n <= state.units.player.movement ? 'active' : ''} />)}</div></div>
