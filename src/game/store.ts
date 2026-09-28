@@ -1200,10 +1200,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       if (kind === 'peachGarden') {
         const playerCanRespond = action.unit !== 'player' && base.units.player.hp > 0 && base.units.player.hp < base.units.player.maxHp
-        const units = Object.fromEntries(Object.entries(base.units).map(([id, actor]) => [id, actor.hp > 0 && !(playerCanRespond && id === 'player') ? { ...actor, hp: Math.min(actor.maxHp, actor.hp + 1), animation: actor.hp < actor.maxHp ? 'heal' as const : actor.animation } : actor])) as GameState['units']
-        const message = `${unit.name}使用【桃园结义】，所有存活角色回复体力`
+        const cancelled: { id: Team; card: Card }[] = []
+        const units = Object.fromEntries(Object.entries(base.units).map(([id, actor]) => {
+          if (actor.hp <= 0 || (playerCanRespond && id === 'player')) return [id, actor]
+          const nullify = id !== 'player' && actor.hp < actor.maxHp ? actor.hand.find(candidate => candidate.kind === 'nullify') : undefined
+          if (nullify) {
+            cancelled.push({ id: id as Team, card: nullify })
+            return [id, { ...actor, hand: actor.hand.filter(candidate => candidate.id !== nullify.id), animation: 'cast' as const }]
+          }
+          return [id, actor.hp < actor.maxHp ? { ...actor, hp: actor.hp + 1, animation: 'heal' as const } : actor]
+        })) as GameState['units']
+        let resolved: GameState = { ...base, units, discard: [...base.discard, ...cancelled.map(item => item.card)] }
+        for (const item of cancelled) resolved = triggerLianying(resolved, item.id, [item.card])
+        const cancelledText = cancelled.length ? `；${cancelled.map(item => `${base.units[item.id].name}以【无懈可击】取消自己的回复`).join('、')}` : ''
+        const message = `${unit.name}使用【桃园结义】，所有存活角色回复体力${cancelledText}`
         const prompt = `${unit.name}使用【桃园结义】，是否对自己的回复效果打出【无懈可击】？`
-        set({ ...base, units, pendingResponse: playerCanRespond ? { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick: 'peachGarden', originCardId: card.id, prompt } : null, message: playerCanRespond ? prompt : message, history: log(base, message) }); return
+        set({ ...resolved, pendingResponse: playerCanRespond ? { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick: 'peachGarden', originCardId: card.id, prompt } : null, message: playerCanRespond ? prompt : message, history: log(base, message) }); return
       }
       if (kind === 'harvest') {
         set(beginHarvest(base, action.unit, card)); return

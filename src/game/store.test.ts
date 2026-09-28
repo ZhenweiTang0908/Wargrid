@@ -1648,6 +1648,24 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().pendingResponse).toBeNull()
   })
 
+  it('lets wounded AI characters nullify only their own Peach Garden recovery', () => {
+    const garden = card('peachGarden', 'heart'), nullify = card('nullify', 'spade')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hp: state.units.player.maxHp, hand: [garden] },
+      north: { ...state.units.north, hp: 2, hand: [nullify] },
+      east: { ...state.units.east, hp: 2, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: garden.id })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hand).not.toContainEqual(nullify)
+    expect(state.discard).toEqual(expect.arrayContaining([garden, nullify]))
+    expect(state.history.some(entry => entry.includes('赵云') && entry.includes('无懈可击'))).toBe(true)
+  })
+
   it('restores Peach Garden recovery when the source counters nullify', () => {
     const garden = card('peachGarden', 'heart'), nullify = card('nullify', 'spade'), counter = card('nullify', 'club')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, hand: [garden, counter] }, player: { ...state.units.player, hand: [nullify], hp: 3 } } }))
