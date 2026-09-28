@@ -2430,8 +2430,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ selectedAsSlash: active, selectedCardId: active && selected && isRed(selected) ? selected.id : null, selectedAsDismantle: false, selectedAsGuose: false, message: active ? '【武圣】请选择一张红色手牌或装备，再选择攻击目标' : '已取消武圣' })
   },
   activateSpear: () => {
-    const state = get()
-    if (state.phase !== 'player' || state.turnStage !== 'play' || state.units.player.equipment.weapon?.kind !== 'spear' || state.units.player.hand.length < 2) return
+    const state = get(), player = state.units.player
+    if (state.phase !== 'player' || state.turnStage !== 'play' || player.equipment.weapon?.kind !== 'spear' || player.hand.length < 2 || player.attacksUsed >= slashLimit(player)) return
     const spearMode = !state.spearMode
     set({ spearMode, spearSelection: [], selectedCardId: null, selectedAsSlash: false, selectedAsDismantle: false, message: spearMode ? '【丈八蛇矛】请选择两张手牌' : '已取消丈八蛇矛' })
   },

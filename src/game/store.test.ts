@@ -2875,6 +2875,43 @@ describe('standard card scenarios', () => {
     expect(state.spearMode).toBe(false)
   })
 
+  it('lets Paoxiao keep converting cards with Serpent Spear after the first slash', () => {
+    const slash = card('slash'), materialA = card('dodge', 'heart'), materialB = card('drawTwo', 'club'), spear = card('spear')
+    useGameStore.setState(state => ({
+      units: {
+        ...state.units,
+        player: { ...state.units.player, skill: 'paoxiao', skills: ['paoxiao'], position: { x: 4, y: 2 }, hand: [slash, materialA, materialB], equipment: { weapon: spear } },
+        north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [] },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    expect(useGameStore.getState().units.player.attacksUsed).toBe(1)
+    useGameStore.getState().activateSpear()
+    expect(useGameStore.getState().spearMode).toBe(true)
+    useGameStore.getState().selectCard(materialA.id)
+    useGameStore.getState().selectCard(materialB.id)
+    const selection = useGameStore.getState().spearSelection
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: materialA.id, target: 'north', asSlash: true, materialIds: selection })
+
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.units.player.attacksUsed).toBe(2)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([slash, materialA, materialB]))
+  })
+
+  it('does not activate Serpent Spear after an ordinary general reaches the slash limit', () => {
+    useGameStore.setState(state => ({ units: { ...state.units, player: {
+      ...state.units.player,
+      attacksUsed: 1,
+      hand: [card('dodge'), card('peach', 'heart')],
+      equipment: { weapon: card('spear') },
+    } } }))
+    useGameStore.getState().activateSpear()
+    expect(useGameStore.getState().spearMode).toBe(false)
+  })
+
   it('keeps both Serpent Spear materials together through judgement and Jianxiong', () => {
     const spear = card('spear'), materialA = card('peach', 'heart'), materialB = card('drawTwo', 'club'), rescue = card('peach', 'diamond'), bagua = card('bagua')
     useGameStore.setState(state => ({
