@@ -2880,6 +2880,23 @@ describe('standard card scenarios', () => {
     expect(state.mapObjects.find(item => item.id === 'west-beacon')?.claimed).toBe(false)
   })
 
+  it('routes a wounded AI toward a useful battlefield facility before the control point', async () => {
+    const payment = card('dodge')
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai', turnStage: 'play', turnOrder: ['north', 'player', 'east', 'west'],
+      units: {
+        ...state.units,
+        north: { ...state.units.north, skill: 'keji', skills: ['keji'], position: { x: 4, y: 0 }, hp: 2, hand: [payment], movement: 3 },
+        east: { ...state.units.east, position: { x: 8, y: 8 }, hand: [] },
+        west: { ...state.units.west, position: { x: 0, y: 8 }, hand: [] },
+      },
+    }))
+    await useGameStore.getState().runAI()
+    const state = useGameStore.getState()
+    expect(state.units.north.position).toEqual({ x: 7, y: 0 })
+    expect(state.history.some(entry => entry.includes('移动'))).toBe(true)
+  })
+
   it('forces an armed target to slash through Borrowed Sword', () => {
     const trick = card('borrowedSword'), weapon = card('qinggang'), forcedSlash = card('slash')
     useGameStore.setState(state => ({ units: {

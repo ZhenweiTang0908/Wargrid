@@ -1041,7 +1041,7 @@ const MAP_OBJECT_GUIDE: Record<string, { name: string; rule: string }> = {
   supplyCache: { name: '军需箱', rule: '邻近时打出一张牌，可摸取 2 张补给。' },
   healingShrine: { name: '疗伤祠', rule: '邻近时打出一张牌，可回复 1 点体力。' },
   warDrum: { name: '战鼓', rule: '邻近时打出一张牌，可令本回合移动力 +1。' },
-  scoutBeacon: { name: '烽火台', rule: '邻近时打出一张牌，可摸 1 张牌并获得短暂视野。' },
+  scoutBeacon: { name: '烽火台', rule: '邻近时打出一张牌，可侦察最近的一名未公开角色。' },
 }
 
 function BattlefieldGuide({ close }: { close: () => void }) {

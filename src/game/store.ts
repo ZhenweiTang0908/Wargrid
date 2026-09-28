@@ -2064,9 +2064,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const attackUnit = aggressive && equippedCards(ai).some(card => card.id === aggressive.id)
       ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, card]) => card?.id !== aggressive.id)) as Unit['equipment'] } : ai
     if (!aggressive || !canSlash(state, attackUnit, target)) {
-      const destinations = aggressive ? [{ x: target.position.x + 1, y: target.position.y }, { x: target.position.x - 1, y: target.position.y }, { x: target.position.x, y: target.position.y + 1 }, { x: target.position.x, y: target.position.y - 1 }] : [state.controlPoint]
+      const hiddenUnits = Object.values(state.units).filter(candidate => candidate.hp > 0 && !candidate.revealed).length
+      const strategicObject = !aggressive && payment && !(samePosition(ai.position, state.controlPoint) && state.scores[aiId] >= 2) ? state.mapObjects
+        .filter(object => !object.claimed)
+        .map(object => {
+          const path = findPath(state, ai.position, object.position, aiId)
+          const priority = object.kind === 'healingShrine' && ai.hp < ai.maxHp ? 40
+            : object.kind === 'supplyCache' && ai.hand.length <= ai.hp + 1 ? 32
+              : object.kind === 'warDrum' && (ai.movement <= 1 || ai.attacksUsed >= slashLimit(ai)) ? 28
+                : object.kind === 'scoutBeacon' && hiddenUnits > 1 ? 20 : 0
+          return { object, path, priority, score: priority * 10 - pathCost(state, path) }
+        })
+        .filter(candidate => candidate.priority > 0 && candidate.path.length > 0)
+        .sort((a, b) => b.score - a.score)[0] : undefined
+      const destinations = aggressive ? [{ x: target.position.x + 1, y: target.position.y }, { x: target.position.x - 1, y: target.position.y }, { x: target.position.x, y: target.position.y + 1 }, { x: target.position.x, y: target.position.y - 1 }] : strategicObject ? [strategicObject.object.position, state.controlPoint] : [state.controlPoint]
       let best: Position[] = []
-      for (const destination of destinations) { const path = findPath(state, ai.position, destination, aiId); if (path.length && (!best.length || pathCost(state, path) < pathCost(state, best))) best = path }
+      for (const destination of destinations) {
+        const path = destination === strategicObject?.object.position ? strategicObject.path : findPath(state, ai.position, destination, aiId)
+        if (strategicObject && best.length && destination !== strategicObject.object.position) continue
+        if (path.length && (!best.length || destination === strategicObject?.object.position || pathCost(state, path) < pathCost(state, best))) best = path
+      }
       if (best.length) {
         let cost = 0, destination = ai.position, steps = 0
         for (const p of best) { const step = pathCost(state, [p]); if (cost + step > ai.movement) break; cost += step; destination = p; steps++ }
