@@ -1488,6 +1488,42 @@ describe('standard card scenarios', () => {
     expect(result.history.some(entry => entry.includes('湿地导雷'))).toBe(false)
   })
 
+  it('treats Lightning as source-less damage for Ganglie', () => {
+    const lightning = card('lightning'), hit = card('slash', 'spade', 5), retaliationJudge = card('dismantle', 'club', 8), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [hit, retaliationJudge, drawA, drawB]
+    state.units.player = { ...state.units.player, name: '夏侯惇', skill: 'ganglie', skills: ['ganglie'], hp: 5, maxHp: 5, hand: [], judgement: [lightning] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hp).toBe(2)
+    expect(result.units.player.hand).toEqual([retaliationJudge, drawA])
+    expect(result.deck).toEqual([drawB])
+    expect(result.history.some(entry => entry.includes('刚烈'))).toBe(false)
+  })
+
+  it('does not let Feedback select a source after Lightning damage', () => {
+    const lightning = card('lightning'), hit = card('slash', 'spade', 5), drawA = card('slash'), drawB = card('dodge'), mount = card('redHare', 'heart')
+    const state = createInitialState([])
+    state.deck = [hit, drawA, drawB]
+    state.units.player = { ...state.units.player, name: '司马懿', skill: 'feedback', skills: ['feedback', 'guicai'], hp: 4, maxHp: 4, hand: [], equipment: { offensiveMount: mount }, judgement: [lightning] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hp).toBe(1)
+    expect(result.pendingPlunder).toBeNull()
+    expect(result.units.player.hand).toEqual([drawA, drawB])
+    expect(result.units.player.equipment.offensiveMount).toEqual(mount)
+  })
+
+  it('lets Jianxiong gain the source-less Lightning card', () => {
+    const lightning = card('lightning'), hit = card('slash', 'spade', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [hit, drawA, drawB]
+    state.units.player = { ...state.units.player, name: '曹操', skill: 'jianxiong', skills: ['jianxiong', 'hujia'], hp: 5, maxHp: 5, hand: [], judgement: [lightning] }
+    const result = beginTurn(state, 'player')
+    expect(result.units.player.hp).toBe(2)
+    expect(result.units.player.hand).toEqual([lightning, drawA, drawB])
+    expect(result.discard).not.toContainEqual(lightning)
+    expect(result.history.some(entry => entry.includes('奸雄'))).toBe(true)
+  })
+
   it('automatically nullifies a hostile tactic', () => {
     const duel = card('duel'), nullify = card('nullify', 'club', 12)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, hand: [duel] }, north: { ...state.units.north, hand: [nullify] } } }))

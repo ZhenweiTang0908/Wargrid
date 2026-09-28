@@ -350,9 +350,9 @@ function rescueDyingPlayer(state: GameState, startingHp: number) {
   return { state: working, hp, helpers }
 }
 
-function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card): Partial<GameState> {
+function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card, sourceLess = false): Partial<GameState> {
   const target = state.units[targetId]
-  if (amount > 1 && target.equipment.armor?.kind === 'silverLion' && state.units[attackerId].equipment.weapon?.kind !== 'qinggang') {
+  if (amount > 1 && target.equipment.armor?.kind === 'silverLion' && (sourceLess || state.units[attackerId].equipment.weapon?.kind !== 'qinggang')) {
     amount = 1; message += '；【白银狮子】将伤害减至 1'
   }
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
@@ -364,7 +364,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     return {
       units: { ...state.units, [targetId]: { ...target, hp, animation: 'hit' } },
       deck: state.deck, discard: state.discard,
-      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt },
+      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, prompt },
       message: prompt,
       history: log(state, `${target.name}进入濒死状态`),
     }
@@ -399,10 +399,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     const requiredCount = 1 - hp
     const prompt = `${target.name}进入濒死状态，还需要 ${requiredCount} 张【桃】，是否援救？`
     units = { ...units, [targetId]: { ...units[targetId], revealed: target.revealed } }
-    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
+    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
   }
   let deck = rescuedDeck
-  const hasKiller = hp <= 0 && attackerId !== targetId
+  const hasKiller = hp <= 0 && !sourceLess && attackerId !== targetId
   if (hp <= 0) {
     const defeated = units[targetId]
     const deathDiscard = [
@@ -424,7 +424,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   }
   let winner = determineWinner(units)
   const identityName = target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'
-  const finalMessage = hp > 0 ? message : attackerId === targetId ? `${target.name}阵亡，其身份是${identityName}！` : `${state.units[attackerId].name}击败了${target.name}，其身份是${identityName}！`
+  const finalMessage = hp > 0 ? message : sourceLess || attackerId === targetId ? `${target.name}阵亡，其身份是${identityName}！` : `${state.units[attackerId].name}击败了${target.name}，其身份是${identityName}！`
   let skillText = ''
   if (hp > 0 && target.skills.includes('jianxiong')) {
     const sourceIndex = sourceCard ? discard.findIndex(card => card.id === sourceCard.id) : -1
@@ -435,7 +435,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
       skillText = `；${target.name}发动【奸雄】获得造成伤害的【${CARD_LABEL[gained.kind]}】`
     }
   }
-  if (hp > 0 && target.skill === 'feedback') {
+  if (hp > 0 && !sourceLess && target.skill === 'feedback') {
     const attacker = units[attackerId]
     const gained = attacker.hand[0] ?? attacker.equipment.weapon ?? attacker.equipment.armor ?? attacker.equipment.offensiveMount ?? attacker.equipment.defensiveMount
     if (gained) {
@@ -457,7 +457,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, ...insight.drawn], animation: 'cast' } }
     skillText += `；${target.name}发动【遗计】${amount} 次，摸${amount * 2}张牌`
   }
-  if (hp > 0 && target.skill === 'ganglie') {
+  if (hp > 0 && !sourceLess && target.skill === 'ganglie') {
     const judged = drawWhileResolving(deck, discard, 1, sourceCard), judge = judged.drawn[0]
     deck = judged.deck; discard = judge ? [...judged.discard, judge] : judged.discard
     if (judge && judge.suit !== 'heart') {
@@ -483,7 +483,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${finalMessage}${skillText}`, history: log(state, `${finalMessage}${skillText}${rewardText}`) }
 }
 
-function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder', sourceCard?: Card): Partial<GameState> {
+function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder', sourceCard?: Card, sourceLess = false): Partial<GameState> {
   const target = state.units[targetId]
   const linked = target.chained ? [targetId, ...state.turnOrder.filter(id => id !== targetId && state.units[id].hp > 0 && state.units[id].chained)] : [targetId]
   let working: GameState = {
@@ -505,7 +505,7 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
       const message = `${working.units[id].name}所处水域熄灭了火焰${transmitted}`
       working = { ...working, message, history: log(working, message) }
     } else {
-      working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`, false, sourceCard) }
+      working = { ...working, ...damage(working, attackerId, id, finalAmount, `${working.units[id].name}受到 ${finalAmount} 点${label}伤害${transmitted}${terrainText}`, false, sourceCard, sourceLess) }
       working = { ...working, units: { ...working.units, [id]: { ...working.units[id], animation: nature === 'fire' ? 'fireHit' : 'thunderHit' } } }
     }
     if (working.pendingResponse || working.winner) break
@@ -1014,7 +1014,7 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
       const hit = judge.suit === 'spade' && judge.rank >= 2 && judge.rank <= 9
       if (hit) {
         const message = `${owner.name}的【闪电】判定为${judgeName}，受到 3 点雷电伤害`
-        working = { ...working, message, history: log(working, message), ...elementalDamage(working, team, team, 3, 'thunder') }
+        working = { ...working, message, history: log(working, message), ...elementalDamage(working, team, team, 3, 'thunder', delayed, true) }
       }
       else {
         const opponent = nextLightningTarget(working, team)
@@ -1478,7 +1478,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         } else {
           const afterSupport = support?.state ?? base
           const deathBase = { ...afterSupport, units: { ...afterSupport.units, [pending.target]: { ...target, hp: 1 } } }
-          base = { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true) }
+          base = { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true, undefined, pending.sourceLess) }
         }
       }
       if (pending.groupContinuation && base.pendingResponse?.effect === 'dying') {
@@ -1819,7 +1819,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const message = `${replacement ? `${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判；` : ''}${owner.name}的【${delayedName}】${result}`
     const settledDiscard = [...state.discard, ...(transferredLightning ? [] : [pending.delayed]), pending.original, ...(replacement ? [replacement] : [])].filter(card => !tiandu || card.id !== judge.id)
     let settled: GameState = { ...state, units, discard: settledDiscard, pendingJudgement: null, message, history: log(state, message) }
-    if (isLightning && failed) settled = { ...settled, ...elementalDamage(settled, pending.team, pending.team, 3, 'thunder') }
+    if (isLightning && failed) settled = { ...settled, ...elementalDamage(settled, pending.team, pending.team, 3, 'thunder', pending.delayed, true) }
     const skipPlay = pending.skipPlay || (!isLightning && !isSupplyShortage && failed)
     const skipDraw = pending.skipDraw || (isSupplyShortage && failed)
     const next = settled.pendingResponse

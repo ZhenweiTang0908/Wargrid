@@ -80,6 +80,7 @@ export interface PendingResponse {
   peachGardenCancelled?: string[]
   groupContinuation?: { kind: 'arrows' | 'barbarians'; source: Team; originCardId?: string; resolvedTargets: Team[] }
   kurouDraw?: { team: Team; count: number }
+  sourceLess?: boolean
 }
 
 export interface PendingHarvest {
