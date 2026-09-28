@@ -237,6 +237,12 @@ function resolveDrawTwo(state: GameState, source: Team, card: Card): GameState {
   return { ...state, units: { ...state.units, [source]: { ...actor, hand: [...actor.hand, ...draw.drawn] } }, deck: draw.deck, discard: [...draw.discard, card], message, history: log(state, message) }
 }
 
+function resolveKurouDraw(state: GameState, team: Team, count = 2): GameState {
+  const draw = drawCards(state.deck, state.discard, count)
+  const actor = state.units[team], message = `${actor.name}完成【苦肉】，摸两张牌`
+  return { ...state, units: { ...state.units, [team]: { ...actor, hand: [...actor.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
+}
+
 function resolvePlayerTrickAfterNullify(state: GameState, pending: PendingResponse): GameState {
   const trick = pending.trick
   const targetId = pending.nullifyTarget
@@ -1477,6 +1483,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (pending.groupContinuation && base.pendingResponse?.effect === 'dying') {
         base = { ...base, pendingResponse: { ...base.pendingResponse, groupContinuation: pending.groupContinuation } }
       }
+      if (pending.kurouDraw && !base.pendingResponse && !base.winner && base.units[pending.kurouDraw.team].hp > 0) {
+        base = resolveKurouDraw(base, pending.kurouDraw.team, pending.kurouDraw.count)
+      }
       if (base.pendingTurnStart && !base.pendingResponse) {
         const { team, skipPlay, skipDraw } = base.pendingTurnStart
         const ready = { ...base, pendingTurnStart: null }
@@ -2220,10 +2229,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateKurou: () => {
     const state = get(), player = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('kurou') || player.hp <= 0) return
-    const draw = drawCards(state.deck, state.discard, 2)
-    const message = `${player.name}发动【苦肉】，失去 1 点体力并摸两张牌`
-    const drawnState: GameState = { ...state, units: { ...state.units, player: { ...player, hand: [...player.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
-    set({ ...drawnState, ...damage(drawnState, 'player', 'player', 1, message) })
+    const message = `${player.name}发动【苦肉】，失去 1 点体力`
+    const lossState: GameState = { ...state, message, history: log(state, message) }
+    let resolved: GameState = { ...lossState, ...damage(lossState, 'player', 'player', 1, message) }
+    if (resolved.pendingResponse?.effect === 'dying') {
+      resolved = { ...resolved, pendingResponse: { ...resolved.pendingResponse, kurouDraw: { team: 'player', count: 2 } } }
+    } else if (!resolved.winner && resolved.units.player.hp > 0) {
+      resolved = resolveKurouDraw(resolved, 'player')
+    }
+    set(resolved)
   },
   activateGuose: () => {
     const state = get(), player = state.units.player

@@ -3632,15 +3632,32 @@ describe('standard card scenarios', () => {
     expect(state.history.filter(entry => entry.includes('苦肉')).length).toBeGreaterThanOrEqual(2)
   })
 
-  it('opens a dying response after Huang Gai uses Kurou at one health', () => {
+  it('does not draw Kurou cards before resolving death at one health', () => {
     useGameStore.getState().selectGeneral('kurou')
     const peach = card('peach', 'heart'), extra = card('slash')
-    useGameStore.setState(state => ({ deck: [peach, extra], discard: [], units: { ...state.units, player: { ...state.units.player, hp: 1, hand: [] } } }))
+    useGameStore.setState(state => ({ deck: [peach, extra], discard: [], units: {
+      player: { ...state.units.player, hp: 1, hand: [] },
+      north: { ...state.units.north, hand: [] },
+      east: { ...state.units.east, hand: [] },
+      west: { ...state.units.west, hand: [] },
+    } }))
     useGameStore.getState().activateKurou()
-    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'player' })
-    useGameStore.getState().respond(peach.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBeLessThanOrEqual(0)
+    expect(state.units.player.hand).toEqual([])
+    expect(state.deck).toEqual([peach, extra])
+  })
+
+  it('draws Kurou cards only after surviving its dying window', () => {
+    useGameStore.getState().selectGeneral('kurou')
+    const rescue = card('peach', 'heart'), first = card('slash'), second = card('dodge')
+    useGameStore.setState(state => ({ deck: [first, second], discard: [], units: { ...state.units, player: { ...state.units.player, hp: 1, hand: [rescue] } } }))
+    useGameStore.getState().activateKurou()
+    expect(useGameStore.getState()).toMatchObject({ deck: [first, second], pendingResponse: { effect: 'dying', target: 'player' } })
+    expect(useGameStore.getState().units.player.hand).toEqual([rescue])
+    useGameStore.getState().respond(rescue.id)
     expect(useGameStore.getState().units.player.hp).toBe(1)
-    expect(useGameStore.getState().units.player.hand).toEqual([extra])
+    expect(useGameStore.getState().units.player.hand).toEqual([first, second])
   })
 
   it('lets Lu Meng skip discarding through Keji after using no slash', () => {
