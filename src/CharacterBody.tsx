@@ -6,6 +6,40 @@ type Props = { unit: Unit; color: string; darkColor: string; accent: string }
 const armoredSkills = new Set(['wusheng', 'longdan', 'ganglie', 'jianxiong', 'tuxi', 'luoyi', 'paoxiao', 'wushuang', 'tieqi', 'mashu', 'yingzi', 'zhiheng', 'qixi', 'kurou'])
 const beardSkills = new Set(['wusheng', 'jianxiong', 'paoxiao', 'ganglie', 'rende', 'wushuang', 'luoyi'])
 
+function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }) {
+  const gold = '#c9a766'
+  if (skill === 'guanxing' || skill === 'kongcheng' || skill === 'jizhi' || skill === 'qicai') return <group>
+    <mesh position={[0, 1.61, -.08]} rotation-z={-.06} castShadow><cylinderGeometry args={[.17, .2, .075, 12]} /><meshStandardMaterial color="#443d33" roughness={.8} /></mesh>
+    <mesh position={[0, 1.69, -.07]} castShadow><coneGeometry args={[.19, .17, 12]} /><meshStandardMaterial color={skill === 'guanxing' || skill === 'kongcheng' ? '#e0d4b8' : accent} roughness={.72} /></mesh>
+    <mesh position={[0, 1.76, -.07]}><sphereGeometry args={[.035, 8, 6]} /><meshStandardMaterial color={gold} metalness={.72} roughness={.3} /></mesh>
+    {(skill === 'guanxing' || skill === 'kongcheng') && <group position={[.29, 1.11, -.12]} rotation={[.12, -.25, -.28]}>
+      <mesh><boxGeometry args={[.045, .52, .025]} /><meshStandardMaterial color="#6b4b2f" roughness={.78} /></mesh>
+      {[-1, 0, 1].map(index => <mesh key={index} position={[index * .035, .28 + index * .025, .02]} rotation-z={index * .18}><coneGeometry args={[.045, .22, 5]} /><meshStandardMaterial color={index === 0 ? '#e2d1a4' : '#a98b58'} roughness={.76} /></mesh>)}
+    </group>}
+  </group>
+  if (skill === 'wushuang' || skill === 'jianxiong' || skill === 'hujia') return <group>
+    <mesh position={[0, 1.59, -.01]} rotation-x={-.08} castShadow><torusGeometry args={[.2, .026, 7, 18]} /><meshStandardMaterial color={gold} metalness={.78} roughness={.28} /></mesh>
+    {[-1, 1].map(side => <mesh key={side} position={[side * .15, 1.72, -.02]} rotation-z={side * -.18} castShadow><coneGeometry args={[.07, .28, 6]} /><meshStandardMaterial color={accent} metalness={.25} roughness={.56} /></mesh>)}
+    <mesh position={[0, 1.72, -.02]}><sphereGeometry args={[.042, 10, 8]} /><meshStandardMaterial color={gold} metalness={.8} roughness={.25} /></mesh>
+  </group>
+  if (skill === 'luoshen' || skill === 'qingguo' || skill === 'guose' || skill === 'liuli' || skill === 'jieyin' || skill === 'xiaoji' || skill === 'biyue' || skill === 'lijian') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * .2, 1.52, .08]}>
+      <mesh position-y={.05} rotation-z={side * .26}><capsuleGeometry args={[.022, .24, 5, 9]} /><meshStandardMaterial color={gold} metalness={.68} roughness={.34} /></mesh>
+      <mesh position={[side * .035, .18, .01]}><sphereGeometry args={[.052, 10, 8]} /><meshStandardMaterial color={skill === 'luoshen' || skill === 'qingguo' ? '#8d83bd' : '#bd5c67'} metalness={.22} roughness={.4} /></mesh>
+    </group>)}
+    <mesh position={[0, 1.6, -.12]} rotation-z={Math.PI / 2}><torusGeometry args={[.13, .018, 6, 14, Math.PI]} /><meshStandardMaterial color={accent} metalness={.42} roughness={.45} /></mesh>
+  </group>
+  if (skill === 'qixi' || skill === 'tuxi' || skill === 'kurou') return <group>
+    <mesh position={[0, 1.49, -.01]} rotation-z={-.05} castShadow><torusGeometry args={[.27, .035, 7, 18, Math.PI * 1.35]} /><meshStandardMaterial color={skill === 'qixi' ? '#1b5d65' : '#4b3030'} roughness={.78} /></mesh>
+    <mesh position={[.26, 1.38, .13]} rotation-z={-.35}><boxGeometry args={[.07, .42, .045]} /><meshStandardMaterial color={skill === 'qixi' ? '#2b8b92' : '#6b4c3c'} roughness={.74} /></mesh>
+  </group>
+  if (skill === 'tieqi' || skill === 'mashu' || skill === 'paoxiao' || skill === 'luoyi') return <group>
+    <mesh position={[0, 1.66, -.04]} rotation-z={-.1} castShadow><coneGeometry args={[.055, .42, 6]} /><meshStandardMaterial color={accent} metalness={.32} roughness={.5} /></mesh>
+    <mesh position={[0, 1.49, .12]} rotation-z={Math.PI / 2}><torusGeometry args={[.25, .026, 7, 18, Math.PI]} /><meshStandardMaterial color={gold} metalness={.72} roughness={.3} /></mesh>
+  </group>
+  return null
+}
+
 export function CharacterBody({ unit, color, darkColor, accent }: Props) {
   const armored = armoredSkills.has(unit.skill)
   const female = unit.gender === 'female'
@@ -83,6 +117,7 @@ export function CharacterBody({ unit, color, darkColor, accent }: Props) {
       <mesh position={[0, 1.55, -.1]}><sphereGeometry args={[.105, 12, 10]} /><meshStandardMaterial color={hair} roughness={.95} /></mesh>
       <mesh position={[0, 1.63, -.1]}><cylinderGeometry args={[.035, .052, .13, 9]} /><meshStandardMaterial color={gold} metalness={.62} roughness={.4} /></mesh>
     </>}
+    <HeroRegalia skill={unit.skill} accent={accent} />
     {beardSkills.has(unit.skill) && <>
       <mesh position={[0, 1.02, .19]} scale={[unit.skill === 'wusheng' ? .65 : .75, unit.skill === 'wusheng' ? 1.5 : .8, .45]}><coneGeometry args={[.18, .34, 12]} /><meshStandardMaterial color={hair} roughness={1} /></mesh>
       {[-1, 1].map(side => <mesh key={`mustache-${side}`} position={[side * .085, 1.07, .276]} rotation-z={side * -.55}><capsuleGeometry args={[.021, .1, 4, 8]} /><meshStandardMaterial color={hair} roughness={1} /></mesh>)}
