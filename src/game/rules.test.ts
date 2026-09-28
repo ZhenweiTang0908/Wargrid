@@ -341,7 +341,7 @@ describe('identity victory rules', () => {
     expect(determineWinner(units)).toBe('west')
   })
 
-  it('does not award a dead rebel after the lord falls', () => {
+  it('awards the rebel camp when the lord falls even if its rebel is already dead', () => {
     const state = createInitialState(fixedDeck())
     const units = {
       ...state.units,
@@ -350,6 +350,6 @@ describe('identity victory rules', () => {
       north: { ...state.units.north, hp: 1 },
       west: { ...state.units.west, hp: 1 },
     }
-    expect(determineWinner(units)).toBeNull()
+    expect(determineWinner(units)).toBe('east')
   })
 })

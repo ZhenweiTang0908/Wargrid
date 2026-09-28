@@ -2212,6 +2212,25 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBe('east')
   })
 
+  it('finishes with a rebel-camp victory when the lord dies after the rebel', () => {
+    useGameStore.setState(state => ({
+      currentUnit: 'west', phase: 'ai',
+      units: {
+        ...state.units,
+        player: { ...state.units.player, hp: 0, hand: [] },
+        north: { ...state.units.north, identity: 'loyalist', hp: 2, hand: [] },
+        east: { ...state.units.east, identity: 'rebel', hp: 0, hand: [] },
+        west: { ...state.units.west, identity: 'renegade', hp: 2, hand: [] },
+      },
+      pendingResponse: { effect: 'dying', source: 'west', target: 'player', required: 'peach', prompt: '主公濒死' },
+    }))
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.phase).toBe('finished')
+    expect(state.winner).toBe('east')
+    expect(state.units.east.hp).toBe(0)
+  })
+
   it('lets Sima Yi gain a source card through Feedback', () => {
     const attack = card('slash', 'heart'), spare = card('peach', 'diamond', 3)
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 0, y: 3 }, hand: [attack, spare] }, west: { ...state.units.west, position: { x: 0, y: 4 }, hand: [] } } }))
