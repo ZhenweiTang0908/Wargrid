@@ -2452,6 +2452,71 @@ describe('standard card scenarios', () => {
     expect(state.message).toContain('护驾')
   })
 
+  it('lets Hujia provide both dodges against Wushuang one at a time', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const slash = card('slash'), first = card('dodge', 'heart', 2), second = card('dodge', 'diamond', 3)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: {
+        ...state.units,
+        east: { ...state.units.east, skill: 'wushuang', position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [] },
+        north: { ...state.units.north, faction: 'wei', hand: [first, second] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse?.requiredCount).toBe(1)
+    expect(useGameStore.getState().units.north.hand).toEqual([second])
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+    expect(state.message).toContain('护驾')
+  })
+
+  it('combines the lord own first Dodge with a second Dodge from Hujia', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const slash = card('slash'), own = card('dodge', 'heart', 4), assisted = card('dodge', 'diamond', 5)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: {
+        ...state.units,
+        east: { ...state.units.east, skill: 'wushuang', position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [own] },
+        north: { ...state.units.north, faction: 'wei', hand: [assisted] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(own.id)
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([own, assisted]))
+  })
+
+  it('lets an AI Wei ally satisfy Wushuang Hujia with two Dodges', () => {
+    useGameStore.getState().selectGeneral('wushuang')
+    const slash = card('slash'), first = card('dodge', 'heart', 6), second = card('dodge', 'diamond', 7)
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+      north: { ...state.units.north, identity: 'lord', skills: ['jianxiong', 'hujia'], position: { x: 4, y: 0 }, hand: [] },
+      east: { ...state.units.east, identity: 'loyalist', faction: 'wei', hand: [first, second] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([first, second]))
+    expect(state.message).toContain('护驾')
+  })
+
   it('does not allow Hujia without matching Wei factions', () => {
     useGameStore.getState().selectGeneral('jianxiong')
     const slash = card('slash'), dodge = card('dodge', 'heart', 2)

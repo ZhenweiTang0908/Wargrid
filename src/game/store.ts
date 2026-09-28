@@ -206,14 +206,23 @@ export function greenDragonChoices(state: GameState, attackerId: Team, targetId:
   })
 }
 const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
-const loyalGuard = (state: GameState, targetId: Team) => {
+const loyalGuards = (state: GameState, targetId: Team, count = 1) => {
   if (state.units[targetId].identity !== 'lord' || !state.units[targetId].skills.includes('hujia')) return null
+  const guards: { unit: Unit; dodge: Card }[] = []
   for (const unit of alliesFor(state, targetId)) {
-    const dodge = unit.id !== targetId && unit.faction === 'wei' && unit.hp > 0 ? responseCard(unit, 'dodge') : undefined
-    if (dodge) return { unit, dodge }
+    if (unit.id === targetId || unit.faction !== 'wei' || unit.hp <= 0) continue
+    let hand = unit.hand
+    while (guards.length < count) {
+      const dodge = responseCard({ ...unit, hand }, 'dodge')
+      if (!dodge) break
+      guards.push({ unit, dodge })
+      hand = hand.filter(card => card.id !== dodge.id)
+    }
+    if (guards.length === count) break
   }
-  return null
+  return guards.length ? guards : null
 }
+const loyalGuard = (state: GameState, targetId: Team) => loyalGuards(state, targetId)?.[0] ?? null
 
 const harvestCardValue = (unit: Unit, card: Card) => card.kind === 'peach' && unit.hp < unit.maxHp ? 100
   : card.kind === 'dodge' ? 80
@@ -888,19 +897,28 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
   const shieldBlocks = target.equipment.armor?.kind === 'shield' && blackSlash && attacker.equipment.weapon?.kind !== 'qinggang'
   const availableDodges = target.hand.filter(card => card.kind === 'dodge' || (target.skill === 'longdan' && isSlashKind(card.kind)) || (target.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   const requiredDodges = attacker.skill === 'wushuang' && manualResponse === undefined ? (baguaDodge ? 1 : 2) : 1
-  const dodgeCards = shieldBlocks ? [] : manualResponse === undefined ? (availableDodges.length >= requiredDodges ? availableDodges.slice(0, requiredDodges) : []) : manualResponse ? [manualResponse] : []
+  const ownDodges = shieldBlocks ? [] : manualResponse === undefined ? availableDodges.slice(0, requiredDodges) : manualResponse ? [manualResponse] : []
+  const guardResponses = !shieldBlocks && manualResponse === undefined && ownDodges.length < requiredDodges ? loyalGuards(state, targetId, requiredDodges - ownDodges.length) ?? [] : !shieldBlocks && manualResponse === null ? loyalGuards(state, targetId) ?? [] : []
+  const defended = ownDodges.length + guardResponses.length >= requiredDodges
+  const dodgeCards = defended ? ownDodges : []
   const dodge = dodgeCards[0]
-  const guard = !shieldBlocks && !dodge && attacker.skill !== 'wushuang' ? loyalGuard(state, targetId) : null
   const updatedAttacker = { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' as const }
-  if (shieldBlocks || dodge || guard) {
+  if (shieldBlocks || defended) {
     const dodgeIds = new Set(dodgeCards.map(card => card.id))
     const updatedTarget = dodge ? { ...target, hand: target.hand.filter(c => !dodgeIds.has(c.id)) } : target
-    const guardedUnits = guard ? { ...state.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' as const } } : state.units
-    const responseDiscard = dodge ? [...state.discard, ...dodgeCards] : guard ? [...state.discard, guard.dodge] : state.discard
-    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : guard ? `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}` : baguaDodge ? `${target.name}的【八卦阵】视为第一张【闪】，再${responseText(target, dodge!, 'dodge')}响应【无双】` : `${target.name}${dodgeCards.length > 1 ? `${dodgeCards.map(card => responseText(target, card, 'dodge')).join('，')}响应【无双】` : responseText(target, dodge!, 'dodge')}`
+    let guardedUnits = state.units
+    for (const { unit, dodge: guardedDodge } of guardResponses) {
+      const latest = guardedUnits[unit.id]
+      guardedUnits = { ...guardedUnits, [unit.id]: { ...latest, hand: latest.hand.filter(card => card.id !== guardedDodge.id), animation: 'cast' as const } }
+    }
+    const guardCards = guardResponses.map(({ dodge: guardedDodge }) => guardedDodge)
+    const responseDiscard = shieldBlocks ? state.discard : [...state.discard, ...dodgeCards, ...guardCards]
+    const ownText = baguaDodge ? `${target.name}的【八卦阵】视为第一张【闪】` : dodgeCards.length ? `${target.name}${dodgeCards.map(card => responseText(target, card, 'dodge')).join('，')}` : ''
+    const guardText = guardResponses.map(({ unit, dodge: guardedDodge }) => `${unit.name}响应主公技【护驾】，${responseText(unit, guardedDodge, 'dodge')}`).join('；')
+    const message = shieldBlocks ? `${target.name}的【仁王盾】挡住黑色【杀】` : `${[ownText, guardText].filter(Boolean).join('；')}响应${requiredDodges > 1 || baguaDodge ? '【无双】' : '【杀】'}`
     let defendedState: GameState = { ...state, units: { ...guardedUnits, [attackerId]: updatedAttacker, [targetId]: updatedTarget }, discard: responseDiscard, message, history: log(state, message) }
-    if (dodge && manualResponse === undefined) defendedState = triggerLianying(defendedState, targetId, [...dodgeCards, ...sourceCards])
-    if (guard) defendedState = triggerLianying(defendedState, guard.unit.id, [guard.dodge, ...sourceCards])
+    if (dodge && manualResponse === undefined) defendedState = triggerLianying(defendedState, targetId, [...dodgeCards, ...guardCards, ...sourceCards])
+    for (const guardId of new Set(guardResponses.map(({ unit }) => unit.id))) defendedState = triggerLianying(defendedState, guardId, [...dodgeCards, ...guardCards, ...sourceCards])
     if (!shieldBlocks) {
       const forced = axeAfterDodge(defendedState, attackerId, targetId, slashCard, 1 + (attacker.drunk ? 1 : 0) + (attacker.luoyiActive ? 1 : 0))
       if (forced) return forced
@@ -1851,6 +1869,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: { ...pending, requiredCount: remaining, resolvingResponseIds: [...(pending.resolvingResponseIds ?? []), card.id], prompt }, message: prompt, history: log(base, `${player.name}为【无双】打出第一张【闪】`) }
       base = triggerLianying(base, 'player', base.discard.filter(item => item.id === pending.originCardId || item.id === card.id || pending.resolvingResponseIds?.includes(item.id)))
       set(base); return
+    }
+    if (pending.effect === 'slash' && !card && (pending.requiredCount ?? 1) > 1) {
+      const guard = loyalGuard(base, 'player')
+      if (guard) {
+        const remaining = (pending.requiredCount ?? 1) - 1
+        const prompt = `【护驾】提供一张【闪】；【无双】还需打出 ${remaining} 张【闪】`
+        const paid = payRescueCard(base, guard.unit.id, guard.dodge, base.discard.filter(item => item.id === pending.originCardId || pending.resolvingResponseIds?.includes(item.id)))
+        base = { ...paid, pendingResponse: { ...pending, requiredCount: remaining, resolvingResponseIds: [...(pending.resolvingResponseIds ?? []), guard.dodge.id], prompt }, message: prompt, history: log(paid, `${guard.unit.name}响应主公技【护驾】，${responseText(guard.unit, guard.dodge, 'dodge')}`) }
+        set(base); return
+      }
     }
     if (card) {
       const player = base.units.player
