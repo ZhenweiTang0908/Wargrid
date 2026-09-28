@@ -545,10 +545,15 @@ function resolveDamageTriggers(state: GameState, attackerId: Team, targetId: Tea
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${message}${skillText}`, history: log(state, `${message}${skillText}`) }
 }
 
-function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card, sourceLess = false, sourceCards: Card[] = sourceCard ? [sourceCard] : []): Partial<GameState> {
+function finishHpLoss(state: GameState, message: string): Partial<GameState> {
+  const winner = determineWinner(state.units)
+  return { winner, phase: winner ? 'finished' : state.phase, message, history: log(state, message) }
+}
+
+function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card, sourceLess = false, sourceCards: Card[] = sourceCard ? [sourceCard] : [], hpLoss = false): Partial<GameState> {
   const target = state.units[targetId]
-  sourceLess ||= state.units[attackerId].hp <= 0
-  if (amount > 1 && target.equipment.armor?.kind === 'silverLion' && (sourceLess || state.units[attackerId].equipment.weapon?.kind !== 'qinggang')) {
+  sourceLess ||= hpLoss || state.units[attackerId].hp <= 0
+  if (!hpLoss && amount > 1 && target.equipment.armor?.kind === 'silverLion' && (sourceLess || state.units[attackerId].equipment.weapon?.kind !== 'qinggang')) {
     amount = 1; message += '；【白银狮子】将伤害减至 1'
   }
   let hp = target.hp - amount, hand = target.hand, discard = state.discard
@@ -560,7 +565,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     return {
       units: { ...state.units, [targetId]: { ...target, hp, animation: 'hit' } },
       deck: state.deck, discard: state.discard,
-      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, damageResolution: { source: attackerId, target: targetId, amount, message, sourceCardIds: sourceCards.map(card => card.id), sourceLess }, prompt },
+      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, damageResolution: { source: attackerId, target: targetId, amount, message, sourceCardIds: sourceCards.map(card => card.id), sourceLess, hpLoss }, prompt },
       message: prompt,
       history: log(state, `${target.name}进入濒死状态`),
     }
@@ -595,9 +600,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     const requiredCount = 1 - hp
     const prompt = `${target.name}进入濒死状态，还需要 ${requiredCount} 张【桃】，是否援救？`
     units = { ...units, [targetId]: { ...units[targetId], revealed: target.revealed } }
-    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, damageResolution: { source: attackerId, target: targetId, amount, message, sourceCardIds: sourceCards.map(card => card.id), sourceLess }, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
+    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, damageResolution: { source: attackerId, target: targetId, amount, message, sourceCardIds: sourceCards.map(card => card.id), sourceLess, hpLoss }, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
   }
   let deck = rescuedDeck
+  if (hp > 0 && hpLoss) return { units, deck, discard, ...finishHpLoss({ ...state, units, deck, discard }, message) }
   if (hp > 0) return resolveDamageTriggers({ ...state, units, deck, discard }, attackerId, targetId, amount, message, sourceCards, sourceLess)
   const hasKiller = hp <= 0 && !sourceLess && attackerId !== targetId
   if (hp <= 0) {
@@ -625,6 +631,9 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
   const rewardText = hasKiller && target.identity === 'rebel' ? '；击杀反贼摸三张牌' : hasKiller && units[attackerId].identity === 'lord' && target.identity === 'loyalist' ? '；主公误杀忠臣，弃置所有牌' : ''
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: finalMessage, history: log(state, `${finalMessage}${rewardText}`) }
 }
+
+const loseHp = (state: GameState, targetId: Team, amount: number, message: string, skipRescue = false) =>
+  damage(state, targetId, targetId, amount, message, skipRescue, undefined, true, [], true)
 
 function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder', sourceCard?: Card, sourceLess = false, sourceCards: Card[] = sourceCard ? [sourceCard] : []): Partial<GameState> {
   const target = state.units[targetId]
@@ -1754,7 +1763,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         } else {
           const afterSupport = support?.state ?? base
           const deathBase = { ...afterSupport, units: { ...afterSupport.units, [pending.target]: { ...target, hp: 1 } } }
-          base = { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true, undefined, pending.sourceLess) }
+          base = pending.damageResolution?.hpLoss
+            ? { ...afterSupport, ...loseHp(deathBase, pending.target, 1, `${target.name}无人援救，阵亡！`, true) }
+            : { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true, undefined, pending.sourceLess) }
         }
       }
       if (!base.pendingResponse && pending.damageResolution && base.units[pending.damageResolution.target].hp > 0) {
@@ -1762,7 +1773,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const sourceIds = new Set(resolution.sourceCardIds ?? [])
         const sourceCards = base.discard.filter(candidate => sourceIds.has(candidate.id))
         const resolvedMessage = base.message === pending.prompt ? resolution.message : `${resolution.message}；${base.message}`
-        base = { ...base, ...resolveDamageTriggers(base, resolution.source, resolution.target, resolution.amount, resolvedMessage, sourceCards, resolution.sourceLess) }
+        base = resolution.hpLoss
+          ? { ...base, ...finishHpLoss(base, resolvedMessage) }
+          : { ...base, ...resolveDamageTriggers(base, resolution.source, resolution.target, resolution.amount, resolvedMessage, sourceCards, resolution.sourceLess) }
       }
       if (pending.kurouDraw && !hasDamageResolutionPrompt(base) && !base.winner && base.units[pending.kurouDraw.team].hp > 0) {
         base = resolveKurouDraw(base, pending.kurouDraw.team, pending.kurouDraw.count)
@@ -2578,8 +2591,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get(), player = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || !player.skills.includes('kurou') || player.hp <= 0) return
     const message = `${player.name}发动【苦肉】，失去 1 点体力`
-    const lossState: GameState = { ...state, message, history: log(state, message) }
-    let resolved: GameState = { ...lossState, ...damage(lossState, 'player', 'player', 1, message) }
+    const lossState: GameState = { ...state, message }
+    let resolved: GameState = { ...lossState, ...loseHp(lossState, 'player', 1, message) }
     if (resolved.pendingResponse?.effect === 'dying') {
       resolved = { ...resolved, pendingResponse: { ...resolved.pendingResponse, kurouDraw: { team: 'player', count: 2 } } }
     } else if (!resolved.winner && resolved.units.player.hp > 0) {
@@ -2736,9 +2749,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
     if (ai.skills.includes('kurou') && ai.hp > 2) {
-      const draw = drawCards(state.deck, state.discard, 2), message = `${ai.name}发动【苦肉】，失去 1 点体力并摸两张牌`
-      const drawnState: GameState = { ...state, units: { ...state.units, [aiId]: { ...ai, hand: [...ai.hand, ...draw.drawn], animation: 'cast' } }, deck: draw.deck, discard: draw.discard, message, history: log(state, message) }
-      set({ ...drawnState, ...damage(drawnState, aiId, aiId, 1, message) })
+      const message = `${ai.name}发动【苦肉】，失去 1 点体力`
+      const lostState: GameState = { ...state, ...loseHp(state, aiId, 1, message) }
+      set(!lostState.winner && lostState.units[aiId].hp > 0 ? resolveKurouDraw(lostState, aiId) : lostState)
       await wait(280); state = get(); ai = state.units[aiId]
     }
     const cache = state.mapObjects.find(item => !item.claimed && (item.kind !== 'healingShrine' || ai.hp < ai.maxHp) && Math.abs(ai.position.x - item.position.x) + Math.abs(ai.position.y - item.position.y) <= 1)

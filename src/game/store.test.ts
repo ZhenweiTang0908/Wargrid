@@ -4418,6 +4418,21 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().units.player.hand).toEqual([first, second])
   })
 
+  it('treats Kurou as health loss instead of damage after a dying rescue', () => {
+    useGameStore.getState().selectGeneral('kurou')
+    const rescue = card('peach', 'heart'), rewards = [card('slash'), card('dodge'), card('duel'), card('nullify')]
+    useGameStore.setState(state => ({ deck: rewards, discard: [], units: { ...state.units,
+      player: { ...state.units.player, hp: 1, hand: [rescue], skills: ['kurou', 'yiji'] },
+    } }))
+    useGameStore.getState().activateKurou()
+    useGameStore.getState().respond(rescue.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toEqual(rewards.slice(0, 2))
+    expect(state.deck).toEqual(rewards.slice(2))
+    expect(state.history.some(entry => entry.includes('遗计'))).toBe(false)
+  })
+
   it('lets Lu Meng skip discarding through Keji after using no slash', () => {
     useGameStore.getState().selectGeneral('keji')
     const hand = Array.from({ length: 7 }, () => card('dodge'))

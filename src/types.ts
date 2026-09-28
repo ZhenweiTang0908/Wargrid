@@ -89,6 +89,7 @@ export interface PendingResponse {
     message: string
     sourceCardIds?: string[]
     sourceLess?: boolean
+    hpLoss?: boolean
   }
 }
 
