@@ -3,7 +3,7 @@ import type { Unit } from './types'
 
 type Props = { unit: Unit; color: string; darkColor: string; accent: string }
 
-const armoredSkills = new Set(['wusheng', 'longdan', 'ganglie', 'jianxiong', 'tuxi', 'luoyi', 'paoxiao', 'wushuang', 'tieqi', 'mashu', 'yingzi', 'zhiheng', 'qixi', 'kurou'])
+const armoredSkills = new Set(['wusheng', 'longdan', 'ganglie', 'jianxiong', 'tuxi', 'luoyi', 'paoxiao', 'wushuang', 'tieqi', 'mashu', 'yingzi', 'keji', 'zhiheng', 'qixi', 'kurou'])
 const beardSkills = new Set(['wusheng', 'jianxiong', 'paoxiao', 'ganglie', 'rende', 'wushuang', 'luoyi'])
 
 function Polearm({ kind, accent }: { kind: 'guandao' | 'spear' | 'serpent' | 'halberd'; accent: string }) {
@@ -80,6 +80,49 @@ function LuBuRegalia({ accent }: { accent: string }) {
   </group>
 }
 
+function LuMengRegalia({ accent }: { accent: string }) {
+  const gold = '#c4a15d'
+  return <group>
+    <mesh position={[0, 1.5, -.02]} castShadow><boxGeometry args={[.54, .105, .39]} /><meshStandardMaterial color="#233f40" metalness={.46} roughness={.5} /></mesh>
+    <mesh position={[0, 1.62, -.03]} castShadow><cylinderGeometry args={[.12, .15, .24, 8]} /><meshStandardMaterial color={gold} metalness={.78} roughness={.27} /></mesh>
+    <mesh position={[0, 1.75, -.03]}><sphereGeometry args={[.045, 10, 8]} /><meshStandardMaterial color={accent} emissive="#174845" emissiveIntensity={.4} metalness={.46} roughness={.31} /></mesh>
+    {[-1, 1].map(side => <group key={side}>
+      <mesh position={[side * .4, 1.02, -.01]} rotation-z={side * .26} castShadow><dodecahedronGeometry args={[.215, 0]} /><meshStandardMaterial color={side > 0 ? accent : '#3c7772'} metalness={.62} roughness={.38} /></mesh>
+      <mesh position={[side * .39, .62, -.29]} rotation-z={side * .17} castShadow><boxGeometry args={[.25, .78, .05]} /><meshStandardMaterial color="#d6d1bd" roughness={.92} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[side * .38, .96, .18]} rotation-z={side * .24}><boxGeometry args={[.12, .25, .04]} /><meshStandardMaterial color={gold} metalness={.72} roughness={.31} /></mesh>
+    </group>)}
+    <mesh position={[0, .87, .375]}><boxGeometry args={[.34, .34, .045]} /><meshStandardMaterial color="#265c59" metalness={.32} roughness={.52} /></mesh>
+    {[0, 1, 2].map(row => <mesh key={row} position={[0, 1.005 - row * .115, .405]}><boxGeometry args={[.28 - row * .025, .075, .025]} /><meshStandardMaterial color={row === 1 ? accent : gold} metalness={.66} roughness={.33} /></mesh>)}
+    <group position={[.31, .63, .16]} rotation-z={-.16}>
+      {[-.1, 0, .1].map((y, index) => <mesh key={index} position-y={y}><boxGeometry args={[.28, .055, .075]} /><meshStandardMaterial color="#9a7142" roughness={.78} /></mesh>)}
+      <mesh position={[.17, 0, .01]}><cylinderGeometry args={[.035, .035, .34, 8]} /><meshStandardMaterial color={gold} metalness={.68} roughness={.32} /></mesh>
+    </group>
+  </group>
+}
+
+function ZhouYuRegalia({ accent }: { accent: string }) {
+  const gold = '#d2ad62'
+  return <group>
+    <mesh position={[0, 1.52, -.02]} castShadow><cylinderGeometry args={[.27, .235, .18, 10]} /><meshStandardMaterial color="#542422" metalness={.48} roughness={.44} /></mesh>
+    <mesh position={[0, 1.64, -.02]}><boxGeometry args={[.16, .29, .21]} /><meshStandardMaterial color={gold} metalness={.82} roughness={.25} /></mesh>
+    {[-1, 1].map(side => <group key={side}>
+      <mesh position={[side * .23, 1.69, -.01]} rotation-z={side * -.5} castShadow><coneGeometry args={[.052, .32, 6]} /><meshStandardMaterial color={gold} metalness={.86} roughness={.22} /></mesh>
+      <mesh position={[side * .41, 1.04, -.01]} rotation-z={side * .25} castShadow><dodecahedronGeometry args={[.22, 0]} /><meshStandardMaterial color={accent} metalness={.67} roughness={.34} /></mesh>
+      <mesh position={[side * .42, .58, -.3]} rotation-z={side * .19} castShadow><boxGeometry args={[.26, .84, .052]} /><meshStandardMaterial color={side > 0 ? '#7a2927' : '#9c3932'} roughness={.87} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[side * .42, 1.05, .17]}><sphereGeometry args={[.065, 10, 8]} /><meshStandardMaterial color={gold} metalness={.8} roughness={.26} /></mesh>
+    </group>)}
+    <mesh position={[0, .9, .39]} scale={[1.15, .8, .45]}><octahedronGeometry args={[.135]} /><meshStandardMaterial color={gold} metalness={.83} roughness={.24} /></mesh>
+    <group position={[-.36, .71, .16]} rotation={[.08, .2, .42]}>
+      <mesh position-y={-.22} castShadow><capsuleGeometry args={[.026, .37, 5, 9]} /><meshStandardMaterial color="#64402a" roughness={.78} /></mesh>
+      {[-2, -1, 0, 1, 2].map(index => <group key={index} position={[index * .055, .13 - Math.abs(index) * .02, 0]} rotation-z={index * -.14}>
+        <mesh position-y={.15} scale={[.72, 1.38, .34]} castShadow><capsuleGeometry args={[.052, .22, 5, 9]} /><meshStandardMaterial color={index === 0 ? '#f7f0dc' : '#ddd5c3'} roughness={.93} /></mesh>
+        <mesh position-y={.02}><cylinderGeometry args={[.009, .012, .31, 7]} /><meshStandardMaterial color={index === 0 ? accent : '#a99a7d'} roughness={.77} /></mesh>
+      </group>)}
+      <mesh position-y={-.03}><cylinderGeometry args={[.045, .035, .09, 9]} /><meshStandardMaterial color={gold} metalness={.68} roughness={.31} /></mesh>
+    </group>
+  </group>
+}
+
 function FeatherFan({ accent }: { accent: string }) {
   return <group position={[.34, .66, .16]} rotation={[.08, -.22, -.42]}>
     <mesh position-y={-.22} castShadow><capsuleGeometry args={[.027, .36, 5, 9]} /><meshStandardMaterial color="#5e3c29" roughness={.76} /></mesh>
@@ -123,6 +166,14 @@ function SignatureGear({ unit, accent }: { unit: Unit; accent: string }) {
     if (unit.skill === 'paoxiao') return <Polearm kind="serpent" accent={accent} />
     if (unit.skill === 'longdan' || unit.skill === 'tieqi') return <Polearm kind="spear" accent={accent} />
     if (unit.skill === 'wushuang') return <Polearm kind="halberd" accent={accent} />
+    if (unit.skill === 'keji') return <group position={[-.43, .75, -.08]} rotation-z={.18}>
+      <mesh position-y={.16} castShadow><cylinderGeometry args={[.032, .04, 1.55, 9]} /><meshStandardMaterial color="#5d3c27" roughness={.7} /></mesh>
+      <group position={[.06, .94, 0]} rotation-z={-.2}>
+        <mesh position={[.08, .08, 0]} rotation-z={-.18} scale={[1, 1.3, .65]} castShadow><boxGeometry args={[.17, .48, .055]} /><meshStandardMaterial color="#cbd3cf" metalness={.87} roughness={.18} /></mesh>
+        <mesh position={[.15, .27, 0]} rotation-z={-.55} castShadow><coneGeometry args={[.095, .3, 6]} /><meshStandardMaterial color="#e0e4df" metalness={.9} roughness={.15} /></mesh>
+        <mesh position={[-.02, -.2, 0]}><boxGeometry args={[.28, .065, .075]} /><meshStandardMaterial color="#c4a15d" metalness={.76} roughness={.29} /></mesh>
+      </group>
+    </group>
     if (unit.skill === 'jianxiong' || unit.skill === 'rende' || unit.skill === 'zhiheng' || unit.skill === 'yingzi') return <group position={[.34, .55, -.02]} rotation-z={-.48}>
       <mesh castShadow><capsuleGeometry args={[.035, .68, 6, 10]} /><meshStandardMaterial color="#32251f" roughness={.62} /></mesh>
       <mesh position-y={.38}><boxGeometry args={[.23, .045, .065]} /><meshStandardMaterial color="#c6a35f" metalness={.72} roughness={.3} /></mesh>
@@ -151,6 +202,8 @@ function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }
   const gold = '#c9a766'
   if (skill === 'paoxiao') return <ZhangFeiRegalia accent={accent} />
   if (skill === 'wushuang') return <LuBuRegalia accent={accent} />
+  if (skill === 'keji') return <LuMengRegalia accent={accent} />
+  if (skill === 'yingzi') return <ZhouYuRegalia accent={accent} />
   if (skill === 'guanxing' || skill === 'kongcheng' || skill === 'jizhi' || skill === 'qicai') return <group>
     <mesh position={[0, 1.61, -.08]} rotation-z={-.06} castShadow><cylinderGeometry args={[.17, .2, .075, 12]} /><meshStandardMaterial color="#443d33" roughness={.8} /></mesh>
     <mesh position={[0, 1.69, -.07]} castShadow><coneGeometry args={[.19, .17, 12]} /><meshStandardMaterial color={skill === 'guanxing' || skill === 'kongcheng' ? '#e0d4b8' : accent} roughness={.72} /></mesh>

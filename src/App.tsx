@@ -592,12 +592,6 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
         <group position={[-.4, .84, .1]} rotation={[0, 0, .38]}>{[0, 1, 2, 3, 4, 5].map(i => <mesh key={i} position={[(i - 2.5) * .052, .4, 0]} rotation-z={(i - 2.5) * -.1}><capsuleGeometry args={[.032, .5, 3, 6]} /><meshStandardMaterial color="#bfc2dd" transparent opacity={.86} /></mesh>)}</group>
         <Sparkles count={12} scale={.9} size={1.8} speed={.25} color="#b9b5ff" position-y={1.05} />
       </>}
-      {unit.skill === 'keji' && <>
-        <mesh position={[0, 1.48, 0]}><boxGeometry args={[.48, .13, .36]} /><meshStandardMaterial color="#263b3d" metalness={.6} /></mesh>
-        <mesh position={[0, 1.62, 0]}><cylinderGeometry args={[.11, .14, .24, 7]} /><meshStandardMaterial color="#ac8745" metalness={.8} /></mesh>
-        <group position={[-.42, .84, .08]} rotation={[0, 0, .35]}>{[0, 1, 2, 3, 4].map(i => <mesh key={i} position={[(i - 2) * .055, .43, 0]} rotation-z={(i - 2) * -.1}><capsuleGeometry args={[.034, .48, 3, 6]} /><meshStandardMaterial color="#d7cba8" /></mesh>)}</group>
-        <group position={[.44, .79, 0]} rotation-z={-.22}><mesh position-y={.3}><cylinderGeometry args={[.032, .032, 1.75, 7]} /><meshStandardMaterial color="#443122" /></mesh><mesh position={[0, 1.17, 0]}><boxGeometry args={[.18, .7, .055]} /><meshStandardMaterial color="#b9c3c0" metalness={.92} /></mesh></group>
-      </>}
       {unit.skill === 'kurou' && <>
         <mesh position={[0, 1.47, 0]}><cylinderGeometry args={[.3, .27, .18, 10]} /><meshStandardMaterial color="#4a2b25" metalness={.65} /></mesh>
         {[-.36, .36].map(x => <mesh key={x} position={[x, .9, 0]} rotation-z={x < 0 ? -.3 : .3}><boxGeometry args={[.3, .48, .34]} /><meshStandardMaterial color="#7e332a" metalness={.55} roughness={.5} /></mesh>)}
@@ -682,12 +676,6 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
         <group position={[.44, .84, 0]} rotation-z={-.2}><mesh position-y={.35}><cylinderGeometry args={[.035, .045, 1.55, 7]} /><meshStandardMaterial color="#725238" /></mesh><mesh position={[0, 1.08, 0]}><sphereGeometry args={[.12, 10, 8]} /><meshStandardMaterial color="#74a66d" emissive="#285927" emissiveIntensity={.8} /></mesh></group>
         <mesh position={[-.36, .74, .18]}><sphereGeometry args={[.2, 10, 8]} /><meshStandardMaterial color="#916943" roughness={.9} /></mesh>
         <mesh position={[-.36, .98, .18]}><torusGeometry args={[.08, .025, 6, 14]} /><meshStandardMaterial color="#b68c55" /></mesh>
-      </>}
-      {unit.skill === 'yingzi' && <>
-        <mesh position={[0, 1.48, 0]}><cylinderGeometry args={[.27, .23, .2, 8]} /><meshStandardMaterial color="#b88a42" metalness={.82} roughness={.25} /></mesh>
-        <mesh position={[0, 1.67, 0]}><boxGeometry args={[.13, .3, .22]} /><meshStandardMaterial color="#cfb064" metalness={.88} /></mesh>
-        <group position={[-.42, .84, .1]} rotation-z={.36}>{[0, 1, 2, 3, 4].map(i => <mesh key={i} position={[(i - 2) * .055, .43, 0]} rotation-z={(i - 2) * -.1}><capsuleGeometry args={[.032, .5, 3, 6]} /><meshStandardMaterial color="#eee4cf" /></mesh>)}</group>
-        <group position={[.45, .84, 0]} rotation-z={-.3}><mesh position-y={.3}><cylinderGeometry args={[.03, .03, 1.6, 7]} /><meshStandardMaterial color="#4e3120" /></mesh><mesh position={[0, 1.12, 0]}><boxGeometry args={[.15, .62, .06]} /><meshStandardMaterial color="#d5d5cc" metalness={.94} /></mesh></group>
       </>}
       {unit.skill === 'guanxing' && <>
         <mesh position={[0, 1.49, 0]}><boxGeometry args={[.54, .13, .38]} /><meshStandardMaterial color="#d8d7ca" roughness={.78} /></mesh>
