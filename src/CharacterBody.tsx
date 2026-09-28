@@ -45,6 +45,7 @@ export function CharacterBody({ unit, color, darkColor, accent }: Props) {
   const female = unit.gender === 'female'
   const hair = female ? '#251a20' : unit.skill === 'guanxing' ? '#5f6262' : '#211b1b'
   const skin = female ? '#e4bea4' : '#d6a67f'
+  const eyeWhite = female ? '#f7e7dc' : '#f0e8d5'
   const gold = '#c9a766'
   const cloth = female ? '#e0c9b7' : '#c2b59b'
   return <group>
@@ -99,9 +100,14 @@ export function CharacterBody({ unit, color, darkColor, accent }: Props) {
     <mesh position-y={1.21} castShadow><sphereGeometry args={[female ? .265 : .275, 24, 18]} /><meshStandardMaterial color={skin} roughness={.86} /></mesh>
     {[-1, 1].map(side => <group key={`face-side-${side}`}>
       <mesh position={[side * .267, 1.18, .012]}><sphereGeometry args={[.055, 12, 8]} /><meshStandardMaterial color={skin} roughness={.87} /></mesh>
-      <mesh position={[side * .098, 1.253, .251]} scale={[1, .62, .45]}><sphereGeometry args={[.039, 12, 8]} /><meshStandardMaterial color="#292126" roughness={.38} /></mesh>
+      <group position={[side * .098, 1.253, .251]} scale={[1, .62, .45]}>
+        <mesh scale={[1.2, 1, .72]}><sphereGeometry args={[.039, 12, 8]} /><meshStandardMaterial color={eyeWhite} roughness={.48} /></mesh>
+        <mesh position={[0, 0, .036]} scale={[.43, .7, .34]}><sphereGeometry args={[.039, 10, 8]} /><meshStandardMaterial color={female ? '#4a2630' : '#211b1b'} roughness={.28} /></mesh>
+        <mesh position={[side * -.006, .008, .051]} scale={[.16, .24, .1]}><sphereGeometry args={[.039, 8, 6]} /><meshStandardMaterial color="#fffaf0" emissive="#fffaf0" emissiveIntensity={.32} /></mesh>
+      </group>
       <mesh position={[side * .102, 1.319, .24]} rotation-z={side * -.13}><capsuleGeometry args={[.018, .105, 3, 10]} /><meshStandardMaterial color={hair} roughness={.95} /></mesh>
       <mesh position={[side * .145, 1.131, .214]} scale={[1, .75, .5]}><sphereGeometry args={[.075, 12, 8]} /><meshStandardMaterial color={skin} roughness={.9} /></mesh>
+      <mesh position={[side * .172, 1.17, .245]} scale={[1, .45, .2]}><sphereGeometry args={[.06, 10, 7]} /><meshStandardMaterial color={female ? '#b86e73' : '#9e5f53'} transparent opacity={female ? .34 : .16} roughness={.9} /></mesh>
     </group>)}
     <mesh position={[0, 1.18, .283]} scale={[.68, 1, .68]}><coneGeometry args={[.065, .13, 8]} /><meshStandardMaterial color={skin} roughness={.9} /></mesh>
     <mesh position={[0, 1.081, .268]}><boxGeometry args={[.085, .012, .014]} /><meshStandardMaterial color="#794b40" roughness={1} /></mesh>
