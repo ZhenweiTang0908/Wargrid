@@ -78,9 +78,23 @@ export interface PendingResponse {
   peachGardenNullifyId?: string
   peachGardenRemaining?: Team[]
   peachGardenCancelled?: string[]
-  groupContinuation?: { kind: 'arrows' | 'barbarians'; source: Team; originCardId?: string; resolvedTargets: Team[] }
   kurouDraw?: { team: Team; count: number }
   sourceLess?: boolean
+  damageResolution?: {
+    source: Team
+    target: Team
+    amount: number
+    message: string
+    sourceCardId?: string
+    sourceLess?: boolean
+  }
+}
+
+export interface PendingGroupContinuation {
+  kind: 'arrows' | 'barbarians'
+  source: Team
+  originCardId?: string
+  resolvedTargets: Team[]
 }
 
 export interface PendingHarvest {
@@ -204,6 +218,7 @@ export interface GameState {
   pendingQilin: PendingQilin | null
   pendingDoubleSword: PendingDoubleSword | null
   pendingYiji: PendingYiji | null
+  pendingGroupContinuation: PendingGroupContinuation | null
   pendingTurnStart: { team: Team; skipPlay: boolean; skipDraw: boolean } | null
   winner: Team | null
   message: string

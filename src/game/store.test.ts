@@ -3227,6 +3227,90 @@ describe('standard card scenarios', () => {
     expect(state.winner).toBeNull()
   })
 
+  it('resolves Jianxiong after Cao Cao survives a dying window', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const slash = card('slash', 'spade', 7), peach = card('peach', 'heart', 3)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: {
+        ...state.units,
+        east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [peach] },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', damageResolution: { sourceCardId: slash.id } })
+
+    useGameStore.getState().respond(peach.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toContainEqual(slash)
+    expect(state.discard).toContainEqual(peach)
+    expect(state.discard).not.toContainEqual(slash)
+    expect(state.message).toContain('奸雄')
+  })
+
+  it('continues a group trick after dying rescue and damage triggers finish', () => {
+    useGameStore.getState().selectGeneral('jianxiong')
+    const arrows = card('arrows', 'heart', 1), peach = card('peach', 'heart', 3)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai',
+      units: {
+        ...state.units,
+        east: { ...state.units.east, hand: [arrows] },
+        west: { ...state.units.west, hp: 0, hand: [] },
+        player: { ...state.units.player, hp: 1, hand: [peach] },
+        north: { ...state.units.north, hp: 4, hand: [] },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'dying', target: 'player' })
+
+    useGameStore.getState().respond(peach.id)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(1)
+    expect(state.units.player.hand).toContainEqual(arrows)
+    expect(state.units.north.hp).toBe(3)
+    expect(state.pendingGroupContinuation).toBeNull()
+  })
+
+  it('pauses a group trick until player Yiji cards are distributed', () => {
+    useGameStore.getState().selectGeneral('yiji')
+    const arrows = card('arrows', 'heart', 1)
+    const rewardA = card('peach', 'heart', 4), rewardB = card('dodge', 'diamond', 5)
+    useGameStore.setState(state => ({
+      currentUnit: 'east', phase: 'ai', deck: [rewardA, rewardB], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, hand: [arrows] },
+        west: { ...state.units.west, hp: 0, hand: [] },
+        player: { ...state.units.player, hp: 3, hand: [] },
+        north: { ...state.units.north, hp: 4, hand: [] },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id })
+    useGameStore.getState().respond(null)
+    useGameStore.getState().respond(null)
+    let state = useGameStore.getState()
+    expect(state.pendingYiji?.cards).toEqual([rewardA, rewardB])
+    expect(state.pendingGroupContinuation).not.toBeNull()
+    expect(state.units.north.hp).toBe(4)
+
+    useGameStore.getState().chooseYijiRecipient(rewardA.id, 'player')
+    expect(useGameStore.getState().units.north.hp).toBe(4)
+    useGameStore.getState().chooseYijiRecipient(rewardB.id, 'player')
+    state = useGameStore.getState()
+    expect(state.pendingYiji).toBeNull()
+    expect(state.pendingGroupContinuation).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+  })
+
   it('lets a dying player use wine to rescue only themselves', () => {
     const enemySlash = card('slash'), wine = card('wine', 'spade')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units, east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [enemySlash] }, player: { ...state.units.player, position: { x: 4, y: 8 }, hp: 1, hand: [wine] } } }))

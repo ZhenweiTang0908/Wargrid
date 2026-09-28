@@ -350,6 +350,66 @@ function rescueDyingPlayer(state: GameState, startingHp: number) {
   return { state: working, hp, helpers }
 }
 
+function resolveDamageTriggers(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, sourceCard?: Card, sourceLess = false): Partial<GameState> {
+  const target = state.units[targetId]
+  if (target.hp <= 0) return state
+  let units = state.units, deck = state.deck, discard = state.discard
+  let skillText = ''
+  if (target.skills.includes('jianxiong')) {
+    const sourceIndex = sourceCard ? discard.findIndex(card => card.id === sourceCard.id) : -1
+    if (sourceIndex >= 0) {
+      const gained = discard[sourceIndex]
+      discard = discard.filter(card => card.id !== gained.id)
+      units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
+      skillText = `；${target.name}发动【奸雄】获得造成伤害的【${CARD_LABEL[gained.kind]}】`
+    }
+  }
+  if (!sourceLess && target.skill === 'feedback') {
+    const attacker = units[attackerId]
+    const gained = attacker.hand[0] ?? attacker.equipment.weapon ?? attacker.equipment.armor ?? attacker.equipment.offensiveMount ?? attacker.equipment.defensiveMount
+    if (gained) {
+      if (targetId === 'player') {
+        const prompt = `${target.name}发动【反馈】，请选择获得${attacker.name}的一张牌`
+        return { units, deck, discard, pendingPlunder: { source: targetId, target: attackerId, gain: true, reason: 'feedback' }, message: prompt, history: log(state, `${message}${skillText}；${prompt}`) }
+      }
+      const taken = takeTargetCard({ ...state, units, deck, discard }, targetId, attackerId, true, gained.id, 'feedback')
+      units = taken.units ?? units; deck = taken.deck ?? deck; discard = taken.discard ?? discard
+      skillText += `；${target.name}发动【反馈】获得一张牌`
+    }
+  }
+  if (target.skills.includes('yiji')) {
+    const insight = drawWhileResolving(deck, discard, amount * 2, sourceCard); deck = insight.deck; discard = insight.discard
+    if (targetId === 'player' && insight.drawn.length) {
+      const prompt = `${target.name}发动【遗计】，请将 ${insight.drawn.length} 张牌分配给任意角色`
+      return { units: { ...units, [targetId]: { ...units[targetId], animation: 'cast' } }, deck, discard, pendingYiji: { source: targetId, cards: insight.drawn }, message: prompt, history: log(state, `${message}${skillText}；${prompt}`) }
+    }
+    units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, ...insight.drawn], animation: 'cast' } }
+    skillText += `；${target.name}发动【遗计】${amount} 次，摸${amount * 2}张牌`
+  }
+  if (!sourceLess && target.skill === 'ganglie') {
+    const judged = drawWhileResolving(deck, discard, 1, sourceCard), judge = judged.drawn[0]
+    deck = judged.deck; discard = judge ? [...judged.discard, judge] : judged.discard
+    if (judge && judge.suit !== 'heart') {
+      const attacker = units[attackerId]
+      if (attacker.hand.length >= 2) {
+        if (attackerId === 'player') {
+          const prompt = `${target.name}发动【刚烈】，请选择弃置两张手牌，或受到 1 点伤害`
+          return { units, deck, discard, pendingResponse: { effect: 'ganglie', source: targetId, target: attackerId, required: 'any', requiredCount: 2, prompt }, message: prompt, history: log(state, `${message}${skillText}；${prompt}`) }
+        }
+        const paid = attacker.hand.slice(0, 2)
+        units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2), animation: 'hit' } }
+        discard = [...discard, ...paid]
+        skillText += `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
+      } else {
+        const retaliation = `${message}${skillText}；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
+        return damage({ ...state, units, deck, discard }, targetId, attackerId, 1, retaliation)
+      }
+    } else if (judge) skillText += `；【刚烈】判定为红桃，未生效`
+  }
+  const winner = determineWinner(units)
+  return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${message}${skillText}`, history: log(state, `${message}${skillText}`) }
+}
+
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card, sourceLess = false): Partial<GameState> {
   const target = state.units[targetId]
   sourceLess ||= state.units[attackerId].hp <= 0
@@ -365,7 +425,7 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     return {
       units: { ...state.units, [targetId]: { ...target, hp, animation: 'hit' } },
       deck: state.deck, discard: state.discard,
-      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, prompt },
+      pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, damageResolution: { source: attackerId, target: targetId, amount, message, sourceCardId: sourceCard?.id, sourceLess }, prompt },
       message: prompt,
       history: log(state, `${target.name}进入濒死状态`),
     }
@@ -400,9 +460,10 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     const requiredCount = 1 - hp
     const prompt = `${target.name}进入濒死状态，还需要 ${requiredCount} 张【桃】，是否援救？`
     units = { ...units, [targetId]: { ...units[targetId], revealed: target.revealed } }
-    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
+    return { units, deck: rescuedDeck, discard, pendingResponse: { effect: 'dying', source: attackerId, target: targetId, required: 'peach', requiredCount, sourceLess, damageResolution: { source: attackerId, target: targetId, amount, message, sourceCardId: sourceCard?.id, sourceLess }, prompt }, message: prompt, history: log(state, `${target.name}进入濒死状态`) }
   }
   let deck = rescuedDeck
+  if (hp > 0) return resolveDamageTriggers({ ...state, units, deck, discard }, attackerId, targetId, amount, message, sourceCard, sourceLess)
   const hasKiller = hp <= 0 && !sourceLess && attackerId !== targetId
   if (hp <= 0) {
     const defeated = units[targetId]
@@ -423,65 +484,11 @@ function damage(state: GameState, attackerId: Team, targetId: Team, amount: numb
     discard = [...discard, ...killer.hand, ...Object.values(killer.equipment).filter((card): card is Card => !!card)]
     units = { ...units, [attackerId]: { ...killer, hand: [], equipment: {} } }
   }
-  let winner = determineWinner(units)
+  const winner = determineWinner(units)
   const identityName = target.identity === 'loyalist' ? '忠臣' : target.identity === 'rebel' ? '反贼' : target.identity === 'renegade' ? '内奸' : '主公'
-  const finalMessage = hp > 0 ? message : sourceLess || attackerId === targetId ? `${target.name}阵亡，其身份是${identityName}！` : `${state.units[attackerId].name}击败了${target.name}，其身份是${identityName}！`
-  let skillText = ''
-  if (hp > 0 && target.skills.includes('jianxiong')) {
-    const sourceIndex = sourceCard ? discard.findIndex(card => card.id === sourceCard.id) : -1
-    if (sourceIndex >= 0) {
-      const gained = discard[sourceIndex]
-      discard = discard.filter(card => card.id !== gained.id)
-      units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, gained], animation: 'cast' } }
-      skillText = `；${target.name}发动【奸雄】获得造成伤害的【${CARD_LABEL[gained.kind]}】`
-    }
-  }
-  if (hp > 0 && !sourceLess && target.skill === 'feedback') {
-    const attacker = units[attackerId]
-    const gained = attacker.hand[0] ?? attacker.equipment.weapon ?? attacker.equipment.armor ?? attacker.equipment.offensiveMount ?? attacker.equipment.defensiveMount
-    if (gained) {
-      if (targetId === 'player') {
-        const prompt = `${target.name}发动【反馈】，请选择获得${attacker.name}的一张牌`
-        return { units, deck, discard, pendingPlunder: { source: targetId, target: attackerId, gain: true, reason: 'feedback' }, message: prompt, history: log(state, `${finalMessage}${skillText}；${prompt}`) }
-      }
-      const taken = takeTargetCard({ ...state, units, deck, discard }, targetId, attackerId, true, gained.id, 'feedback')
-      units = taken.units ?? units; deck = taken.deck ?? deck; discard = taken.discard ?? discard
-      skillText += `；${target.name}发动【反馈】获得一张牌`
-    }
-  }
-  if (hp > 0 && target.skills.includes('yiji')) {
-    const insight = drawWhileResolving(deck, discard, amount * 2, sourceCard); deck = insight.deck; discard = insight.discard
-    if (targetId === 'player' && insight.drawn.length) {
-      const prompt = `${target.name}发动【遗计】，请将 ${insight.drawn.length} 张牌分配给任意角色`
-      return { units: { ...units, [targetId]: { ...units[targetId], animation: 'cast' } }, deck, discard, pendingYiji: { source: targetId, cards: insight.drawn }, message: prompt, history: log(state, `${finalMessage}${skillText}；${prompt}`) }
-    }
-    units = { ...units, [targetId]: { ...units[targetId], hand: [...units[targetId].hand, ...insight.drawn], animation: 'cast' } }
-    skillText += `；${target.name}发动【遗计】${amount} 次，摸${amount * 2}张牌`
-  }
-  if (hp > 0 && !sourceLess && target.skill === 'ganglie') {
-    const judged = drawWhileResolving(deck, discard, 1, sourceCard), judge = judged.drawn[0]
-    deck = judged.deck; discard = judge ? [...judged.discard, judge] : judged.discard
-    if (judge && judge.suit !== 'heart') {
-      const attacker = units[attackerId]
-      if (attacker.hand.length >= 2) {
-        if (attackerId === 'player') {
-          const prompt = `${target.name}发动【刚烈】，请选择弃置两张手牌，或受到 1 点伤害`
-          return { units, deck, discard, pendingResponse: { effect: 'ganglie', source: targetId, target: attackerId, required: 'any', requiredCount: 2, prompt }, message: prompt, history: log(state, `${finalMessage}${skillText}；${prompt}`) }
-        }
-        const paid = attacker.hand.slice(0, 2)
-        units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2), animation: 'hit' } }
-        discard = [...discard, ...paid]
-        skillText += `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
-      } else {
-        const retaliation = `${finalMessage}${skillText}；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
-        return damage({ ...state, units, deck, discard }, targetId, attackerId, 1, retaliation)
-      }
-    } else if (judge) skillText += `；【刚烈】判定为红桃，未生效`
-  }
-  const skillWinner = determineWinner(units)
-  if (skillWinner) { winner = skillWinner }
+  const finalMessage = sourceLess || attackerId === targetId ? `${target.name}阵亡，其身份是${identityName}！` : `${state.units[attackerId].name}击败了${target.name}，其身份是${identityName}！`
   const rewardText = hasKiller && target.identity === 'rebel' ? '；击杀反贼摸三张牌' : hasKiller && units[attackerId].identity === 'lord' && target.identity === 'loyalist' ? '；主公误杀忠臣，弃置所有牌' : ''
-  return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${finalMessage}${skillText}`, history: log(state, `${finalMessage}${skillText}${rewardText}`) }
+  return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: finalMessage, history: log(state, `${finalMessage}${rewardText}`) }
 }
 
 function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amount: number, nature: 'fire' | 'thunder', sourceCard?: Card, sourceLess = false): Partial<GameState> {
@@ -891,6 +898,18 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
     if (working.winner) break
   }
   return working
+}
+
+function hasDamageResolutionPrompt(state: GameState) {
+  return !!(state.pendingResponse || state.pendingPlunder || state.pendingYiji)
+}
+
+function resumePendingGroupTrick(state: GameState): GameState {
+  const continuation = state.pendingGroupContinuation
+  if (!continuation || hasDamageResolutionPrompt(state) || state.winner) return state
+  const resolving = continuation.originCardId ? state.discard.find(card => card.id === continuation.originCardId) : undefined
+  const ready: GameState = { ...state, pendingGroupContinuation: null }
+  return { ...ready, ...resolveGroupTrick(ready, continuation.source, continuation.kind, resolving, continuation.resolvedTargets) }
 }
 
 function discardOverflow(state: GameState, team: Team): GameState {
@@ -1451,6 +1470,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], pendingResponse: remaining ? { ...pending, requiredCount: remaining, prompt: message } : null, message, history: log(base, message) }
         base = triggerLianying(base, 'player')
       } else base = { ...base, ...damage(base, pending.source, 'player', 1, `${base.units[pending.source].name}发动【刚烈】，${player.name}选择受到 1 点伤害`) }
+      base = resumePendingGroupTrick(base)
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
@@ -1482,13 +1502,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
           base = { ...afterSupport, ...damage(deathBase, pending.source, pending.target, 1, `${target.name}无人援救，阵亡！`, true, undefined, pending.sourceLess) }
         }
       }
-      if (pending.groupContinuation && base.pendingResponse?.effect === 'dying') {
-        base = { ...base, pendingResponse: { ...base.pendingResponse, groupContinuation: pending.groupContinuation } }
+      if (!base.pendingResponse && pending.damageResolution && base.units[pending.damageResolution.target].hp > 0) {
+        const resolution = pending.damageResolution
+        const sourceCard = resolution.sourceCardId ? base.discard.find(candidate => candidate.id === resolution.sourceCardId) : undefined
+        const resolvedMessage = base.message === pending.prompt ? resolution.message : `${resolution.message}；${base.message}`
+        base = { ...base, ...resolveDamageTriggers(base, resolution.source, resolution.target, resolution.amount, resolvedMessage, sourceCard, resolution.sourceLess) }
       }
-      if (pending.kurouDraw && !base.pendingResponse && !base.winner && base.units[pending.kurouDraw.team].hp > 0) {
+      if (pending.kurouDraw && !hasDamageResolutionPrompt(base) && !base.winner && base.units[pending.kurouDraw.team].hp > 0) {
         base = resolveKurouDraw(base, pending.kurouDraw.team, pending.kurouDraw.count)
       }
-      if (base.pendingTurnStart && !base.pendingResponse) {
+      if (base.pendingTurnStart && !hasDamageResolutionPrompt(base)) {
         const { team, skipPlay, skipDraw } = base.pendingTurnStart
         const ready = { ...base, pendingTurnStart: null }
         if (!ready.winner) {
@@ -1496,11 +1519,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           base = beginTurn(ready, survivor, survivor === team, survivor === team && skipPlay, 0, false, null, survivor === team && skipDraw)
         } else base = ready
       }
-      if (pending.groupContinuation && !base.pendingResponse && !base.winner) {
-        const continuation = pending.groupContinuation
-        const resolving = base.discard.find(candidate => candidate.id === continuation.originCardId)
-        base = { ...base, ...resolveGroupTrick(base, continuation.source, continuation.kind, resolving, continuation.resolvedTargets) }
-      }
+      base = resumePendingGroupTrick(base)
       set(base)
       if (base.phase === 'ai' && !base.winner) setTimeout(() => void get().runAI(), 120)
       return
@@ -1729,8 +1748,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'arrows' || pending.effect === 'barbarians') {
       const resolvedTargets = [...(pending.groupResolvedTargets ?? []), 'player' as Team]
       const resolving = base.discard.find(candidate => candidate.id === pending.originCardId)
-      if (base.pendingResponse?.effect === 'dying') {
-        base = { ...base, pendingResponse: { ...base.pendingResponse, groupContinuation: { kind: pending.effect, source: pending.source, originCardId: pending.originCardId, resolvedTargets } } }
+      if (hasDamageResolutionPrompt(base)) {
+        base = { ...base, pendingGroupContinuation: { kind: pending.effect, source: pending.source, originCardId: pending.originCardId, resolvedTargets } }
       } else {
         base = { ...base, ...resolveGroupTrick(base, pending.source, pending.effect, resolving, resolvedTargets) }
       }
@@ -1790,7 +1809,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const available = plunderableCards(target, !pending.reason)
     if (!available.some(card => card.id === cardId)) return
     const base = { ...state, pendingPlunder: null }
-    const resolved = { ...base, ...takeTargetCard(base, pending.source, pending.target, pending.gain, cardId, pending.reason) }
+    const resolved = resumePendingGroupTrick({ ...base, ...takeTargetCard(base, pending.source, pending.target, pending.gain, cardId, pending.reason) })
     set(resolved)
     if (resolved.phase === 'ai' && !resolved.winner && !resolved.pendingResponse) setTimeout(() => void get().runAI(), 120)
   },
@@ -2083,8 +2102,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       history: log(state, message),
     }
     if (!cards.length) next.message = `${message}；【遗计】分配完毕`
-    set(next)
-    if (!next.pendingYiji && next.phase === 'ai' && !next.pendingResponse && !next.winner) setTimeout(() => void get().runAI(), 120)
+    const resolved = cards.length ? next : resumePendingGroupTrick(next)
+    set(resolved)
+    if (!resolved.pendingYiji && resolved.phase === 'ai' && !resolved.pendingResponse && !resolved.winner) setTimeout(() => void get().runAI(), 120)
   },
   selectHalberdTarget: team => {
     const state = get(), pending = state.pendingHalberd, player = state.units.player, target = state.units[team]
