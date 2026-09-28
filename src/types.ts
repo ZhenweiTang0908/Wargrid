@@ -62,7 +62,7 @@ export interface PendingResponse {
   target: Team
   required: 'dodge' | 'slash' | 'peach' | 'nullify' | 'any'
   prompt: string
-  trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'drawTwo' | 'indulgence' | 'supplyShortage' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
+  trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'drawTwo' | 'indulgence' | 'supplyShortage' | 'lightning' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   originCardId?: string
   resolvingResponseIds?: string[]
   armorChecked?: boolean
@@ -70,6 +70,7 @@ export interface PendingResponse {
   forcedSlashAttacksUsed?: number
   doubleSwordChecked?: boolean
   counteredBy?: Team
+  judgementOwner?: Team
   groupResolvedTargets?: Team[]
   groupContinuation?: { kind: 'arrows' | 'barbarians'; source: Team; originCardId?: string; resolvedTargets: Team[] }
 }

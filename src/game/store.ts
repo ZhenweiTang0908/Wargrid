@@ -829,6 +829,11 @@ export function beginTurn(state: GameState, team: Team, resume = false, previous
     working = { ...working, deck: [...viewed, ...rest], message, history: log(working, message) }
   }
   for (const [index, delayed] of unit.judgement.entries()) {
+    if (!resume && team === 'player' && (delayed.kind === 'indulgence' || delayed.kind === 'supplyShortage' || delayed.kind === 'lightning') && working.units.player.hand.some(card => card.kind === 'nullify')) {
+      const delayedName = delayed.kind === 'lightning' ? '闪电' : delayed.kind === 'supplyShortage' ? '兵粮寸断' : '乐不思蜀'
+      const prompt = `你的判定区有【${delayedName}】，是否在判定前打出【无懈可击】？`
+      return { ...working, pendingResponse: { effect: 'nullify', source: team, target: 'player', required: 'nullify', trick: delayed.kind, originCardId: delayed.id, judgementOwner: team, prompt }, message: prompt, history: log(working, prompt) }
+    }
     const judged = drawCards(working.deck, working.discard, 1)
     const originalJudge = judged.drawn[0]; if (!originalJudge) break
     if ((delayed.kind === 'indulgence' || delayed.kind === 'supplyShortage' || delayed.kind === 'lightning') && working.units.player.hp > 0 && working.units.player.skills.includes('guicai') && working.units.player.hand.length) {
@@ -1145,16 +1150,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         set(resolveDrawTwo(base, action.unit, card)); return
       }
+      const delayedKind = kind === 'indulgence' || kind === 'supplyShortage' || kind === 'lightning'
       const nullifiable = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'supplyShortage', 'fireAttack', 'ironChain'].includes(kind)
       if (kind === 'borrowedSword' && !target.equipment.weapon) return
       if (kind === 'snatch' && !unit.skills.includes('qicai') && combatDistance(state, unit, target) > 1) return
       if (kind === 'supplyShortage' && !unit.skills.includes('qicai') && combatDistance(state, unit, target) > 1) return
-      if (nullifiable && targetId === 'player' && action.unit !== 'player') {
+      const immediateNullifiable = nullifiable && !(delayedKind && targetId === 'player')
+      if (immediateNullifiable && targetId === 'player' && action.unit !== 'player') {
         const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'indulgence' | 'supplyShortage' | 'fireAttack' | 'ironChain'
         const prompt = `${unit.name}对你使用【${CARD_LABEL[trick]}】，是否打出【无懈可击】？`
         set({ ...base, pendingResponse: { effect: 'nullify', source: action.unit, target: 'player', required: 'nullify', trick, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
       }
-      const nullify = nullifiable ? target.hand.find(c => c.kind === 'nullify') : undefined
+      const nullify = immediateNullifiable ? target.hand.find(c => c.kind === 'nullify') : undefined
       if (nullify) {
         const message = `${target.name}打出【无懈可击】，抵消【${CARD_LABEL[kind]}】`
         const nullified: GameState = { ...base, units: { ...base.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...base.discard, nullify], message, history: log(base, message) }
@@ -1412,6 +1419,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (card) {
         const player = base.units.player, message = `${player.name}打出【无懈可击】，抵消【${CARD_LABEL[pending.trick!]}】`
         base = { ...base, units: { ...base.units, player: { ...player, hand: player.hand.filter(candidate => candidate.id !== card.id), animation: 'cast' } }, discard: [...base.discard, card], message, history: log(base, message) }
+        if (pending.judgementOwner) {
+          const ownerId = pending.judgementOwner
+          const owner = base.units[ownerId]
+          const delayed = owner.judgement.find(candidate => candidate.id === pending.originCardId)
+          const delayedName = pending.trick === 'lightning' ? '闪电' : pending.trick === 'supplyShortage' ? '兵粮寸断' : '乐不思蜀'
+          const resolvedMessage = `${player.name}使用【无懈可击】，取消${owner.name}判定区的【${delayedName}】`
+          let ready: GameState = {
+            ...base,
+            units: { ...base.units, [ownerId]: { ...owner, judgement: owner.judgement.filter(candidate => candidate.id !== pending.originCardId), animation: 'cast' } },
+            discard: delayed ? [...base.discard, delayed] : base.discard,
+            pendingResponse: null,
+            message: resolvedMessage,
+            history: log(base, resolvedMessage),
+          }
+          ready = triggerLianying(ready, 'player', [card])
+          const next = beginTurn(ready, ownerId, true)
+          set(next)
+          if (next.phase === 'ai' && !next.winner && !next.pendingResponse) setTimeout(() => void get().runAI(), 120)
+          return
+        }
         const source = knownAlliesFor(base, pending.source).find(candidate => candidate.id !== 'player' && candidate.hand.some(item => item.kind === 'nullify'))
         const counter = source?.hand.find(candidate => candidate.kind === 'nullify')
         if (source && counter) {
@@ -1427,6 +1454,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const resolvedTargets = [...(pending.groupResolvedTargets ?? []), 'player' as Team]
           base = { ...base, ...resolveGroupTrick(base, pending.source, pending.trick, resolving, resolvedTargets) }
         } else if (pending.trick === 'harvest' && base.pendingHarvest) base = advanceHarvest(base, base.pendingHarvest.pool, base.pendingHarvest.order.slice(1))
+      } else if (pending.judgementOwner) {
+        const ownerId = pending.judgementOwner
+        const message = `你放弃对判定区【${CARD_LABEL[pending.trick!]}】使用【无懈可击】`
+        const next = beginTurn({ ...base, pendingResponse: null, message, history: log(base, message) }, ownerId, true)
+        set(next)
+        if (next.phase === 'ai' && !next.winner && !next.pendingResponse) setTimeout(() => void get().runAI(), 120)
+        return
       } else base = applyUnderlying(base)
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)

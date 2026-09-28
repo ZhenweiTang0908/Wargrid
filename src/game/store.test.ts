@@ -1303,6 +1303,65 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().discard.some(c => c.id === delayed.id)).toBe(false)
   })
 
+  it('offers Nullify before a player delayed judgement resolves', () => {
+    const delayed = card('indulgence', 'heart', 6), nullify = card('nullify', 'club', 2), judge = card('peach', 'heart', 5)
+    const state = createInitialState([])
+    state.deck = [judge]
+    state.units.player = { ...state.units.player, judgement: [delayed], hand: [nullify] }
+    const waiting = beginTurn(state, 'player')
+    expect(waiting.pendingResponse).toMatchObject({ effect: 'nullify', judgementOwner: 'player', trick: 'indulgence', originCardId: delayed.id })
+    expect(waiting.units.player.judgement).toEqual([delayed])
+    expect(waiting.deck).toEqual([judge])
+  })
+
+  it('continues the delayed judgement after declining the pre-judgement Nullify prompt', () => {
+    const delayed = card('indulgence', 'heart', 6), nullify = card('nullify', 'club', 2), judge = card('peach', 'heart', 5), drawA = card('slash'), drawB = card('dodge')
+    const state = createInitialState([])
+    state.deck = [judge, drawA, drawB]
+    state.units.player = { ...state.units.player, judgement: [delayed], hand: [nullify] }
+    useGameStore.setState(beginTurn(state, 'player'))
+    useGameStore.getState().respond(null)
+    const result = useGameStore.getState()
+    expect(result.pendingResponse).toBeNull()
+    expect(result.units.player.judgement).toHaveLength(0)
+    expect(result.units.player.hand).toEqual([nullify, drawA, drawB])
+    expect(result.discard).toContainEqual(delayed)
+    expect(result.history.some(entry => entry.includes('乐不思蜀') && entry.includes('判定通过'))).toBe(true)
+  })
+
+  it('removes a delayed judgement when the player uses Nullify before it resolves', () => {
+    const delayed = card('supplyShortage', 'heart', 6), nullify = card('nullify', 'club', 2), drawA = card('slash', 'club', 5), drawB = card('dodge', 'heart', 4), drawC = card('peach', 'heart', 3)
+    const state = createInitialState([])
+    state.deck = [drawA, drawB, drawC]
+    state.units.player = { ...state.units.player, judgement: [delayed], hand: [nullify] }
+    useGameStore.setState(beginTurn(state, 'player'))
+    useGameStore.getState().respond(nullify.id)
+    const result = useGameStore.getState()
+    expect(result.pendingResponse).toBeNull()
+    expect(result.units.player.judgement).toHaveLength(0)
+    expect(result.units.player.hand).toEqual([drawA, drawB])
+    expect(result.discard).toEqual(expect.arrayContaining([delayed, nullify]))
+    expect(result.deck).toEqual([drawC])
+  })
+
+  it('does not ask for placement-time Nullify against a delayed tactic targeting the player', () => {
+    const delayed = card('indulgence', 'heart', 6), nullify = card('nullify', 'club', 2)
+    useGameStore.setState(state => ({
+      currentUnit: 'north',
+      phase: 'ai',
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [nullify] },
+        north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [delayed] },
+      },
+    }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: delayed.id, target: 'player' })
+    const result = useGameStore.getState()
+    expect(result.pendingResponse).toBeNull()
+    expect(result.units.player.judgement).toEqual([delayed])
+    expect(result.units.player.hand).toEqual([nullify])
+  })
+
   it('places supply shortage into the target judgement area and rejects a duplicate', () => {
     const first = card('supplyShortage', 'heart', 4), duplicate = card('supplyShortage', 'club', 7)
     useGameStore.setState(state => ({
