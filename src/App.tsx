@@ -358,8 +358,9 @@ function EquippedGear({ unit }: { unit: Unit }) {
   return <>
     {weapon && <group position={[.42, .72, .08]} rotation-z={longWeapon ? -.14 : -.42}><WeaponFigure kind={weapon} /></group>}
     {unit.equipment.armor && <>
-      {[-.34, .34].map(side => <mesh key={side} position={[side, .98, 0]} rotation-z={side < 0 ? -.2 : .2}><sphereGeometry args={[.16, 8, 6]} /><meshStandardMaterial color={unit.equipment.armor?.kind === 'bagua' ? '#b69245' : '#737d87'} metalness={.7} roughness={.34} /></mesh>)}
+      {[-.34, .34].map(side => <mesh key={side} position={[side, .98, 0]} rotation-z={side < 0 ? -.2 : .2}><sphereGeometry args={[.16, 8, 6]} /><meshStandardMaterial color={unit.equipment.armor?.kind === 'bagua' ? '#b69245' : unit.equipment.armor?.kind === 'vineArmor' ? '#4f6844' : '#737d87'} metalness={.7} roughness={.34} /></mesh>)}
       {unit.equipment.armor.kind === 'bagua' && <mesh position={[0, .74, .315]} rotation-z={Math.PI / 8}><cylinderGeometry args={[.16, .16, .045, 8]} /><meshStandardMaterial color="#d0aa4f" metalness={.65} roughness={.34} /></mesh>}
+      {unit.equipment.armor.kind === 'vineArmor' && <group position={[0, .83, .29]} rotation-z={Math.PI / 4}><mesh><torusGeometry args={[.23, .035, 7, 18]} /><meshStandardMaterial color="#78925b" roughness={.9} /></mesh><mesh rotation-z={Math.PI / 2}><torusGeometry args={[.23, .035, 7, 18]} /><meshStandardMaterial color="#526c46" roughness={.9} /></mesh><pointLight color="#88a866" intensity={.25} distance={1.2} /></group>}
     </>}
     {[unit.equipment.offensiveMount, unit.equipment.defensiveMount].filter((card): card is Card => !!card).map((card, index, mounts) => <MountFigure key={card.id} card={card} offset={index} total={mounts.length} />)}
   </>
@@ -1101,7 +1102,7 @@ function GeneralSelect() {
     <p className="battlefield-lore">{MAP_LORE[mapId]}</p>
     <div className="map-options" aria-label="选择牌池">
       <button className={deckMode === 'standard' ? 'active' : ''} onClick={() => selectDeckMode('standard')}><strong>标准牌池 · 108 张</strong><span>标准包与 EX 牌的花色、点数及数量</span></button>
-      <button className={deckMode === 'expanded' ? 'active' : ''} onClick={() => selectDeckMode('expanded')}><strong>扩展牌池 · 116 张</strong><span>加入火杀、雷杀、酒与军争锦囊</span></button>
+      <button className={deckMode === 'expanded' ? 'active' : ''} onClick={() => selectDeckMode('expanded')}><strong>扩展牌池 · 117 张</strong><span>加入火杀、雷杀、酒、藤甲与军争锦囊</span></button>
     </div>
     <div className="general-grid">
       {GENERAL_OPTIONS.map(option => <button key={option.skill} className={`general-option ${option.skill}${previewSkill === option.skill ? ' active' : ''}`} onClick={() => setPreviewSkill(option.skill)} aria-pressed={previewSkill === option.skill}>

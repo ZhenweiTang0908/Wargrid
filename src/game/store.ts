@@ -373,10 +373,12 @@ function elementalDamage(state: GameState, attackerId: Team, targetId: Team, amo
   for (const id of linked) {
     const transmitted = id === targetId ? '' : '（铁索传导）'
     const terrain = terrainAt(working, working.units[id].position)
-    const modifier = nature === 'fire' && terrain === 'forest' ? 1
+    const terrainModifier = nature === 'fire' && terrain === 'forest' ? 1
       : nature === 'fire' && terrain === 'water' ? -1
         : nature === 'thunder' && (terrain === 'water' || terrain === 'marsh') ? 1 : 0
-    const terrainText = modifier > 0 ? `（${terrain === 'forest' ? '森林助燃' : '湿地导雷'} +1）` : modifier < 0 ? '（水域抑火 -1）' : ''
+    const armorModifier = nature === 'fire' && working.units[id].equipment.armor?.kind === 'vineArmor' ? 1 : 0
+    const modifier = terrainModifier + armorModifier
+    const terrainText = modifier > 0 ? `（${armorModifier ? '【藤甲】' : terrain === 'forest' ? '森林助燃' : '湿地导雷'} +1）` : modifier < 0 ? '（水域抑火 -1）' : ''
     const finalAmount = Math.max(0, amount + modifier)
     if (!finalAmount) {
       const message = `${working.units[id].name}所处水域熄灭了火焰${transmitted}`
@@ -594,6 +596,12 @@ function resolveSlash(state: GameState, attackerId: Team, targetId: Team, manual
     }
     attacker = state.units[attackerId]; target = state.units[targetId]
   }
+  const fireSlash = slashCard?.kind === 'fireSlash' || attacker.equipment.weapon?.kind === 'vermilionFan'
+  if (target.equipment.armor?.kind === 'vineArmor' && !fireSlash && attacker.equipment.weapon?.kind !== 'qinggang') {
+    const updatedAttacker = { ...attacker, attacksUsed: attacker.attacksUsed + 1, drunk: false, animation: 'attack' as const }
+    const message = `${target.name}的【藤甲】使普通【杀】无效`
+    return { ...state, units: { ...state.units, [attackerId]: updatedAttacker }, message, history: log(state, message) }
+  }
   let baguaDodge = false
   if (manualResponse === undefined && !armorChecked && target.equipment.armor?.kind === 'bagua' && attacker.equipment.weapon?.kind !== 'qinggang') {
     const judged = judgeBagua(state, targetId, slashCard)
@@ -729,6 +737,11 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
     if (targetId === 'player' && actorId !== 'player') {
       const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
       return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, groupResolvedTargets: [...resolvedTargets], prompt }, message: prompt, history: log(working, prompt) }
+    }
+    if (target.equipment.armor?.kind === 'vineArmor') {
+      const message = `${target.name}的【藤甲】使【${CARD_LABEL[kind]}】无效`
+      working = { ...working, message, history: log(working, message) }
+      continue
     }
     if (kind === 'arrows' && target.equipment.armor?.kind === 'bagua') {
       const judged = judgeBagua(working, targetId, sourceCard)
@@ -1160,7 +1173,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set(beginHarvest(base, action.unit, card)); return
       }
       if (isEquipment(kind)) {
-        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
+        const slot = card.kind === 'shield' || card.kind === 'bagua' || card.kind === 'silverLion' || card.kind === 'vineArmor' ? 'armor' : ['redHare', 'dayuan', 'zixing'].includes(card.kind) ? 'offensiveMount' : ['dilu', 'jueying', 'zhaohuang'].includes(card.kind) ? 'defensiveMount' : 'weapon', old = unit.equipment[slot]
         const recovery = resolveEquipmentLoss(unit, old ? [old] : [], state.deck, old ? [...state.discard, old] : state.discard)
         const equipped = { ...unit, hp: recovery.hp, hand: [...removed.hand, ...recovery.drawn], equipment: { ...unit.equipment, [slot]: card }, animation: recovery.healed ? 'heal' as const : 'cast' as const }, message = `${unit.name}装备【${CARD_LABEL[card.kind]}】${recovery.healed ? '，失去白银狮子并回复 1 点体力' : ''}${recovery.drawn.length ? `；发动【枭姬】摸${recovery.drawn.length}张牌` : ''}`
         set({ units: { ...state.units, [action.unit]: equipped }, deck: recovery.deck, discard: recovery.discard, selectedCardId: null, message, history: log(state, message) }); return
@@ -1179,7 +1192,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
             set({ ...base, pendingDoubleSword: { source: action.unit, target: 'player', originCardId: card.id, tieqiChecked: true }, message: prompt, history: log(base, prompt) }); return
           }
           const shieldBlocks = target.equipment.armor?.kind === 'shield' && (card.suit === 'spade' || card.suit === 'club') && attackUnit.equipment.weapon?.kind !== 'qinggang'
-          if (!shieldBlocks) {
+          const vineBlocks = target.equipment.armor?.kind === 'vineArmor' && card.kind !== 'fireSlash' && attackUnit.equipment.weapon?.kind !== 'qinggang'
+          if (!shieldBlocks && !vineBlocks) {
             const requiredCount = unit.skill === 'wushuang' ? 2 : 1
             const prompt = `${unit.name}对你使用【杀】，${requiredCount === 2 ? '【无双】要求连续打出两张【闪】' : '请选择是否打出【闪】'}`
             set({ ...base, pendingResponse: { effect: 'slash', source: action.unit, target: 'player', required: 'dodge', requiredCount, armorChecked: false, originCardId: card.id, prompt }, message: prompt, history: log(base, prompt) }); return
@@ -2034,7 +2048,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set(nextState); if (next !== 'player') void get().runAI(); return
     }
     let ai = state.units[aiId]
-    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'silverLion', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang', 'lightning', 'wine'] as const) {
+    for (const kind of ['peach', 'drawTwo', 'harvest', 'peachGarden', 'shield', 'bagua', 'silverLion', 'vineArmor', 'qinggang', 'greenDragon', 'crossbow', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang', 'lightning', 'wine'] as const) {
       state = get(); ai = state.units[aiId]
       const card = ai.hand.find(c => c.kind === kind)
       if (!card || (kind === 'peach' && ai.hp === ai.maxHp) || (kind === 'peachGarden' && !knownAlliesFor(state, aiId).some(ally => ally.hp < ally.maxHp)) || (kind === 'wine' && !responseCard(ai, 'slash'))) continue

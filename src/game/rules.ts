@@ -332,7 +332,7 @@ export const turnMovement = (state: Pick<GameState, 'terrain'>, unit: Unit) => t
 const CARD_COUNTS: Partial<Record<CardKind, number>> = {
   slash: 18, fireSlash: 4, thunderSlash: 2, dodge: 12, peach: 8, wine: 5, duel: 4, dismantle: 5,
   snatch: 5, drawTwo: 4, borrowedSword: 2, crossbow: 2, qinggang: 2, greenDragon: 1, shield: 2,
-  spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2, silverLion: 1,
+  spear: 1, axe: 1, halberd: 1, qilinBow: 1, bagua: 2, silverLion: 1, vineArmor: 1,
   gudingBlade: 1, vermilionFan: 1,
   doubleSword: 1, iceSword: 1,
   arrows: 2, barbarians: 2, nullify: 4, indulgence: 3, lightning: 2,
@@ -487,7 +487,7 @@ export const plunderableCards = (unit: Unit, includeJudgement = true): Card[] =>
 ]
 export const isSlashKind = (kind: CardKind) => kind === 'slash' || kind === 'fireSlash' || kind === 'thunderSlash'
 export const isRedCard = (card: Card) => card.suit === 'heart' || card.suit === 'diamond'
-export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)
+export const isEquipment = (kind: CardKind) => ['crossbow', 'qinggang', 'greenDragon', 'spear', 'axe', 'halberd', 'qilinBow', 'gudingBlade', 'vermilionFan', 'doubleSword', 'iceSword', 'shield', 'bagua', 'silverLion', 'vineArmor', 'redHare', 'dayuan', 'zixing', 'dilu', 'jueying', 'zhaohuang'].includes(kind)
 
 export function drawCards(deck: Card[], discard: Card[], count: number, random = Math.random, resolvingCardIds: readonly string[] = []) {
   let nextDeck = [...deck], nextDiscard = [...discard]; const drawn: Card[] = []

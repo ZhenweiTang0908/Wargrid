@@ -10,7 +10,7 @@ const cardVoice: Partial<Record<CardKind, VoiceCue>> = {
   harvest: 'harvest', peachGarden: 'peachGarden', drawTwo: 'drawTwo', indulgence: 'indulgence', lightning: 'lightning',
   crossbow: 'equipment', qinggang: 'equipment', greenDragon: 'equipment', spear: 'equipment', axe: 'equipment',
   halberd: 'equipment', qilinBow: 'equipment', doubleSword: 'equipment', iceSword: 'equipment', shield: 'equipment',
-  bagua: 'equipment', silverLion: 'equipment', redHare: 'equipment', dayuan: 'equipment', zixing: 'equipment',
+  bagua: 'equipment', silverLion: 'equipment', vineArmor: 'equipment', redHare: 'equipment', dayuan: 'equipment', zixing: 'equipment',
   dilu: 'equipment', jueying: 'equipment', zhaohuang: 'equipment', gudingBlade: 'equipment', vermilionFan: 'equipment',
 }
 

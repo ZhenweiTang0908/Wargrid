@@ -11,7 +11,7 @@ export type CardKind =
   | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   | 'crossbow' | 'qinggang' | 'greenDragon' | 'spear' | 'axe' | 'halberd' | 'qilinBow' | 'gudingBlade' | 'vermilionFan'
   | 'doubleSword' | 'iceSword'
-  | 'shield' | 'bagua' | 'silverLion' | 'redHare' | 'dayuan' | 'zixing' | 'dilu' | 'jueying' | 'zhaohuang'
+  | 'shield' | 'bagua' | 'silverLion' | 'vineArmor' | 'redHare' | 'dayuan' | 'zixing' | 'dilu' | 'jueying' | 'zhaohuang'
 export type Phase = 'player' | 'ai' | 'finished'
 export type TurnStage = 'prepare' | 'draw' | 'play' | 'discard' | 'finish'
 export type AnimationKind = 'idle' | 'move' | 'attack' | 'hit' | 'fireHit' | 'thunderHit' | 'heal' | 'cast'
@@ -212,7 +212,7 @@ export const CARD_LABEL: Record<CardKind, string> = {
   slash: '杀', fireSlash: '火杀', thunderSlash: '雷杀', dodge: '闪', peach: '桃', wine: '酒', duel: '决斗',
   dismantle: '过河拆桥', snatch: '顺手牵羊', drawTwo: '无中生有',
   borrowedSword: '借刀杀人',
-  crossbow: '诸葛连弩', qinggang: '青釭剑', greenDragon: '青龙偃月刀', shield: '仁王盾',
+  crossbow: '诸葛连弩', qinggang: '青釭剑', greenDragon: '青龙偃月刀', shield: '仁王盾', vineArmor: '藤甲',
   doubleSword: '雌雄双股剑', iceSword: '寒冰剑',
   spear: '丈八蛇矛', axe: '贯石斧', halberd: '方天画戟', qilinBow: '麒麟弓', bagua: '八卦阵', silverLion: '白银狮子',
   gudingBlade: '古锭刀', vermilionFan: '朱雀羽扇',
@@ -229,7 +229,7 @@ export const CARD_COPY: Record<CardKind, string> = {
   qinggang: '攻击范围 2，攻击无视护甲', greenDragon: '攻击范围 3；【杀】被闪避后可继续出【杀】', spear: '攻击范围 3；两张手牌可当【杀】', axe: '攻击范围 3；闪避后弃两牌可强制命中', halberd: '攻击范围 4；最后手牌的【杀】可攻击三人', qilinBow: '攻击范围 5；造成伤害后弃置目标坐骑',
   doubleSword: '攻击范围 2；异性目标弃一张牌，否则你摸一张', iceSword: '攻击范围 2；防止伤害并弃置目标两张牌',
   gudingBlade: '攻击范围 2；无手牌目标受到伤害 +1', vermilionFan: '攻击范围 4；普通【杀】改为火焰伤害',
-  shield: '使黑色【杀】失效', bagua: '需要打出【闪】时可判定，红色视为打出【闪】', silverLion: '受到的伤害最多为 1；失去时回复 1 点体力',
+  shield: '使黑色【杀】失效', bagua: '需要打出【闪】时可判定，红色视为打出【闪】', silverLion: '受到的伤害最多为 1；失去时回复 1 点体力', vineArmor: '普通【杀】、万箭和南蛮对其无效；受到火焰伤害 +1',
   arrows: '所有其他角色需打出【闪】', barbarians: '所有其他角色需打出【杀】', nullify: '抵消锦囊或反制另一张【无懈可击】',
   indulgence: '置于其他角色判定区，可能跳过出牌', lightning: '判定为黑桃 2～9 时造成 3 点雷电伤害',
   peachGarden: '所有存活角色回复 1 点体力', harvest: '亮出等量牌，所有存活角色依次各选一张',

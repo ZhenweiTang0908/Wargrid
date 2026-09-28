@@ -101,7 +101,7 @@ describe('standard card scenarios', () => {
     useGameStore.getState().selectDeckMode('expanded')
     let state = useGameStore.getState()
     expect(state.deckMode).toBe('expanded')
-    expect(state.deck.length + Object.values(state.units).reduce((total, unit) => total + unit.hand.length, 0)).toBe(116)
+    expect(state.deck.length + Object.values(state.units).reduce((total, unit) => total + unit.hand.length, 0)).toBe(117)
     useGameStore.getState().selectGeneral('wusheng')
     useGameStore.getState().selectDeckMode('standard')
     expect(useGameStore.getState().deckMode).toBe('expanded')
@@ -2447,6 +2447,61 @@ describe('standard card scenarios', () => {
     expect(state.units.player.hp).toBe(4)
     expect(state.units.player.equipment.armor).toEqual(replacement)
     expect(state.discard).toContainEqual(lion)
+  })
+
+  it('makes ordinary Slash ineffective against Vine Armor', () => {
+    const slash = card('slash'), armor = card('vineArmor')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.history.some(entry => entry.includes('藤甲'))).toBe(true)
+  })
+
+  it('does not open a response window when AI Slash meets Vine Armor', () => {
+    const slash = card('slash'), armor = card('vineArmor')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, position: { x: 4, y: 1 }, hand: [slash] },
+      player: { ...state.units.player, position: { x: 4, y: 0 }, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.east.attacksUsed).toBe(1)
+  })
+
+  it('adds one fire damage against Vine Armor', () => {
+    const slash = card('fireSlash'), armor = card('vineArmor')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash] },
+      north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(2)
+    expect(state.message).toContain('藤甲')
+  })
+
+  it('makes Vine Armor ignore Arrows without opening a dodge window', () => {
+    const arrows = card('arrows'), armor = card('vineArmor')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [arrows] },
+      north: { ...state.units.north, hand: [], equipment: { armor } },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.history.some(entry => entry.includes('藤甲'))).toBe(true)
   })
 
   it('lets the player activate Bagua and use a red judgement as dodge', () => {
