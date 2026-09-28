@@ -1152,6 +1152,7 @@ function JudgementWindow() {
   const lightning = pending.delayed.kind === 'lightning'
   const supplyShortage = pending.delayed.kind === 'supplyShortage'
   const delayedName = lightning ? '闪电' : supplyShortage ? '兵粮寸断' : '乐不思蜀'
+  const ruleText = lightning ? '黑桃 2～9 命中并受到 3 点雷电伤害，否则传给下一位武将。' : supplyShortage ? '判定牌不是梅花时跳过摸牌阶段。' : '红桃判定通过，否则跳过出牌阶段。'
   const outcome = (card: Card) => lightning
     ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 ? '命中：受到 3 点雷电伤害' : '未命中：传给下一位武将'
     : supplyShortage
@@ -1160,7 +1161,7 @@ function JudgementWindow() {
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">鬼才 · 判定响应</span>
     <h1>{owner.name}的【{delayedName}】</h1>
-    <p>当前判定：{SUIT_GLYPH[original.suit]} {original.rank}，{outcome(original)}。选择一张手牌替换，或保留当前结果。</p>
+    <p>{ruleText}<br />当前判定：{SUIT_GLYPH[original.suit]} {original.rank}，{outcome(original)}。选择一张手牌替换，或保留当前结果。</p>
     <div className="response-cards">
       {player.hand.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => chooseJudgementCard(card.id)}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
