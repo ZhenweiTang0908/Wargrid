@@ -248,6 +248,12 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .detail-vitals > div { display: grid; place-items: center; padding: 7px 2px; background: #102229; }
 .detail-vitals b { color: #f3d48b; font-size: 18px; }
 .detail-vitals span { color: #8da8a9; font-size: 10px; }
+.unit-terrain-summary { display: grid; gap: 3px; margin-top: 8px; padding: 8px 10px; border-left: 2px solid #6f8d74; background: #102329; }
+.unit-terrain-summary b { color: #d9dfc2; font: 700 12px serif; }
+.unit-terrain-summary span { color: #9eb1ad; font-size: 10px; line-height: 1.4; }
+.unit-terrain-summary.terrain-water, .unit-terrain-summary.terrain-bridge { border-left-color: #4e9bb0; }
+.unit-terrain-summary.terrain-ridge, .unit-terrain-summary.terrain-watchtower { border-left-color: #c29a5d; }
+.unit-terrain-summary.terrain-marsh, .unit-terrain-summary.terrain-snow { border-left-color: #91aeb5; }
 .detail-section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin: 14px 0 7px; color: #e6c77e; font-size: 13px; font-weight: 700; }
 .detail-section-title small { color: #8fa9ad; font-size: 10px; font-weight: 400; }
 .detail-equipment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }

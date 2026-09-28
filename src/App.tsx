@@ -914,6 +914,8 @@ function PlayerStatus({ team, onInspect }: { team: Team; onInspect: (team: Team,
 function UnitDetails({ team, portrait, skillText, close }: { team: Team; portrait: string; skillText: string; close: () => void }) {
   const state = useGameStore()
   const unit = state.units[team]
+  const currentTerrain = terrainAt(state, unit.position)
+  const terrainGuide = TERRAIN_GUIDE[currentTerrain]
   const slots = [
     { key: 'weapon', name: '武器', empty: '未装备武器' },
     { key: 'armor', name: '防具', empty: '未装备防具' },
@@ -941,6 +943,7 @@ function UnitDetails({ team, portrait, skillText, close }: { team: Team; portrai
       <span className="eyebrow">武将档案 · {unit.revealed || team === 'player' ? IDENTITY_LABEL[unit.identity] : '身份未知'}</span>
       <h1>{unit.name}</h1>
       <div className="detail-vitals"><div><b>{unit.hp}/{unit.maxHp}</b><span>体力</span></div><div><b>{unit.hand.length}</b><span>手牌</span></div><div><b>{unit.movement}</b><span>移动力</span></div><div><b>{state.scores[team]}/3</b><span>据点</span></div></div>
+      <div className={`unit-terrain-summary terrain-${currentTerrain}`}><b>{terrainGuide.mark} {terrainGuide.name}</b><span>{terrainGuide.rule}</span></div>
       <div className="detail-section-title">装备栏 <small>攻击范围 {effectiveAttackRange(state, unit)} · 已出杀 {unit.attacksUsed}{Number.isFinite(slashLimit(unit)) ? `/${slashLimit(unit)}` : '/∞'}</small></div>
       <div className="detail-equipment">{slots.map(slot => { const card = unit.equipment[slot.key]; return <div className={card ? 'filled' : ''} key={slot.key}><span>{slot.name}</span><strong>{card ? CARD_LABEL[card.kind] : slot.empty}</strong><small>{card ? `${SUIT_GLYPH[card.suit]} ${card.rank} · ${CARD_COPY[card.kind]}` : '空槽位'}</small></div> })}</div>
       <div className="detail-section-title">状态与判定</div>
