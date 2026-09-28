@@ -520,7 +520,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
         else if (canLijianTarget) state.selectLijianTarget(team)
         else if (canBorrowedWielder) state.selectBorrowedSwordWielder(team)
         else if (canBorrowedVictim && selectedCardId && borrowedWielder) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: borrowedWielder, targets: [borrowedWielder, team] })
-        else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
+        else if (canTarget && selectedCardId) dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selectedCardId, target: team, asSlash: selectedAsSlash, asDismantle: state.selectedAsDismantle, asFanjian: state.selectedAsFanjian, asRende: state.selectedAsRende, asGuose: state.selectedAsGuose, materialIds: state.spearMode || state.jijiangSource ? state.spearSelection : undefined, lordAssist: state.jijiangSource ?? undefined })
       }}
       onPointerEnter={previewUnit ? undefined : () => { if (canTarget || canChainTarget || canHalberdTarget || canBorrowedVictim) document.body.style.cursor = 'crosshair' }}
       onPointerLeave={() => { document.body.style.cursor = 'default' }}
@@ -1049,11 +1049,15 @@ function ResponseWindow() {
   const attackerWeapon = useGameStore(s => s.pendingResponse ? s.units[s.pendingResponse.source].equipment.weapon?.kind : undefined)
   const dispatch = useGameStore(s => s.dispatch)
   const activateBagua = useGameStore(s => s.activateBagua)
+  const [spearSelection, setSpearSelection] = useState<string[]>([])
+  useEffect(() => setSpearSelection([]), [pending?.effect, pending?.source, pending?.requiredCount])
   if (!pending) return null
   const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
   const responseEquipment = pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') || pending.required === 'slash' && player.skills.includes('wusheng')
   const responses = pending.effect === 'borrowedSword' ? borrowedSwordChoices(state, pending.source, 'player') : [...player.hand, ...(responseEquipment ? Object.values(player.equipment).filter((card): card is Card => !!card) : [])].filter(card => pending.required === 'any' || card.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && card.kind === 'wine') || (pending.required === 'slash' && isSlashKind(card.kind)) || (pending.effect === 'dying' && currentUnit !== 'player' && player.skills.includes('jijiu') && (card.suit === 'heart' || card.suit === 'diamond')) || (pending.required === 'slash' && player.skills.includes('wusheng') && (card.suit === 'heart' || card.suit === 'diamond')) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(card.kind)) || (pending.required === 'slash' && card.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (card.suit === 'spade' || card.suit === 'club')))
   const jijiang = pending.required === 'slash' ? jijiangChoices(state, 'player')[0] : undefined
+  const canSpearRespond = pending.required === 'slash' && player.equipment.weapon?.kind === 'spear' && player.hand.length >= 2
+  const toggleSpearMaterial = (cardId: string) => setSpearSelection(selected => selected.includes(cardId) ? selected.filter(id => id !== cardId) : selected.length < 2 ? [...selected, cardId] : selected)
   return <div className="overlay response-overlay"><section className="response-panel panel">
     <span className="eyebrow">响应时机</span>
     <h1>{pending.prompt}</h1>
@@ -1065,6 +1069,16 @@ function ResponseWindow() {
       </button>)}
       {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : jijiang ? `${jijiang.unit.name}可响应【激将】` : `没有可用的【${requiredLabel}】`}</span>}
     </div>
+    {canSpearRespond && <div className="spear-response">
+      <p>【丈八蛇矛】可将两张手牌当【杀】打出。请选择两张材料牌：</p>
+      <div className="response-cards">
+        {player.hand.map(card => <button key={`spear-${card.id}`} className={`card ${card.kind} ${spearSelection.includes(card.id) ? 'selected' : ''}`} onClick={() => toggleSpearMaterial(card.id)}>
+          <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+          <strong>{CARD_LABEL[card.kind]}</strong><small>{spearSelection.includes(card.id) ? '丈八材料 · 已选择' : '选择为丈八材料'}</small>
+        </button>)}
+      </div>
+      <button className="decline-response" disabled={spearSelection.length !== 2} onClick={() => dispatch({ type: 'RESPOND', cardId: spearSelection[0] ?? null, materialIds: spearSelection })}>发动【丈八蛇矛】打出【杀】</button>
+    </div>}
     {((pending.effect === 'slash' && attackerWeapon !== 'qinggang') || pending.effect === 'arrows') && player.equipment.armor?.kind === 'bagua' && !pending.armorChecked && <button className="decline-response" onClick={activateBagua}>发动【八卦阵】判定：红色视为打出【闪】</button>}
     {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => dispatch({ type: 'RESPOND', cardId: null })}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : jijiang ? `发动【激将】· ${jijiang.unit.name}代出杀` : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
   </section></div>
@@ -1471,7 +1485,7 @@ function App() {
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
   const canWusheng = state.units.player.skills.includes('wusheng') && state.units.player.attacksUsed < slashLimit(state.units.player) && [...state.units.player.hand, ...Object.values(state.units.player.equipment).filter((card): card is Card => !!card)].some(card => !isSlashKind(card.kind) && (card.suit === 'heart' || card.suit === 'diamond'))
   const canSpear = state.units.player.equipment.weapon?.kind === 'spear' && state.units.player.hand.length >= 2 && state.units.player.attacksUsed < slashLimit(state.units.player)
-  const canJijiang = state.units.player.identity === 'lord' && state.units.player.skills.includes('jijiang') && state.units.player.attacksUsed < slashLimit(state.units.player) && Object.values(state.units).some(unit => unit.identity === 'loyalist' && unit.faction === 'shu' && unit.hp > 0 && (unit.hand.some(card => isSlashKind(card.kind)) || (unit.skill === 'longdan' && unit.hand.some(card => card.kind === 'dodge')) || (unit.skills.includes('wusheng') && [...unit.hand, ...Object.values(unit.equipment).filter((card): card is Card => !!card)].some(card => card.suit === 'heart' || card.suit === 'diamond'))))
+  const canJijiang = state.units.player.identity === 'lord' && state.units.player.skills.includes('jijiang') && state.units.player.attacksUsed < slashLimit(state.units.player) && !!jijiangChoices(state, 'player')[0]
   const canQixi = state.units.player.skill === 'qixi' && selectedCard && (selectedCard.suit === 'spade' || selectedCard.suit === 'club')
   const canZhiheng = state.units.player.skill === 'zhiheng' && !state.units.player.skillUsed
   const canQingnang = state.units.player.skills.includes('qingnang') && !state.units.player.skillUsed && !!selectedCard && Object.values(state.units).some(unit => unit.hp > 0 && unit.hp < unit.maxHp)

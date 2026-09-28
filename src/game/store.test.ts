@@ -2912,6 +2912,167 @@ describe('standard card scenarios', () => {
     expect(useGameStore.getState().spearMode).toBe(false)
   })
 
+  it('lets Serpent Spear turn two hand cards into a Slash response to Barbarians', () => {
+    const materialA = card('dodge', 'heart'), materialB = card('peach', 'diamond'), spear = card('spear')
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai',
+      pendingResponse: { effect: 'barbarians', source: 'north', target: 'player', required: 'slash', prompt: '请打出【杀】' },
+      units: {
+        ...state.units,
+        player: { ...state.units.player, hand: [materialA, materialB], equipment: { weapon: spear } },
+        east: { ...state.units.east, hp: 0 },
+        west: { ...state.units.west, hp: 0 },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'RESPOND', cardId: materialA.id, materialIds: [materialA.id, materialB.id] })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.units.player.equipment.weapon).toEqual(spear)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+    expect(state.history.some(entry => entry.includes('丈八蛇矛'))).toBe(true)
+  })
+
+  it('lets Serpent Spear answer Duel and damage the opponent that cannot continue', () => {
+    const materialA = card('dodge', 'heart'), materialB = card('nullify', 'club'), spear = card('spear')
+    useGameStore.setState(state => ({
+      pendingResponse: { effect: 'duel', source: 'north', target: 'player', required: 'slash', prompt: '请打出【杀】' },
+      units: {
+        ...state.units,
+        player: { ...state.units.player, hand: [materialA, materialB], equipment: { weapon: spear } },
+        north: { ...state.units.north, hand: [] },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'RESPOND', cardId: materialA.id, materialIds: [materialA.id, materialB.id] })
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.north.hp).toBe(3)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+  })
+
+  it('lets Serpent Spear answer Borrowed Sword without spending the normal Slash quota', () => {
+    const materialA = card('dodge', 'heart'), materialB = card('peach', 'diamond'), spear = card('spear')
+    useGameStore.setState(state => ({
+      currentUnit: 'north', phase: 'ai',
+      pendingResponse: { effect: 'borrowedSword', source: 'north', target: 'player', required: 'slash', prompt: '请打出【杀】' },
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 4 }, hand: [materialA, materialB], equipment: { weapon: spear }, attacksUsed: 1 },
+        north: { ...state.units.north, identity: 'loyalist', position: { x: 0, y: 0 }, hand: [] },
+        east: { ...state.units.east, identity: 'rebel', revealed: true, skill: 'keji', skills: ['keji'], position: { x: 4, y: 5 }, hand: [] },
+        west: { ...state.units.west, hp: 0 },
+      },
+    }))
+
+    useGameStore.getState().dispatch({ type: 'RESPOND', cardId: materialA.id, materialIds: [materialA.id, materialB.id] })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.player.attacksUsed).toBe(1)
+    expect(state.units.player.equipment.weapon).toEqual(spear)
+    expect(state.units.player.hand).toHaveLength(0)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+  })
+
+  it('lets AI use Serpent Spear to answer Barbarians', () => {
+    const barbarians = card('barbarians'), materialA = card('dodge', 'heart'), materialB = card('nullify', 'club'), spear = card('spear')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [barbarians] },
+      north: { ...state.units.north, skill: 'keji', skills: ['keji'], hand: [materialA, materialB], equipment: { weapon: spear } },
+      east: { ...state.units.east, hp: 0 },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: barbarians.id })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.north.equipment.weapon).toEqual(spear)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+    expect(state.history.some(entry => entry.includes('丈八蛇矛'))).toBe(true)
+  })
+
+  it('lets AI use Serpent Spear during Duel', () => {
+    const duel = card('duel'), materialA = card('drawTwo', 'club'), materialB = card('dismantle', 'spade'), spear = card('spear')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, hand: [duel] },
+      north: { ...state.units.north, skill: 'keji', skills: ['keji'], hand: [materialA, materialB], equipment: { weapon: spear } },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duel.id, target: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.pendingResponse).toMatchObject({ effect: 'duel', source: 'north', required: 'slash' })
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+    expect(state.history.some(entry => entry.includes('丈八蛇矛'))).toBe(true)
+  })
+
+  it('lets AI use Serpent Spear when forced by Borrowed Sword', () => {
+    const borrowed = card('borrowedSword'), materialA = card('drawTwo', 'club'), materialB = card('dismantle', 'spade'), spear = card('spear')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, position: { x: 0, y: 0 }, hand: [borrowed] },
+      north: { ...state.units.north, identity: 'rebel', revealed: true, skill: 'keji', skills: ['keji'], position: { x: 4, y: 4 }, hand: [materialA, materialB], equipment: { weapon: spear }, attacksUsed: 1 },
+      east: { ...state.units.east, identity: 'loyalist', revealed: true, skill: 'keji', skills: ['keji'], position: { x: 4, y: 5 }, hand: [] },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: borrowed.id, target: 'north', targets: ['north', 'east'] })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.attacksUsed).toBe(1)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.north.equipment.weapon).toEqual(spear)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+  })
+
+  it('lets a Shu ally answer Jijiang with Serpent Spear', () => {
+    const materialA = card('dodge', 'heart'), materialB = card('nullify', 'club'), spear = card('spear')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, identity: 'lord', skill: 'rende', skills: ['rende', 'jijiang'], position: { x: 4, y: 2 }, hand: [] },
+      north: { ...state.units.north, identity: 'loyalist', faction: 'shu', revealed: true, skill: 'keji', skills: ['keji'], position: { x: 0, y: 0 }, hand: [materialA, materialB], equipment: { weapon: spear } },
+      east: { ...state.units.east, identity: 'rebel', revealed: true, skill: 'keji', skills: ['keji'], position: { x: 4, y: 1 }, hand: [] },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+
+    useGameStore.getState().activateJijiang()
+    const selection = useGameStore.getState().spearSelection
+    expect(selection).toHaveLength(2)
+    expect(selection).toEqual(expect.arrayContaining([materialA.id, materialB.id]))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: selection[0], target: 'east', asSlash: true, materialIds: selection, lordAssist: 'north' })
+    const state = useGameStore.getState()
+    expect(state.units.east.hp).toBe(3)
+    expect(state.units.north.hand).toHaveLength(0)
+    expect(state.units.north.equipment.weapon).toEqual(spear)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+    expect(state.history.some(entry => entry.includes('激将') && entry.includes('丈八蛇矛'))).toBe(true)
+  })
+
+  it('lets an AI lord request a Serpent Spear response through Jijiang', () => {
+    const barbarians = card('barbarians'), materialA = card('drawTwo', 'club'), materialB = card('dismantle', 'spade'), spear = card('spear')
+    useGameStore.setState(state => ({ units: {
+      ...state.units,
+      player: { ...state.units.player, identity: 'rebel', hand: [barbarians] },
+      north: { ...state.units.north, identity: 'lord', faction: 'shu', skill: 'rende', skills: ['rende', 'jijiang'], hand: [] },
+      east: { ...state.units.east, identity: 'loyalist', faction: 'shu', revealed: true, skill: 'keji', skills: ['keji'], hand: [materialA, materialB], equipment: { weapon: spear } },
+      west: { ...state.units.west, hp: 0 },
+    } }))
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: barbarians.id })
+    const state = useGameStore.getState()
+    expect(state.units.north.hp).toBe(4)
+    expect(state.units.east.hand).toHaveLength(0)
+    expect(state.units.east.equipment.weapon).toEqual(spear)
+    expect(state.discard).toEqual(expect.arrayContaining([materialA, materialB]))
+    expect(state.history.some(entry => entry.includes('激将') && entry.includes('丈八蛇矛'))).toBe(true)
+  })
+
   it('keeps both Serpent Spear materials together through judgement and Jianxiong', () => {
     const spear = card('spear'), materialA = card('peach', 'heart'), materialB = card('drawTwo', 'club'), rescue = card('peach', 'diamond'), bagua = card('bagua')
     useGameStore.setState(state => ({

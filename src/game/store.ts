@@ -9,7 +9,7 @@ interface GameStore extends GameState {
   selectMap: (mapId: MapId) => void
   selectDeckMode: (deckMode: DeckMode) => void
   selectBorrowedSwordWielder: (team: Team) => void
-  respond: (cardId: string | null) => void
+  respond: (cardId: string | null, materialIds?: string[]) => void
   chooseHarvest: (cardId: string) => void
   chooseFanjianSuit: (suit: Card['suit']) => void
   chooseFireAttackCard: (cardId: string) => void
@@ -184,6 +184,19 @@ function payRescueCard(state: GameState, team: Team, card: Card, otherResolvingC
   const paid = { ...state, units: { ...state.units, [team]: { ...unit, hp: loss.hp, hand: [...unit.hand.filter(candidate => candidate.id !== card.id), ...loss.drawn], equipment, animation: loss.healed ? 'heal' as const : 'cast' as const } }, deck: loss.deck, discard: loss.discard }
   return wasLastHandCard ? triggerLianying(paid, team, resolvingCards) : paid
 }
+function paySpearResponse(state: GameState, team: Team, materials: Card[], otherResolvingCards: Card[] = []): GameState {
+  const unit = state.units[team]
+  if (materials.length !== 2 || new Set(materials.map(card => card.id)).size !== 2 || materials.some(card => !unit.hand.some(held => held.id === card.id))) return state
+  const materialIds = new Set(materials.map(card => card.id))
+  const hand = unit.hand.filter(card => !materialIds.has(card.id))
+  const resolvingCards = [...materials, ...otherResolvingCards]
+  const paid: GameState = {
+    ...state,
+    units: { ...state.units, [team]: { ...unit, hand, animation: 'cast' } },
+    discard: [...state.discard, ...materials],
+  }
+  return hand.length ? paid : triggerLianying(paid, team, resolvingCards)
+}
 const rescueAmount = (target: Unit, helper: Unit, card: Card) =>
   card.kind === 'peach' && target.identity === 'lord' && target.skills.includes('jiuyuan') && helper.id !== target.id && helper.faction === 'wu' ? 2 : 1
 const log = (state: GameState, message: string) => [message, ...state.history].slice(0, 8)
@@ -211,15 +224,35 @@ const slashResponses = (unit: Unit) => [
   ...(unit.skill === 'longdan' ? unit.hand.filter(card => card.kind === 'dodge') : []),
   ...(unit.skills.includes('wusheng') ? [...unit.hand, ...equippedCards(unit)].filter(card => isRed(card) && !isSlashKind(card.kind)) : []),
 ]
+type SlashPayment = { slash: Card; materialIds?: string[] }
+const slashPaymentChoices = (unit: Unit): SlashPayment[] => {
+  const direct: SlashPayment[] = slashResponses(unit).map(slash => ({ slash }))
+  if (unit.equipment.weapon?.kind !== 'spear') return direct
+  const directHandIds = new Set(direct.filter(choice => unit.hand.some(card => card.id === choice.slash.id)).map(choice => choice.slash.id))
+  const materials = [...unit.hand].filter(card => !directHandIds.has(card.id)).sort((first, second) => {
+    const value = (card: Card) => card.kind === 'peach' ? 100 : card.kind === 'dodge' ? 80 : card.kind === 'nullify' ? 75 : card.kind === 'wine' ? 65 : isEquipment(card.kind) ? 45 : 30
+    return value(first) - value(second)
+  })
+  for (let index = 0; index + 1 < materials.length; index += 2) {
+    const pair = materials.slice(index, index + 2)
+    direct.push({ slash: { ...pair[0], kind: 'slash' }, materialIds: pair.map(card => card.id) })
+  }
+  return direct
+}
+const paySlashPayment = (state: GameState, team: Team, payment: SlashPayment, otherResolvingCards: Card[] = []) => {
+  if (!payment.materialIds?.length) return payRescueCard(state, team, payment.slash, otherResolvingCards)
+  const materials = state.units[team].hand.filter(card => payment.materialIds!.includes(card.id))
+  return paySpearResponse(state, team, materials, otherResolvingCards)
+}
 export function jijiangChoices(state: GameState, lordId: Team, count = 1) {
   const lord = state.units[lordId]
   if (lord.identity !== 'lord' || !lord.skills.includes('jijiang')) return []
-  const choices: { unit: Unit; slash: Card }[] = []
+  const choices: { unit: Unit; slash: Card; materialIds?: string[] }[] = []
   for (const unit of alliesFor(state, lordId)) {
     if (unit.id === lordId || unit.faction !== 'shu' || unit.hp <= 0) continue
-    const available = slashResponses(unit)
-    for (const slash of available) {
-      choices.push({ unit, slash })
+    const available = slashPaymentChoices(unit)
+    for (const payment of available) {
+      choices.push({ unit, slash: payment.slash, materialIds: payment.materialIds })
       if (choices.length === count) return choices
     }
   }
@@ -235,7 +268,7 @@ export function greenDragonChoices(state: GameState, attackerId: Team, targetId:
     return combatDistance(state, afterPayment, target) <= effectiveAttackRange(state, afterPayment)
   })
 }
-const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge') => (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
+const responseText = (unit: Unit, card: Card, required: 'slash' | 'dodge', materialIds?: string[]) => materialIds?.length === 2 ? `发动【丈八蛇矛】，将两张手牌当【杀】打出` : (required === 'slash' ? isSlashKind(card.kind) : card.kind === required) ? `打出【${CARD_LABEL[card.kind]}】` : unit.skills.includes('qingguo') && required === 'dodge' && (card.suit === 'spade' || card.suit === 'club') ? `发动【倾国】，将黑色牌当【闪】` : unit.skills.includes('wusheng') && required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `发动【武圣】，将红色牌当【杀】` : `发动【龙胆】，将【${CARD_LABEL[card.kind]}】当【${CARD_LABEL[required]}】`
 const loyalGuards = (state: GameState, targetId: Team, count = 1) => {
   if (state.units[targetId].identity !== 'lord' || !state.units[targetId].skills.includes('hujia')) return null
   const guards: { unit: Unit; dodge: Card }[] = []
@@ -667,39 +700,51 @@ export function borrowedSwordChoices(state: GameState, actorId: Team, wielderId:
   })
 }
 
-function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, slashCardId?: string | null, forcedVictimId?: Team, assistance?: { unit: Unit; slash: Card }): Partial<GameState> {
+function resolveBorrowedSword(state: GameState, actorId: Team, wielderId: Team, slashCardId?: string | null, forcedVictimId?: Team, assistance?: { unit: Unit; slash: Card; materialIds?: string[] }, slashMaterialIds?: string[]): Partial<GameState> {
   const wielder = state.units[wielderId], actor = state.units[actorId], weapon = wielder.equipment.weapon
   if (!weapon) return state
   const victim = borrowedSwordVictim(state, actorId, wielderId, forcedVictimId)
   if (victim && !canBorrowedSwordTarget(state, wielder, victim)) return state
   const choices = borrowedSwordChoices(state, actorId, wielderId, forcedVictimId)
+  const requestedSpearMaterials = weapon.kind === 'spear' && slashMaterialIds?.length === 2 && new Set(slashMaterialIds).size === 2
+    ? wielder.hand.filter(card => slashMaterialIds.includes(card.id)) : []
+  if (slashMaterialIds && requestedSpearMaterials.length !== 2) return state
   const ownSlash = slashCardId === null ? undefined : slashCardId ? choices.find(card => card.id === slashCardId) : choices[0]
-  const automaticAssistance = wielderId === 'player' || ownSlash ? undefined : jijiangChoices(state, wielderId)[0]
+  const automaticSpearMaterials = wielderId !== 'player' && !ownSlash && weapon.kind === 'spear' ? aiSpearMaterials(wielder) : []
+  const spearMaterials = requestedSpearMaterials.length === 2 ? requestedSpearMaterials : automaticSpearMaterials
+  const automaticAssistance = wielderId === 'player' || ownSlash || spearMaterials.length ? undefined : jijiangChoices(state, wielderId)[0]
   const resolvedAssistance = assistance ?? automaticAssistance
-  const slash = resolvedAssistance?.slash ?? ownSlash
+  const spearSlash: Card | undefined = spearMaterials.length === 2 ? { ...spearMaterials[0], kind: 'slash' } : undefined
+  const slash = resolvedAssistance?.slash ?? spearSlash ?? ownSlash
   const canRequestJijiang = wielderId === 'player' && !!jijiangChoices(state, wielderId)[0]
-  if (wielderId === 'player' && slashCardId === undefined && (slash || canRequestJijiang) && victim) {
+  const canUseSpear = wielderId === 'player' && weapon.kind === 'spear' && wielder.hand.length >= 2
+  if (wielderId === 'player' && slashCardId === undefined && (slash || canRequestJijiang || canUseSpear) && victim) {
     const prompt = `${actor.name}使用【借刀杀人】，请打出【杀】攻击${victim.name}，或放弃并交出武器`
     return { pendingResponse: { effect: 'borrowedSword', source: actorId, target: wielderId, required: 'slash', prompt }, message: prompt, history: log(state, prompt) }
   }
   if (slash && victim) {
     const provider = resolvedAssistance?.unit ?? wielder
+    const assistanceMaterials = resolvedAssistance?.materialIds?.length === 2 ? provider.hand.filter(card => resolvedAssistance.materialIds!.includes(card.id)) : []
+    const paidMaterials = spearMaterials.length === 2 ? spearMaterials : assistanceMaterials
     const equippedSlash = equippedCards(provider).some(card => card.id === slash.id)
     if (equippedSlash && (!provider.skills.includes('wusheng') || !isRed(slash))) return state
     const message = resolvedAssistance
       ? `${actor.name}借刀，${wielder.name}发动【激将】，${provider.name}代其对${victim.name}使用【杀】`
-      : `${actor.name}借刀，令${wielder.name}对${victim.name}使用【杀】`
-    const paid = payRescueCard(state, provider.id, slash)
+      : spearMaterials.length === 2
+        ? `${actor.name}借刀，${wielder.name}发动【丈八蛇矛】，将两张手牌当【杀】对${victim.name}使用`
+        : `${actor.name}借刀，令${wielder.name}对${victim.name}使用【杀】`
+    const paid = paidMaterials.length === 2 ? paySpearResponse(state, provider.id, paidMaterials) : payRescueCard(state, provider.id, slash)
     const forced: GameState = { ...paid, units: { ...paid.units, [wielderId]: { ...paid.units[wielderId], animation: 'attack' } }, message, history: log(paid, message) }
     if (victim.id === 'player' && wielderId !== 'player') {
       const offered = offerPlayerLiuli(forced, wielderId, slash, wielder.attacksUsed)
       if (offered) return offered
-      const continuation: PendingTieqiContinuation = { attacker: wielderId, target: 'player', slashId: slash.id, sourceCardIds: [slash.id], mode: 'playerResponse', forcedSlashAttacksUsed: wielder.attacksUsed }
-      const tieqi = judgeTieqi(forced, wielderId, slash, continuation)
+      const sourceCards = paidMaterials.length === 2 ? paidMaterials : [slash]
+      const continuation: PendingTieqiContinuation = { attacker: wielderId, target: 'player', slashId: slash.id, sourceCardIds: sourceCards.map(card => card.id), mode: 'playerResponse', forcedSlashAttacksUsed: wielder.attacksUsed }
+      const tieqi = judgeTieqi(forced, wielderId, sourceCards, continuation)
       if (tieqi.pending) return tieqi.state
       return continuePlayerSlashAfterTieqi(tieqi.state, continuation, tieqi.locked)
     }
-    const resolved = { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash) }
+    const resolved = { ...forced, ...resolveSlash(forced, wielderId, victim.id, undefined, false, slash, false, paidMaterials.length === 2 ? paidMaterials : [slash]) }
     return { ...resolved, units: { ...resolved.units, [wielderId]: { ...resolved.units[wielderId], attacksUsed: wielder.attacksUsed } } }
   }
   return takeTargetCard(state, actorId, wielderId, true, weapon.id, 'borrowedSword')
@@ -993,18 +1038,18 @@ function continueDuel(state: GameState, currentId: Team, otherId: Team, sourceCa
       return { ...working, pendingResponse: { effect: 'duel', source: other, target: 'player', required: 'slash', requiredCount, originCardId: sourceCard?.id, prompt }, message: prompt, history: log(working, prompt) }
     }
     const responder = working.units[current]
-    const slashes = slashResponses(responder).slice(0, requiredCount)
-    const assistance = slashes.length < requiredCount ? jijiangChoices(working, current, requiredCount - slashes.length) : []
-    if (slashes.length + assistance.length < requiredCount) {
+    const payments = slashPaymentChoices(responder).slice(0, requiredCount)
+    const assistance = payments.length < requiredCount ? jijiangChoices(working, current, requiredCount - payments.length) : []
+    if (payments.length + assistance.length < requiredCount) {
       const duelDamage = working.units[other].luoyiActive ? 2 : 1
       return damage(working, other, current, duelDamage, `${working.units[current].name}未能在【决斗】中出杀，受到 ${duelDamage} 点伤害${duelDamage > 1 ? '（裸衣）' : ''}`, false, sourceCard)
     }
-    const responseCards = [...slashes, ...assistance.map(choice => choice.slash), ...(sourceCard ? [sourceCard] : [])]
-    const ownText = slashes.length ? `${responder.name}${slashes.map(slash => responseText(responder, slash, 'slash')).join('，')}` : ''
-    const assistedText = assistance.map(({ unit, slash }) => `${responder.name}发动【激将】，${unit.name}${responseText(unit, slash, 'slash')}`).join('；')
+    const responseCards = [...payments.flatMap(payment => payment.materialIds?.length ? responder.hand.filter(card => payment.materialIds!.includes(card.id)) : [payment.slash]), ...assistance.flatMap(choice => choice.materialIds?.length ? choice.unit.hand.filter(card => choice.materialIds!.includes(card.id)) : [choice.slash]), ...(sourceCard ? [sourceCard] : [])]
+    const ownText = payments.length ? `${responder.name}${payments.map(payment => responseText(responder, payment.slash, 'slash', payment.materialIds)).join('，')}` : ''
+    const assistedText = assistance.map(({ unit, slash, materialIds }) => `${responder.name}发动【激将】，${unit.name}${responseText(unit, slash, 'slash', materialIds)}`).join('；')
     const message = `${[ownText, assistedText].filter(Boolean).join('；')}响应${requiredCount > 1 ? '【无双决斗】' : '【决斗】'}`
-    for (const slash of slashes) working = payRescueCard(working, current, slash, responseCards)
-    for (const { unit, slash } of assistance) working = payRescueCard(working, unit.id, slash, responseCards)
+    for (const payment of payments) working = paySlashPayment(working, current, payment, responseCards)
+    for (const { unit, slash, materialIds } of assistance) working = paySlashPayment(working, unit.id, { slash, materialIds }, responseCards)
     if (current === working.currentUnit && working.turnStage === 'play') {
       working = { ...working, units: { ...working.units, [current]: { ...working.units[current], slashUsedOrPlayed: true } } }
     }
@@ -1081,7 +1126,8 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       if (judged.success) { alreadyResolved.add(targetId); continue }
       target = working.units[targetId]
     }
-    const response = responseKind === 'slash' ? slashResponses(target)[0] : responseCard(target, responseKind)
+    const responsePayment = responseKind === 'slash' ? slashPaymentChoices(target)[0] : undefined
+    const response = responsePayment?.slash ?? (responseKind === 'dodge' ? responseCard(target, responseKind) : undefined)
     const assistance = responseKind === 'slash' && !response ? jijiangChoices(working, targetId)[0] : undefined
     const guard = responseKind === 'dodge' && !response ? loyalGuard(working, targetId) : null
     const nullify = !response && !assistance && !guard ? target.hand.find(c => c.kind === 'nullify') : undefined
@@ -1093,11 +1139,12 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       continue
     }
     if (response || assistance || guard) {
-      const message = guard ? `${guard.unit.name}发动【护驾】保护主公` : assistance ? `${target.name}发动【激将】，${assistance.unit.name}${responseText(assistance.unit, assistance.slash, 'slash')}响应【${CARD_LABEL[kind]}】` : `${target.name}${responseText(target, response!, responseKind)}响应【${CARD_LABEL[kind]}】`
+      const message = guard ? `${guard.unit.name}发动【护驾】保护主公` : assistance ? `${target.name}发动【激将】，${assistance.unit.name}${responseText(assistance.unit, assistance.slash, 'slash', assistance.materialIds)}响应【${CARD_LABEL[kind]}】` : `${target.name}${responseText(target, response!, responseKind, responsePayment?.materialIds)}响应【${CARD_LABEL[kind]}】`
       working = guard
         ? { ...working, units: { ...working.units, [guard.unit.id]: { ...guard.unit, hand: guard.unit.hand.filter(c => c.id !== guard.dodge.id), animation: 'cast' } }, discard: [...working.discard, guard.dodge], message, history: log(working, message) }
-        : assistance ? payRescueCard(working, assistance.unit.id, assistance.slash, sourceCard ? [sourceCard] : [])
-          : payRescueCard(working, targetId, response!, sourceCard ? [sourceCard] : [])
+        : assistance ? paySlashPayment(working, assistance.unit.id, { slash: assistance.slash, materialIds: assistance.materialIds }, sourceCard ? [sourceCard] : [])
+          : responsePayment ? paySlashPayment(working, targetId, responsePayment, sourceCard ? [sourceCard] : [])
+            : payRescueCard(working, targetId, response!, sourceCard ? [sourceCard] : [])
       working = { ...working, message, history: log(working, message) }
       if (guard) working = triggerLianying(working, guard.unit.id, [guard.dodge, ...(sourceCard ? [sourceCard] : [])])
     } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`, false, sourceCard) }
@@ -1319,7 +1366,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   dispatch: action => {
     if (action.type === 'RESTART') { set({ ...createInitialState(undefined, true, Math.random, get().mapId, get().deckMode) }); return }
-    if (action.type === 'RESPOND') { get().respond(action.cardId); return }
+    if (action.type === 'RESPOND') { get().respond(action.cardId, action.materialIds); return }
     const state = get(); if (state.phase === 'finished' || state.pendingResponse || state.pendingHarvest || state.pendingFanjian || state.pendingFireAttack || state.pendingPlunder || state.pendingJudgement || state.pendingLuoshen || state.pendingGuanxing || state.pendingTuxi || state.pendingLuoyi || state.pendingGreenDragon || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
     if (action.type === 'MOVE') {
       const unit = state.units[action.unit]
@@ -1407,14 +1454,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       const assistant = action.lordAssist ? state.units[action.lordAssist] : undefined
       const validJijiang = assistant && unit.identity === 'lord' && unit.skills.includes('jijiang') && assistant.hp > 0 && assistant.faction === 'shu' && alliesFor(state, action.unit).some(candidate => candidate.id === assistant.id)
-      const assistedCard = validJijiang ? slashResponses(assistant)[0] : undefined
+      const assistedPayment = validJijiang ? slashPaymentChoices(assistant)[0] : undefined
+      const assistedCard = assistedPayment?.slash
       if (action.lordAssist && (!assistedCard || assistedCard.id !== action.cardId)) return
+      const assistedMaterials = assistedPayment?.materialIds?.length === 2 && action.materialIds?.length === 2 && new Set(action.materialIds).size === 2
+        ? assistant!.hand.filter(card => action.materialIds!.includes(card.id)) : []
       const spearMaterials = action.asSlash && unit.equipment.weapon?.kind === 'spear' && action.materialIds?.length === 2
         ? unit.hand.filter(card => action.materialIds!.includes(card.id)) : []
-      if (action.materialIds && (spearMaterials.length !== 2 || new Set(action.materialIds).size !== 2)) return
+      if (action.materialIds && ((assistant ? assistedMaterials : spearMaterials).length !== 2 || new Set(action.materialIds).size !== 2)) return
       const equippedVirtual = equippedCards(unit).find(item => item.id === action.cardId && ((action.asGuose && unit.skills.includes('guose') && item.suit === 'diamond') || (action.asSlash && unit.skills.includes('wusheng') && isRed(item))))
       const assistedEquipment = assistant && equippedCards(assistant).some(item => item.id === action.cardId) ? assistedCard : undefined
-      const removed = equippedVirtual ? { card: equippedVirtual, hand: unit.hand } : assistedEquipment ? { card: assistedEquipment, hand: assistant!.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
+      const removed = equippedVirtual ? { card: equippedVirtual, hand: unit.hand } : assistedMaterials.length === 2 ? { card: assistedCard, hand: assistant!.hand.filter(card => !action.materialIds!.includes(card.id)) } : assistedEquipment ? { card: assistedEquipment, hand: assistant!.hand } : takeCard(assistant ? assistant.hand : unit.hand, action.cardId); if (!removed.card) return
       const card = removed.card
       if (action.recast) {
         if (card.kind !== 'ironChain' || assistant) return
@@ -1440,7 +1490,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'duel' && !canDuelTarget(target)) return
       if ((kind === 'indulgence' || kind === 'supplyShortage') && target.judgement.some(delayed => delayed.kind === kind)) return
       if (card.kind === 'lightning' && unit.judgement.some(delayed => delayed.kind === 'lightning')) return
-      const playedCards = spearMaterials.length === 2 ? spearMaterials : [card]
+      const playedCards = assistedMaterials.length === 2 ? assistedMaterials : spearMaterials.length === 2 ? spearMaterials : [card]
       const remainingHand = assistant ? unit.hand : spearMaterials.length === 2 ? unit.hand.filter(item => !action.materialIds!.includes(item.id)) : removed.hand
       if (action.unit === 'player' && !assistant && !equippedVirtual && !action.targets?.length && kind === 'slash' && unit.equipment.weapon?.kind === 'halberd' && remainingHand.length === 0) {
         const legalTargets = state.turnOrder.filter(id => id !== action.unit && state.units[id].hp > 0 && canSlash(state, unit, state.units[id]))
@@ -1468,7 +1518,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       let base: GameState = { ...state, units: unitsAfterPlay, deck: playedDeck, discard: playedDiscard, selectedCardId: null, borrowedSwordWielder: null, selectedAsSlash: false, selectedAsDismantle: false, selectedAsGuose: false, spearMode: false, spearSelection: [], jijiangSource: null, chainTargets: [] }
       if (validJijiang && assistant) {
-        const skillMessage = `${unit.name}发动【激将】，${assistant.name}代其使用【杀】`
+        const skillMessage = assistedMaterials.length === 2 ? `${unit.name}发动【激将】，${assistant.name}发动【丈八蛇矛】，将两张手牌当【杀】代为使用` : `${unit.name}发动【激将】，${assistant.name}代其使用【杀】`
         base = { ...base, message: skillMessage, history: log(base, skillMessage) }
       }
       if (spearMaterials.length === 2) {
@@ -1654,12 +1704,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const discardSelection = selected ? state.discardSelection.filter(cardId => cardId !== id) : [...state.discardSelection, id]
     set({ discardSelection, message: `弃牌阶段 · 已选择 ${discardSelection.length}/${excess} 张` })
   },
-  respond: cardId => {
+  respond: (cardId, materialIds) => {
     const state = get(), pending = state.pendingResponse
     if (!pending) return
     const player = state.units.player
+    const spearMaterials = pending.required === 'slash' && player.equipment.weapon?.kind === 'spear' && materialIds?.length === 2 && new Set(materialIds).size === 2
+      ? player.hand.filter(card => materialIds.includes(card.id)) : []
+    if (materialIds && spearMaterials.length !== 2) return
+    const spearResponse = spearMaterials.length === 2
     const responseEquipment = pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') || pending.required === 'slash' && player.skills.includes('wusheng')
-    const card = cardId ? pending.effect === 'borrowedSword' ? borrowedSwordChoices(state, pending.source, 'player').find(candidate => candidate.id === cardId) : [...player.hand, ...(responseEquipment ? equippedCards(player) : [])].find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') && isRed(candidate)) || (pending.required === 'slash' && player.skills.includes('wusheng') && isRed(candidate)) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
+    const card = spearResponse ? { ...spearMaterials[0], kind: 'slash' as const } : cardId ? pending.effect === 'borrowedSword' ? borrowedSwordChoices(state, pending.source, 'player').find(candidate => candidate.id === cardId) : [...player.hand, ...(responseEquipment ? equippedCards(player) : [])].find(candidate => candidate.id === cardId && (pending.required === 'any' || candidate.kind === pending.required || (pending.effect === 'dying' && pending.target === 'player' && candidate.kind === 'wine') || (pending.required === 'slash' && isSlashKind(candidate.kind)) || (pending.effect === 'dying' && state.currentUnit !== 'player' && player.skills.includes('jijiu') && isRed(candidate)) || (pending.required === 'slash' && player.skills.includes('wusheng') && isRed(candidate)) || (player.skill === 'longdan' && ((pending.required === 'dodge' && isSlashKind(candidate.kind)) || (pending.required === 'slash' && candidate.kind === 'dodge'))) || (pending.required === 'dodge' && player.skills.includes('qingguo') && (candidate.suit === 'spade' || candidate.suit === 'club')))) : undefined
     if (cardId && !card) return
     const jijiang = !cardId && pending.required === 'slash' ? jijiangChoices(state, 'player')[0] : undefined
     let base: GameState = { ...state, pendingResponse: null }
@@ -1889,7 +1943,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return
     }
     if (pending.effect === 'borrowedSword') {
-      base = { ...base, ...resolveBorrowedSword(base, pending.source, 'player', card?.id ?? null, undefined, jijiang) }
+      base = { ...base, ...resolveBorrowedSword(base, pending.source, 'player', card?.id ?? null, undefined, jijiang, spearResponse ? spearMaterials.map(card => card.id) : undefined) }
       set(base)
       if (base.phase === 'ai' && !base.winner && !base.pendingResponse) setTimeout(() => void get().runAI(), 120)
       return
@@ -1897,18 +1951,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (pending.effect === 'duel') {
       const slash = card ?? jijiang?.slash
       const provider = jijiang?.unit ?? player
+      const responseMaterials = spearResponse ? spearMaterials : jijiang?.materialIds?.length === 2 ? provider.hand.filter(card => jijiang.materialIds!.includes(card.id)) : []
       if (slash) {
         const responseMessage = jijiang
-          ? `${player.name}发动【激将】，${provider.name}${responseText(provider, slash, 'slash')}响应【决斗】`
-          : `${player.name}${responseText(player, slash, 'slash')}响应【决斗】`
+          ? `${player.name}发动【激将】，${provider.name}${responseText(provider, slash, 'slash', jijiang.materialIds)}响应【决斗】`
+          : `${player.name}${responseText(player, slash, 'slash', spearResponse ? materialIds : undefined)}响应【决斗】`
         if ((pending.requiredCount ?? 1) > 1) {
           const remaining = (pending.requiredCount ?? 1) - 1, prompt = `【无双决斗】还需打出 ${remaining} 张【杀】`
-          base = payRescueCard(base, provider.id, slash)
+          base = responseMaterials.length === 2 ? paySpearResponse(base, provider.id, responseMaterials) : payRescueCard(base, provider.id, slash)
           if (base.currentUnit === 'player' && base.turnStage === 'play') base = { ...base, units: { ...base.units, player: { ...base.units.player, slashUsedOrPlayed: true } } }
           base = { ...base, pendingResponse: { ...pending, requiredCount: remaining, prompt }, message: prompt, history: log(base, responseMessage) }
           set(base); return
         }
-        base = payRescueCard(base, provider.id, slash)
+        base = responseMaterials.length === 2 ? paySpearResponse(base, provider.id, responseMaterials) : payRescueCard(base, provider.id, slash)
         if (base.currentUnit === 'player' && base.turnStage === 'play') base = { ...base, units: { ...base.units, player: { ...base.units.player, slashUsedOrPlayed: true } } }
         base = { ...base, message: responseMessage, history: log(base, responseMessage) }
         base = { ...base, ...continueDuel(base, pending.source, 'player', base.discard.find(candidate => candidate.id === pending.originCardId)) }
@@ -1940,11 +1995,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const responseChoice = card ?? jijiang?.slash
     const responseProvider = jijiang?.unit ?? player
     if (responseChoice) {
-      const response = pending.required === 'slash' || pending.required === 'dodge' ? responseText(responseProvider, responseChoice, pending.required) : `打出【${CARD_LABEL[responseChoice.kind]}】`
+      const responseMaterials = spearResponse ? spearMaterials : jijiang?.materialIds?.length === 2 ? responseProvider.hand.filter(card => jijiang.materialIds!.includes(card.id)) : []
+      const response = pending.required === 'slash' || pending.required === 'dodge' ? responseText(responseProvider, responseChoice, pending.required, responseMaterials.length === 2 ? responseMaterials.map(card => card.id) : undefined) : `打出【${CARD_LABEL[responseChoice.kind]}】`
       const message = jijiang
         ? `${player.name}发动【激将】，${responseProvider.name}${response}响应【${CARD_LABEL[pending.effect]}】`
         : `${player.name}${response}响应【${CARD_LABEL[pending.effect]}】`
-      base = payRescueCard(base, responseProvider.id, responseChoice, base.discard.filter(item => item.id === pending.originCardId || pending.resolvingResponseIds?.includes(item.id)))
+      base = responseMaterials.length === 2
+        ? paySpearResponse(base, responseProvider.id, responseMaterials, base.discard.filter(item => item.id === pending.originCardId || pending.resolvingResponseIds?.includes(item.id)))
+        : payRescueCard(base, responseProvider.id, responseChoice, base.discard.filter(item => item.id === pending.originCardId || pending.resolvingResponseIds?.includes(item.id)))
       base = { ...base, message, history: log(base, message) }
       if (pending.effect === 'slash') {
         const attackCard = base.discard.find(candidate => candidate.id === pending.originCardId)
@@ -2438,10 +2496,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateJijiang: () => {
     const state = get(), lord = state.units.player
     if (state.phase !== 'player' || state.turnStage !== 'play' || lord.identity !== 'lord' || !lord.skills.includes('jijiang') || lord.attacksUsed >= slashLimit(lord)) return
-    const helper = alliesFor(state, 'player').find(unit => unit.id !== 'player' && unit.faction === 'shu' && unit.hp > 0 && slashResponses(unit).length)
-    if (!helper) { set({ message: '没有蜀势力己方角色响应【激将】' }); return }
-    const offered = slashResponses(helper)[0]
-    set({ selectedCardId: offered.id, selectedAsSlash: true, selectedAsDismantle: false, spearMode: false, spearSelection: [], jijiangSource: helper.id, message: `${helper.name}响应【激将】，请选择攻击范围内的敌将` })
+    const offered = jijiangChoices(state, 'player')[0]
+    if (!offered) { set({ message: '没有蜀势力己方角色响应【激将】' }); return }
+    set({ selectedCardId: offered.slash.id, selectedAsSlash: true, selectedAsDismantle: false, spearMode: false, spearSelection: offered.materialIds ?? [], jijiangSource: offered.unit.id, message: `${offered.unit.name}${offered.materialIds?.length === 2 ? '发动【丈八蛇矛】' : ''}响应【激将】，请选择攻击范围内的敌将` })
   },
   activateQixi: () => {
     const state = get(), card = state.units.player.hand.find(item => item.id === state.selectedCardId)
@@ -2735,7 +2792,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'supplyShortage' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
       const halberdTargets = kind === 'slash' && !jijiang ? aiHalberdTargets(state, aiId, card) : []
       if (halberdTargets.length > 1) target = state.units[halberdTargets[0]]
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: kind === 'slash' && (!isSlashKind(card.kind) || spearMaterials.length === 2), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle', materialIds: spearMaterials.length === 2 ? spearMaterials.map(material => material.id) : undefined, lordAssist: jijiang?.unit.id }); await wait(420); state = get(); ai = state.units[aiId]
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: kind === 'slash' && (!isSlashKind(card.kind) || spearMaterials.length === 2), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle', materialIds: spearMaterials.length === 2 ? spearMaterials.map(material => material.id) : jijiang?.materialIds, lordAssist: jijiang?.unit.id }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
       if (state.phase === 'finished') return
     }
@@ -2754,7 +2811,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const halberdTargets = jijiang ? [] : aiHalberdTargets(state, aiId, slash)
       const victim = halberdTargets.length > 1 ? state.units[halberdTargets[0]] : targetsFor(state, aiId).find(candidate => canSlash(state, afterPayment, candidate))
       if (!victim) break
-      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: !isSlashKind(slash.kind) || spearMaterials.length === 2, materialIds: spearMaterials.length === 2 ? spearMaterials.map(material => material.id) : undefined, lordAssist: jijiang?.unit.id })
+      get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: slash.id, target: victim.id, targets: halberdTargets.length > 1 ? halberdTargets : undefined, asSlash: !isSlashKind(slash.kind) || spearMaterials.length === 2, materialIds: spearMaterials.length === 2 ? spearMaterials.map(material => material.id) : jijiang?.materialIds, lordAssist: jijiang?.unit.id })
       await wait(420)
       if (get().pendingResponse || get().pendingLiuli || get().pendingAxe || get().pendingIceSword || get().pendingHalberd || get().pendingQilin || get().pendingDoubleSword || get().pendingYiji || get().winner) return
     }
