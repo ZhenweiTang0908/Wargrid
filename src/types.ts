@@ -66,6 +66,7 @@ export interface PendingResponse {
   trick?: 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'drawTwo' | 'indulgence' | 'supplyShortage' | 'lightning' | 'arrows' | 'barbarians' | 'peachGarden' | 'harvest' | 'fireAttack' | 'ironChain'
   originCardId?: string
   resolvingResponseIds?: string[]
+  slashSourceCardIds?: string[]
   armorChecked?: boolean
   requiredCount?: number
   forcedSlashAttacksUsed?: number
@@ -89,6 +90,16 @@ export interface PendingResponse {
     sourceCardIds?: string[]
     sourceLess?: boolean
   }
+}
+
+export interface PendingTieqiContinuation {
+  attacker: Team
+  target: Team
+  slashId?: string
+  sourceCardIds: string[]
+  mode: 'resolve' | 'playerResponse'
+  doubleSwordChecked?: boolean
+  forcedSlashAttacksUsed?: number
 }
 
 export interface PendingGroupContinuation {
@@ -137,6 +148,12 @@ export type PendingJudgement =
       original: Card
       response: PendingResponse
     }
+  | {
+      kind: 'tieqi'
+      team: Team
+      original: Card
+      continuation: PendingTieqiContinuation
+    }
 
 export interface PendingGuanxing {
   original: Card[]
@@ -162,6 +179,9 @@ export interface PendingDoubleSword {
   target: 'player'
   originCardId?: string
   tieqiChecked?: boolean
+  tieqiLocked?: boolean
+  sourceCardIds?: string[]
+  forcedSlashAttacksUsed?: number
 }
 
 export interface PendingYiji {

@@ -2796,6 +2796,29 @@ describe('standard card scenarios', () => {
     expect(state.history.some(entry => entry.includes('青龙偃月刀'))).toBe(true)
   })
 
+  it('asks the player to answer an AI Green Dragon Blade chase', () => {
+    const firstSlash = card('slash', 'heart'), secondSlash = card('slash', 'club'), weapon = card('greenDragon')
+    const firstDodge = card('dodge', 'diamond'), secondDodge = card('dodge', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, position: { x: 4, y: 7 }, hand: [firstSlash, secondSlash], equipment: { weapon } },
+      player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [firstDodge, secondDodge] },
+    } }))
+    const hp = useGameStore.getState().units.player.hp
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: firstSlash.id, target: 'player' })
+    useGameStore.getState().respond(firstDodge.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', originCardId: secondSlash.id })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(secondDodge)
+
+    useGameStore.getState().respond(secondDodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(hp)
+    expect(state.units.player.hand).toEqual([])
+    expect(state.history.some(entry => entry.includes('青龙偃月刀'))).toBe(true)
+  })
+
   it('lets Guan Yu chase with red equipment through Wusheng', () => {
     useGameStore.getState().selectGeneral('wusheng')
     const firstSlash = card('slash'), weapon = card('greenDragon'), armor = card('silverLion', 'heart'), dodge = card('dodge')

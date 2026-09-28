@@ -1246,12 +1246,15 @@ function JudgementWindow() {
   if (!pending || !owner) return null
   const original = pending.original
   const bagua = pending.kind === 'bagua'
+  const tieqi = pending.kind === 'tieqi'
   const lightning = pending.kind === 'delayed' && pending.delayed.kind === 'lightning'
   const supplyShortage = pending.kind === 'delayed' && pending.delayed.kind === 'supplyShortage'
-  const judgementName = bagua ? '八卦阵' : lightning ? '闪电' : supplyShortage ? '兵粮寸断' : '乐不思蜀'
-  const ruleText = bagua ? '红色判定视为打出【闪】，黑色判定失败。' : lightning ? '黑桃 2～9 命中并受到 3 点雷电伤害，否则传给下一位武将。' : supplyShortage ? '判定牌不是梅花时跳过摸牌阶段。' : '红桃判定通过，否则跳过出牌阶段。'
+  const judgementName = bagua ? '八卦阵' : tieqi ? '铁骑' : lightning ? '闪电' : supplyShortage ? '兵粮寸断' : '乐不思蜀'
+  const ruleText = bagua ? '红色判定视为打出【闪】，黑色判定失败。' : tieqi ? '红色判定令目标不能使用【闪】，黑色判定不生效。' : lightning ? '黑桃 2～9 命中并受到 3 点雷电伤害，否则传给下一位武将。' : supplyShortage ? '判定牌不是梅花时跳过摸牌阶段。' : '红桃判定通过，否则跳过出牌阶段。'
   const outcome = (card: Card) => bagua
     ? card.suit === 'heart' || card.suit === 'diamond' ? '红色：视为打出【闪】' : '黑色：判定失败'
+    : tieqi
+      ? card.suit === 'heart' || card.suit === 'diamond' ? '红色：目标不能使用【闪】' : '黑色：【铁骑】未生效'
     : lightning
       ? card.suit === 'spade' && card.rank >= 2 && card.rank <= 9 ? '命中：受到 3 点雷电伤害' : '未命中：传给下一位武将'
       : supplyShortage

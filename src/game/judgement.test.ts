@@ -223,4 +223,119 @@ describe('player Guicai judgement window', () => {
     useGameStore.getState().respond(dodge.id)
     expect(useGameStore.getState().pendingResponse).toBeNull()
   })
+
+  it('lets Sima Yi turn Tieqi red so the player cannot use Dodge', () => {
+    const slash = card('slash', 'club')
+    const blackJudge = card('duel', 'spade')
+    const replacement = card('peach', 'heart')
+    const dodge = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    const hp = state.units.player.hp
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, name: '马超', skill: 'tieqi', skills: ['mashu', 'tieqi'], position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [replacement, dodge] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingJudgement).toMatchObject({ kind: 'tieqi', original: blackJudge })
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingJudgement).toBeNull()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hp).toBe(hp - 1)
+    expect(resolved.units.player.hand).toContainEqual(dodge)
+    expect(resolved.history.some(entry => entry.includes('鬼才') && entry.includes('铁骑'))).toBe(true)
+  })
+
+  it('lets Sima Yi turn Tieqi black and then answer the Slash with Dodge', () => {
+    const slash = card('slash', 'heart')
+    const redJudge = card('peach', 'heart')
+    const replacement = card('duel', 'club')
+    const dodge = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    const hp = state.units.player.hp
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'east', phase: 'ai', deck: [redJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, name: '马超', skill: 'tieqi', skills: ['mashu', 'tieqi'], position: { x: 4, y: 7 }, hand: [slash] },
+        player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [replacement, dodge] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', required: 'dodge' })
+    useGameStore.getState().respond(dodge.id)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hp).toBe(hp)
+    expect(resolved.units.player.hand).not.toContainEqual(dodge)
+  })
+
+  it('can alter Tieqi when Ma Chao attacks another character', () => {
+    const slash = card('slash', 'heart')
+    const redJudge = card('peach', 'diamond')
+    const replacement = card('duel', 'spade')
+    const dodge = card('dodge', 'heart')
+    const state = useGameStore.getState()
+    const hp = state.units.east.hp
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'north', phase: 'ai', deck: [redJudge], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, hand: [replacement] },
+        north: { ...state.units.north, name: '马超', skill: 'tieqi', skills: ['mashu', 'tieqi'], position: { x: 4, y: 4 }, hand: [slash] },
+        east: { ...state.units.east, position: { x: 4, y: 5 }, hand: [dodge] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'north', cardId: slash.id, target: 'east' })
+    expect(useGameStore.getState().pendingJudgement).toMatchObject({ kind: 'tieqi', team: 'north' })
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingJudgement).toBeNull()
+    expect(resolved.units.east.hp).toBe(hp)
+    expect(resolved.units.east.hand).not.toContainEqual(dodge)
+    expect(resolved.discard).toEqual(expect.arrayContaining([redJudge, replacement, dodge]))
+  })
+
+  it('preserves a successful Tieqi lock through Double Sword resolution', () => {
+    const slash = card('slash', 'club')
+    const weapon = card('doubleSword', 'spade')
+    const blackJudge = card('duel', 'club')
+    const replacement = card('peach', 'heart')
+    const payment = card('dodge', 'diamond')
+    const state = useGameStore.getState()
+    const hp = state.units.player.hp
+    useGameStore.setState({
+      ...state,
+      currentUnit: 'east', phase: 'ai', deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        east: { ...state.units.east, name: '马超', skill: 'tieqi', skills: ['mashu', 'tieqi'], gender: 'male', position: { x: 4, y: 7 }, hand: [slash], equipment: { weapon } },
+        player: { ...state.units.player, gender: 'female', position: { x: 4, y: 8 }, hand: [replacement, payment] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    expect(useGameStore.getState().pendingDoubleSword).toMatchObject({ tieqiChecked: true, tieqiLocked: true })
+    useGameStore.getState().chooseDoubleSword('discard', payment.id)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingDoubleSword).toBeNull()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hp).toBe(hp - 1)
+  })
 })
