@@ -6,6 +6,54 @@ type Props = { unit: Unit; color: string; darkColor: string; accent: string }
 const armoredSkills = new Set(['wusheng', 'longdan', 'ganglie', 'jianxiong', 'tuxi', 'luoyi', 'paoxiao', 'wushuang', 'tieqi', 'mashu', 'yingzi', 'zhiheng', 'qixi', 'kurou'])
 const beardSkills = new Set(['wusheng', 'jianxiong', 'paoxiao', 'ganglie', 'rende', 'wushuang', 'luoyi'])
 
+function Polearm({ kind, accent }: { kind: 'guandao' | 'spear' | 'serpent' | 'halberd'; accent: string }) {
+  const metal = kind === 'guandao' ? '#aeb8ae' : '#d2d7cf'
+  return <group position={[-.42, .82, -.18]} rotation={[.08, 0, .12]}>
+    <mesh castShadow><cylinderGeometry args={[.025, .031, 1.7, 10]} /><meshStandardMaterial color={kind === 'guandao' ? '#5b3828' : '#6b452d'} roughness={.68} /></mesh>
+    <mesh position={[0, -.73, 0]}><cylinderGeometry args={[.044, .044, .08, 10]} /><meshStandardMaterial color="#b89a5f" metalness={.65} roughness={.33} /></mesh>
+    {kind === 'guandao' ? <group position={[.03, .91, 0]} rotation-z={-.18}>
+      <mesh position={[.075, .02, 0]} rotation-z={-.16} castShadow><boxGeometry args={[.16, .38, .045]} /><meshStandardMaterial color={metal} metalness={.72} roughness={.24} /></mesh>
+      <mesh position={[.145, .08, 0]} rotation-z={-.45} castShadow><coneGeometry args={[.12, .3, 5]} /><meshStandardMaterial color={metal} metalness={.76} roughness={.22} /></mesh>
+      <mesh position={[-.02, -.18, 0]}><torusGeometry args={[.105, .018, 7, 18, Math.PI * 1.35]} /><meshStandardMaterial color="#c6a35f" metalness={.75} roughness={.3} /></mesh>
+    </group> : <group position={[0, .94, 0]}>
+      <mesh position-y={.13} castShadow><coneGeometry args={[kind === 'halberd' ? .075 : .06, .34, 7]} /><meshStandardMaterial color={metal} metalness={.8} roughness={.19} /></mesh>
+      <mesh position-y={-.06}><cylinderGeometry args={[.052, .035, .12, 9]} /><meshStandardMaterial color="#c6a35f" metalness={.74} roughness={.3} /></mesh>
+      {(kind === 'spear' || kind === 'serpent') && <>
+        {[-1, 1].map(side => <mesh key={side} position={[side * .045, -.16, 0]} rotation-z={side * .48}><capsuleGeometry args={[.018, .18, 4, 8]} /><meshStandardMaterial color={kind === 'serpent' ? '#8d2525' : accent} roughness={.8} /></mesh>)}
+        {kind === 'serpent' && [-1, 1].map(side => <mesh key={`wing-${side}`} position={[side * .085, .1, 0]} rotation-z={side * .62} castShadow><coneGeometry args={[.055, .19, 5]} /><meshStandardMaterial color={metal} metalness={.78} roughness={.2} /></mesh>)}
+      </>}
+      {kind === 'halberd' && [-1, 1].map(side => <mesh key={side} position={[side * .105, .02, 0]} rotation-z={side * -.78} castShadow><coneGeometry args={[.085, .3, 5]} /><meshStandardMaterial color={metal} metalness={.8} roughness={.2} /></mesh>)}
+    </group>}
+  </group>
+}
+
+function SignatureGear({ unit, accent }: { unit: Unit; accent: string }) {
+  if (!unit.equipment.weapon) {
+    if (unit.skill === 'wusheng') return <Polearm kind="guandao" accent={accent} />
+    if (unit.skill === 'paoxiao') return <Polearm kind="serpent" accent={accent} />
+    if (unit.skill === 'longdan' || unit.skill === 'tieqi') return <Polearm kind="spear" accent={accent} />
+    if (unit.skill === 'wushuang') return <Polearm kind="halberd" accent={accent} />
+    if (unit.skill === 'jianxiong' || unit.skill === 'rende' || unit.skill === 'zhiheng' || unit.skill === 'yingzi') return <group position={[.34, .55, -.02]} rotation-z={-.48}>
+      <mesh castShadow><capsuleGeometry args={[.035, .68, 6, 10]} /><meshStandardMaterial color="#32251f" roughness={.62} /></mesh>
+      <mesh position-y={.38}><boxGeometry args={[.23, .045, .065]} /><meshStandardMaterial color="#c6a35f" metalness={.72} roughness={.3} /></mesh>
+      <mesh position-y={.44}><cylinderGeometry args={[.035, .045, .12, 9]} /><meshStandardMaterial color={accent} roughness={.54} /></mesh>
+    </group>
+    if (unit.skill === 'qixi') return <group position={[.34, .66, .05]} rotation-z={-.34}>
+      {[-1, 1].map(side => <group key={side} position={[side * .06, 0, side * .025]} rotation-z={side * .18}>
+        <mesh castShadow><boxGeometry args={[.045, .55, .035]} /><meshStandardMaterial color="#aeb9b4" metalness={.75} roughness={.22} /></mesh>
+        <mesh position-y={-.31}><boxGeometry args={[.18, .045, .055]} /><meshStandardMaterial color="#c6a35f" metalness={.72} roughness={.3} /></mesh>
+      </group>)}
+    </group>
+  }
+  if (unit.skill === 'qingnang') return <group position={[.32, .55, .12]} rotation-z={-.16}>
+    <mesh position-y={-.06} castShadow><sphereGeometry args={[.12, 13, 10]} /><meshStandardMaterial color="#8d6842" roughness={.82} /></mesh>
+    <mesh position-y={.07} castShadow><sphereGeometry args={[.075, 12, 9]} /><meshStandardMaterial color="#b38a55" roughness={.8} /></mesh>
+    <mesh position-y={.16}><cylinderGeometry args={[.035, .045, .09, 9]} /><meshStandardMaterial color="#60452e" roughness={.8} /></mesh>
+    <mesh position={[0, .11, .075]} rotation-x={Math.PI / 2}><torusGeometry args={[.09, .012, 6, 14]} /><meshStandardMaterial color={accent} roughness={.7} /></mesh>
+  </group>
+  return null
+}
+
 function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }) {
   const gold = '#c9a766'
   if (skill === 'guanxing' || skill === 'kongcheng' || skill === 'jizhi' || skill === 'qicai') return <group>
@@ -111,6 +159,10 @@ export function CharacterBody({ unit, color, darkColor, accent }: Props) {
     </group>)}
     <mesh position={[0, 1.18, .283]} scale={[.68, 1, .68]}><coneGeometry args={[.065, .13, 8]} /><meshStandardMaterial color={skin} roughness={.9} /></mesh>
     <mesh position={[0, 1.081, .268]}><boxGeometry args={[.085, .012, .014]} /><meshStandardMaterial color="#794b40" roughness={1} /></mesh>
+    {unit.skill === 'ganglie' && <group position={[-.1, 1.255, .287]}>
+      <mesh scale={[1.25, .72, .3]}><sphereGeometry args={[.065, 12, 8]} /><meshStandardMaterial color="#302522" roughness={.92} /></mesh>
+      <mesh position={[.1, .055, -.025]} rotation-z={-.42}><boxGeometry args={[.31, .018, .018]} /><meshStandardMaterial color="#302522" roughness={.94} /></mesh>
+    </group>}
     <mesh position={[0, 1.39, -.045]} scale={[1.05, .51, .98]} castShadow><sphereGeometry args={[.276, 20, 14]} /><meshStandardMaterial color={hair} roughness={.93} /></mesh>
     {[-1, 1].map(side => <mesh key={`hairline-${side}`} position={[side * .148, 1.373, .181]} rotation-z={side * -.23}><capsuleGeometry args={[.059, .12, 5, 9]} /><meshStandardMaterial color={hair} roughness={.92} /></mesh>)}
     {female ? <>
@@ -128,5 +180,6 @@ export function CharacterBody({ unit, color, darkColor, accent }: Props) {
       <mesh position={[0, 1.02, .19]} scale={[unit.skill === 'wusheng' ? .65 : .75, unit.skill === 'wusheng' ? 1.5 : .8, .45]}><coneGeometry args={[.18, .34, 12]} /><meshStandardMaterial color={hair} roughness={1} /></mesh>
       {[-1, 1].map(side => <mesh key={`mustache-${side}`} position={[side * .085, 1.07, .276]} rotation-z={side * -.55}><capsuleGeometry args={[.021, .1, 4, 8]} /><meshStandardMaterial color={hair} roughness={1} /></mesh>)}
     </>}
+    <SignatureGear unit={unit} accent={accent} />
   </group>
 }
