@@ -1,7 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Sparkles } from '@react-three/drei'
 import { BookOpen, CircleHelp, Map as MapIcon, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
 import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
@@ -47,6 +47,30 @@ function BattleLighting() {
     <hemisphereLight args={['#bfe3df', '#251b18', 1.25]} />
     <directionalLight ref={sun} position={[4, 9, 5]} intensity={2.8} color={tones[(turn - 1) % tones.length]} castShadow shadow-mapSize={[1024, 1024]} />
   </>
+}
+
+function SceneFeedback({ children }: { children: ReactNode }) {
+  const scene = useRef<THREE.Group>(null)
+  const animations = useGameStore(state => Object.values(state.units).map(unit => `${unit.id}:${unit.animation}`).join('|'))
+  const lastAnimations = useRef(animations)
+  const shake = useRef(0)
+  const phase = useRef(0)
+  useFrame(({ clock }, delta) => {
+    if (!scene.current) return
+    if (animations !== lastAnimations.current) {
+      const hasHit = animations.includes(':hit') || animations.includes(':fireHit') || animations.includes(':thunderHit')
+      const hasAttack = animations.includes(':attack')
+      shake.current = hasHit ? .075 : hasAttack ? .028 : 0
+      phase.current = clock.elapsedTime * 34
+      lastAnimations.current = animations
+    }
+    shake.current = Math.max(0, shake.current - delta * .24)
+    const intensity = shake.current
+    scene.current.position.x = Math.sin(phase.current + clock.elapsedTime * 34) * intensity
+    scene.current.position.z = Math.cos(phase.current * .87 + clock.elapsedTime * 29) * intensity * .72
+    scene.current.position.y = Math.sin(phase.current * .6 + clock.elapsedTime * 20) * intensity * .22
+  })
+  return <group ref={scene}>{children}</group>
 }
 
 function ControlLandmark({ mapId, color }: { mapId: MapId; color: string }) {
@@ -770,17 +794,19 @@ function Battlefield() {
       <pointLight position={[-5, 3, -4]} intensity={24} distance={11} color="#348ca5" />
       <pointLight position={[5, 3, 4]} intensity={17} distance={10} color="#b2503e" />
       <Suspense fallback={null}>
-        <group position-y={-.05}>
-          <BattlefieldGround />
-          {cells.map(p => <Tile key={`${p.x}-${p.y}`} position={p} />)}
-          <UnitPiece team="player" />
-          <UnitPiece team="north" />
-          <UnitPiece team="east" />
-          <UnitPiece team="west" />
-        </group>
-        <WorldScenery />
-        <MapAtmosphere />
-        <ContactShadows opacity={.65} scale={11} blur={2.4} far={5} color="#000000" />
+        <SceneFeedback>
+          <group position-y={-.05}>
+            <BattlefieldGround />
+            {cells.map(p => <Tile key={`${p.x}-${p.y}`} position={p} />)}
+            <UnitPiece team="player" />
+            <UnitPiece team="north" />
+            <UnitPiece team="east" />
+            <UnitPiece team="west" />
+          </group>
+          <WorldScenery />
+          <MapAtmosphere />
+          <ContactShadows opacity={.65} scale={11} blur={2.4} far={5} color="#000000" />
+        </SceneFeedback>
       </Suspense>
       <OrbitControls makeDefault target={[0, .1, 0]} minDistance={13} maxDistance={18} minPolarAngle={.55} maxPolarAngle={1.12} minAzimuthAngle={-.8} maxAzimuthAngle={.8} enablePan={false} />
     </Canvas>
