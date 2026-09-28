@@ -453,6 +453,58 @@ function HuangYueyingRegalia({ accent }: { accent: string }) {
   </group>
 }
 
+function GuoJiaRegalia({ accent }: { accent: string }) {
+  const silver = '#b7b8ad', blue = '#425b6b', pale = '#c9c5b6', ink = '#252b31'
+  return <group>
+    {/* A narrow scholar crown, pale layered mantle and divination slips create a frail seer silhouette. */}
+    <mesh position={[0, 1.51, -.05]} scale={[1.02, .54, .98]} castShadow><sphereGeometry args={[.274, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.72]} /><meshStandardMaterial color={ink} roughness={.81} /></mesh>
+    <mesh position={[0, 1.66, -.065]} castShadow><cylinderGeometry args={[.1, .145, .28, 9]} /><meshStandardMaterial color={blue} metalness={.18} roughness={.62} /></mesh>
+    <mesh position={[0, 1.82, -.065]}><boxGeometry args={[.32, .045, .2]} /><meshStandardMaterial color={silver} metalness={.52} roughness={.38} /></mesh>
+    {[-1, 1].map(side => <group key={`guojia-side-${side}`}>
+      <mesh position={[side * .39, 1.02, -.03]} rotation-z={side * .23} scale={[1.12, .8, .92]} castShadow><dodecahedronGeometry args={[.212, 1]} /><meshStandardMaterial color={pale} roughness={.73} /></mesh>
+      <mesh position={[side * .39, .92, .155]} rotation-z={side * .22}><boxGeometry args={[.19, .075, .038]} /><meshStandardMaterial color={blue} roughness={.52} /></mesh>
+      <mesh position={[side * .37, .54, -.3]} rotation-z={side * .15} castShadow><boxGeometry args={[.225, .74, .045]} /><meshStandardMaterial color={side > 0 ? pale : '#aba99f'} roughness={.93} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[side * .2, 1.74, -.07]} rotation-z={side * .11}><capsuleGeometry args={[.017, .4, 5, 8]} /><meshStandardMaterial color={blue} roughness={.86} /></mesh>
+    </group>)}
+    <group position={[0, .9, .405]}>
+      <mesh scale={[1.16, .78, .42]}><octahedronGeometry args={[.135]} /><meshStandardMaterial color={silver} metalness={.68} roughness={.29} /></mesh>
+      <mesh position-z={.064}><sphereGeometry args={[.048, 10, 8]} /><meshStandardMaterial color={accent} emissive="#24313c" emissiveIntensity={.3} metalness={.4} roughness={.3} /></mesh>
+    </group>
+    <group position={[-.31, .67, .15]} rotation-z={.2}>
+      {[-1, 0, 1].map(index => <mesh key={index} position={[index * .052, index * .025, 0]} rotation-z={index * -.08} castShadow><boxGeometry args={[.045, .42, .03]} /><meshStandardMaterial color={index === 0 ? '#b69965' : '#d1bd91'} roughness={.78} /></mesh>)}
+      <mesh position-y={-.22}><boxGeometry args={[.23, .045, .055]} /><meshStandardMaterial color={blue} roughness={.57} /></mesh>
+    </group>
+  </group>
+}
+
+function HuaTuoRegalia({ accent }: { accent: string }) {
+  const linen = '#d6c9a8', herb = '#496b4d', wood = '#6a4c32', bronze = '#aa8452'
+  return <group>
+    {/* Physician headcloth, tied bands, medicine gourds and herb satchels distinguish the healer. */}
+    <mesh position={[0, 1.51, -.045]} scale={[1.03, .55, .98]} castShadow><sphereGeometry args={[.276, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.72]} /><meshStandardMaterial color="#403a31" roughness={.84} /></mesh>
+    <mesh position={[0, 1.62, -.055]} castShadow><cylinderGeometry args={[.19, .22, .16, 10]} /><meshStandardMaterial color={linen} roughness={.85} /></mesh>
+    <mesh position={[0, 1.71, -.055]}><boxGeometry args={[.44, .055, .2]} /><meshStandardMaterial color={herb} roughness={.74} /></mesh>
+    {[-1, 1].map(side => <group key={`huatuo-side-${side}`}>
+      <mesh position={[side * .39, 1.02, -.025]} rotation-z={side * .23} scale={[1.08, .8, .92]} castShadow><dodecahedronGeometry args={[.208, 1]} /><meshStandardMaterial color={linen} roughness={.8} /></mesh>
+      <mesh position={[side * .38, .55, -.3]} rotation-z={side * .15} castShadow><boxGeometry args={[.225, .72, .045]} /><meshStandardMaterial color={side > 0 ? linen : '#b8ad91'} roughness={.94} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[side * .27, 1.53, -.08]} rotation-z={side * .21}><capsuleGeometry args={[.024, .42, 5, 9]} /><meshStandardMaterial color={herb} roughness={.82} /></mesh>
+    </group>)}
+    <mesh position={[0, .89, .405]} scale={[1.18, .8, .43]}><octahedronGeometry args={[.137]} /><meshStandardMaterial color={bronze} metalness={.58} roughness={.34} /></mesh>
+    <mesh position={[0, .89, .47]} rotation-z={Math.PI / 4}><boxGeometry args={[.072, .072, .026]} /><meshStandardMaterial color={herb} roughness={.42} /></mesh>
+    <group position={[-.34, .66, .12]} rotation-z={.18}>
+      <mesh position-y={-.05} castShadow><sphereGeometry args={[.13, 13, 10]} /><meshStandardMaterial color="#9d7547" roughness={.84} /></mesh>
+      <mesh position-y={.095} castShadow><sphereGeometry args={[.08, 11, 8]} /><meshStandardMaterial color="#b99158" roughness={.81} /></mesh>
+      <mesh position-y={.2}><cylinderGeometry args={[.035, .045, .09, 8]} /><meshStandardMaterial color={wood} roughness={.83} /></mesh>
+      <mesh position={[0, .08, .085]} rotation-x={Math.PI / 2}><torusGeometry args={[.09, .012, 6, 14]} /><meshStandardMaterial color={accent} roughness={.68} /></mesh>
+    </group>
+    <group position={[.34, .56, .14]} rotation-z={-.16}>
+      <mesh castShadow><boxGeometry args={[.22, .34, .14]} /><meshStandardMaterial color={wood} roughness={.81} /></mesh>
+      <mesh position={[0, .07, .075]}><boxGeometry args={[.17, .04, .018]} /><meshStandardMaterial color={bronze} metalness={.57} roughness={.36} /></mesh>
+      <mesh position={[0, -.07, .076]}><sphereGeometry args={[.032, 8, 6]} /><meshStandardMaterial color={herb} roughness={.44} /></mesh>
+    </group>
+  </group>
+}
+
 function BowAndQuiver({ accent }: { accent: string }) {
   return <group>
     <group position={[.37, .73, .05]} rotation={[0, -.18, -.2]}>
@@ -557,6 +609,8 @@ function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }
   if (skill === 'ganglie') return <XiahouDunRegalia accent={accent} />
   if (skill === 'guanxing') return <ZhugeLiangRegalia accent={accent} />
   if (skill === 'jizhi') return <HuangYueyingRegalia accent={accent} />
+  if (skill === 'yiji') return <GuoJiaRegalia accent={accent} />
+  if (skill === 'qingnang') return <HuaTuoRegalia accent={accent} />
   if (skill === 'kongcheng' || skill === 'qicai') return <group>
     <mesh position={[0, 1.61, -.08]} rotation-z={-.06} castShadow><cylinderGeometry args={[.17, .2, .075, 12]} /><meshStandardMaterial color="#443d33" roughness={.8} /></mesh>
     <mesh position={[0, 1.69, -.07]} castShadow><coneGeometry args={[.19, .17, 12]} /><meshStandardMaterial color={skill === 'kongcheng' ? '#e0d4b8' : accent} roughness={.72} /></mesh>
