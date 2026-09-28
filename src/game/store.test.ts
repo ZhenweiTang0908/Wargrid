@@ -1972,6 +1972,29 @@ describe('standard card scenarios', () => {
     expect(state.units.north.hand).toEqual([northDodge])
   })
 
+  it('makes remaining group-trick damage source-less after its user dies', () => {
+    const arrows = card('arrows'), ganglieJudge = card('dismantle', 'spade', 8), mount = card('redHare', 'heart')
+    const reward = [card('slash'), card('dodge'), card('peach'), card('slash')]
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [ganglieJudge, ...reward], discard: [], units: {
+      ...state.units,
+      east: { ...state.units.east, hp: 1, hand: [arrows] },
+      west: { ...state.units.west, name: '夏侯惇', skill: 'ganglie', skills: ['ganglie'], hp: 3, maxHp: 4, hand: [] },
+      player: { ...state.units.player, name: '司马懿', skill: 'feedback', skills: ['feedback', 'guicai'], hand: [], equipment: { offensiveMount: mount } },
+      north: { ...state.units.north, hand: [] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: arrows.id, target: 'player' })
+    expect(useGameStore.getState().units.east.hp).toBeLessThanOrEqual(0)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'nullify', target: 'player', trick: 'arrows' })
+    useGameStore.getState().respond(null)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'arrows', target: 'player', required: 'dodge' })
+    useGameStore.getState().respond(null)
+    const state = useGameStore.getState()
+    expect(state.units.player.hp).toBe(4)
+    expect(state.pendingPlunder).toBeNull()
+    expect(state.units.player.equipment.offensiveMount).toEqual(mount)
+    expect(state.history.some(entry => entry.includes('反馈'))).toBe(false)
+  })
+
   it('lets a player nullify only their own group trick response and continues the seat order', () => {
     const arrows = card('arrows', 'heart'), nullify = card('nullify'), northDodge = card('dodge', 'diamond', 2)
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units,

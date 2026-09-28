@@ -352,6 +352,7 @@ function rescueDyingPlayer(state: GameState, startingHp: number) {
 
 function damage(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, skipRescue = false, sourceCard?: Card, sourceLess = false): Partial<GameState> {
   const target = state.units[targetId]
+  sourceLess ||= state.units[attackerId].hp <= 0
   if (amount > 1 && target.equipment.armor?.kind === 'silverLion' && (sourceLess || state.units[attackerId].equipment.weapon?.kind !== 'qinggang')) {
     amount = 1; message += '；【白银狮子】将伤害减至 1'
   }
