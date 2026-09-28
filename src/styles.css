@@ -184,6 +184,38 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .no-response { color: #81969b; padding: 25px; border: 1px dashed #385158; }
 .decline-response { min-height: 40px; margin-top: 17px; padding: 0 24px; border: 1px solid #86544c; color: #efc1ba; background: #321a18; cursor: pointer; }
 .report-overlay { z-index: 65; }
+.map-guide-overlay { z-index: 66; }
+.map-guide { width: min(860px, 94vw); max-height: calc(100dvh - 20px); overflow-y: auto; text-align: left; }
+.map-guide-heading { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 18px; align-items: start; }
+.map-guide-heading h1 { margin: 5px 0 3px; font-size: clamp(26px, 4vw, 38px); }
+.map-guide-heading p { margin: 0; color: #afc1c1; font-size: 12px; }
+.map-guide-heading blockquote { margin: 13px 0 0; padding: 9px 12px; border-left: 2px solid #bd9a63; background: #9d7c3b19; color: #d7c8a7; font: 12px/1.55 "Songti SC", "Noto Serif CJK SC", serif; }
+.map-guide-score { display: grid; gap: 4px; padding: 13px 12px; border: 1px solid #6a5b3a; background: linear-gradient(145deg, #3b3021, #16262a); }
+.map-guide-score span { color: #c9ab68; font-size: 11px; letter-spacing: .13em; }
+.map-guide-score strong { color: #f4d98f; font: 700 28px Impact, sans-serif; letter-spacing: .08em; }
+.map-guide-score small { color: #9eaa9f; font-size: 10px; line-height: 1.4; }
+.map-guide-section { margin-top: 16px; }
+.map-guide-section .detail-section-title { margin: 0 0 8px; }
+.terrain-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.terrain-guide { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 8px; min-height: 49px; padding: 7px 8px; border: 1px solid #2e4a50; background: #0b1b20; }
+.terrain-guide > b { width: 28px; height: 28px; display: grid; place-items: center; align-self: start; border: 1px solid #6c806d; color: #d6e6ca; background: #233b33; font-family: serif; }
+.terrain-guide strong, .terrain-guide span { display: block; }
+.terrain-guide strong { color: #dfd9c3; font-size: 12px; }
+.terrain-guide span { margin-top: 3px; color: #8fa7a9; font-size: 10px; line-height: 1.4; }
+.terrain-road > b { border-color: #9a7b4e; color: #f0d294; background: #4a3922; }
+.terrain-water > b, .terrain-bridge > b { border-color: #4e9bb0; color: #c7f2f5; background: #163e4a; }
+.terrain-ridge > b, .terrain-watchtower > b { border-color: #a68858; color: #f1d994; background: #493a27; }
+.terrain-forest > b, .terrain-village > b, .terrain-camp > b { border-color: #62946c; color: #cbe5c1; background: #1d4030; }
+.terrain-marsh > b, .terrain-snow > b { border-color: #788d91; color: #d4e1dc; background: #304246; }
+.facility-guide-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.facility-guide { min-height: 82px; padding: 9px; border: 1px solid #344e53; background: #0b1b20; }
+.facility-guide strong, .facility-guide span, .facility-guide small { display: block; }
+.facility-guide strong { color: #e4cb8c; font: 700 13px serif; }
+.facility-guide span { margin-top: 5px; color: #9aadae; font-size: 10px; line-height: 1.42; }
+.facility-guide small { margin-top: 6px; color: #6faea8; font-size: 10px; }
+.map-guide-tip { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; margin-top: 16px; padding: 10px 12px; border: 1px solid #466c70; background: #123136; }
+.map-guide-tip span { color: #74d3cf; font-size: 11px; letter-spacing: .12em; }
+.map-guide-tip p { margin: 0; color: #b9d0ca; font-size: 11px; line-height: 1.5; }
 .battle-report { width: min(560px, 92vw); text-align: left; }
 .battle-report h1 { text-align: center; margin-bottom: 16px; }
 .pile-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-bottom: 14px; background: #315057; }
@@ -278,6 +310,16 @@ button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   .pile-summary div { padding: 6px 4px; }
   .pile-summary strong { font-size: 18px; }
   .history-list { max-height: 190px; }
+  .map-guide { padding: 14px 16px; }
+  .map-guide-heading { grid-template-columns: minmax(0, 1fr) 142px; gap: 10px; }
+  .map-guide-heading h1 { font-size: 22px; }
+  .map-guide-heading blockquote { margin-top: 6px; padding: 6px 8px; font-size: 10px; }
+  .map-guide-section { margin-top: 9px; }
+  .terrain-guide { min-height: 39px; padding: 5px; }
+  .terrain-guide > b { width: 23px; height: 23px; font-size: 11px; }
+  .terrain-guide span, .facility-guide span { font-size: 9px; }
+  .facility-guide { min-height: 64px; padding: 6px; }
+  .map-guide-tip { margin-top: 9px; padding: 7px 9px; }
 }
 
 @media (max-width: 760px) and (orientation: landscape) {

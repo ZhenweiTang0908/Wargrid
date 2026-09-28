@@ -1,10 +1,10 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Sparkles } from '@react-three/drei'
-import { CircleHelp, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
+import { CircleHelp, Map as MapIcon, RotateCcw, ScrollText, SkipForward, Swords, Volume2, VolumeX, X } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useGameStore, isCellReachable, greenDragonChoices, borrowedSwordChoices } from './game/store'
-import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type Unit } from './types'
+import { CARD_COPY, CARD_LABEL, IDENTITY_LABEL, SUIT_GLYPH, type Card, type Faction, type GeneralSkill, type MapId, type Position, type Team, type TerrainKind, type Unit } from './types'
 import { MAP_DEFINITIONS, MAP_IDS, canBorrowedSwordTarget, canSlash, combatDistance, effectiveAttackRange, isSlashKind, pathDistance, plunderableCards, samePosition, slashLimit, terrainAt } from './game/rules'
 import { audioEvents } from './game/audioEvents'
 import { playAudioEvents, setAudioEnabled, unlockAudio } from './audio'
@@ -1023,6 +1023,48 @@ const MAP_LORE: Record<MapId, string> = {
   terraces: '云岭田埂层层向上，谷仓的钥匙失踪于战前一夜。两军都想先登上望台。',
 }
 
+const TERRAIN_GUIDE: Record<TerrainKind, { mark: string; name: string; rule: string }> = {
+  plain: { mark: '原', name: '平原', rule: '移动消耗 1；没有额外修正。' },
+  road: { mark: '道', name: '官道', rule: '移动消耗 1；从官道开始回合时移动力 +1。' },
+  forest: { mark: '林', name: '林地', rule: '移动消耗 1；站在林地上的目标，计算攻击距离时 +1。' },
+  water: { mark: '水', name: '水域', rule: '移动消耗 2；通常需要沿桥梁或浅滩绕行。' },
+  bridge: { mark: '桥', name: '桥梁', rule: '移动消耗 1；连接两侧水域，是争夺渡口的关键。' },
+  ridge: { mark: '脊', name: '山脊', rule: '移动消耗 1；站在山脊上，武器攻击范围 +1。' },
+  camp: { mark: '营', name: '营地', rule: '回合结束时驻守可摸 1 张补给牌。' },
+  watchtower: { mark: '台', name: '瞭望台', rule: '站在台上，武器攻击范围 +2。' },
+  village: { mark: '村', name: '村落', rule: '回合结束时若受伤，可回复 1 点体力。' },
+  marsh: { mark: '沼', name: '泥沼', rule: '移动消耗 2；会让推进路线变得更慢。' },
+  snow: { mark: '雪', name: '积雪', rule: '移动消耗 2；雪岭上的路线不适合连续追击。' },
+}
+
+const MAP_OBJECT_GUIDE: Record<string, { name: string; rule: string }> = {
+  supplyCache: { name: '军需箱', rule: '邻近时打出一张牌，可摸取 2 张补给。' },
+  healingShrine: { name: '疗伤祠', rule: '邻近时打出一张牌，可回复 1 点体力。' },
+  warDrum: { name: '战鼓', rule: '邻近时打出一张牌，可令本回合移动力 +1。' },
+  scoutBeacon: { name: '烽火台', rule: '邻近时打出一张牌，可摸 1 张牌并获得短暂视野。' },
+}
+
+function BattlefieldGuide({ close }: { close: () => void }) {
+  const state = useGameStore()
+  const map = MAP_DEFINITIONS[state.mapId]
+  const terrainKinds = Array.from(new Set<TerrainKind>(['plain', ...state.terrain.map(item => item.kind)]))
+  const facilities = Array.from(new Set(state.mapObjects.map(item => item.kind)))
+  return <div className="overlay map-guide-overlay"><section className="map-guide panel">
+    <button className="icon-button close" onClick={close} aria-label="关闭战场手册"><X /></button>
+    <div className="map-guide-heading">
+      <div><span className="eyebrow">战场手册 · 第 {state.turn} 回合</span><h1>{map.name}</h1><p>{map.description}</p><blockquote>{MAP_LORE[state.mapId]}</blockquote></div>
+      <div className="map-guide-score"><span>中枢争夺</span><strong>{state.scores.player} : {state.scores.north + state.scores.east + state.scores.west}</strong><small>先取得 3 分，或按身份目标结束战局</small></div>
+    </div>
+    <div className="map-guide-section"><div className="detail-section-title"><span>地形规则</span><small>不同地形会改变移动、距离和回合收益</small></div><div className="terrain-guide-grid">
+      {terrainKinds.map(kind => { const guide = TERRAIN_GUIDE[kind]; return <div className={`terrain-guide terrain-${kind}`} key={kind}><b>{guide.mark}</b><div><strong>{guide.name}</strong><span>{guide.rule}</span></div></div> })}
+    </div></div>
+    <div className="map-guide-section"><div className="detail-section-title"><span>战场设施</span><small>设施每轮会重新补给</small></div><div className="facility-guide-row">
+      {facilities.map(kind => { const guide = MAP_OBJECT_GUIDE[kind]; const remaining = state.mapObjects.filter(item => item.kind === kind && !item.claimed).length; return <div className="facility-guide" key={kind}><strong>{guide.name}</strong><span>{guide.rule}</span><small>可用 {remaining} 处</small></div> })}
+    </div></div>
+    <div className="map-guide-tip"><span>战术提示</span><p>移动和出牌可以交错进行：先占据高地或官道，再用距离判定寻找攻击窗口。结束回合前尽量站在中枢、村落或营地上。</p></div>
+  </section></div>
+}
+
 function GeneralSelect() {
   const selectGeneral = useGameStore(s => s.selectGeneral)
   const selectMap = useGameStore(s => s.selectMap)
@@ -1438,6 +1480,7 @@ function App() {
   const dispatch = useGameStore(s => s.dispatch)
   const [sound, setSound] = useState(() => localStorage.getItem('wargrid-sound') !== 'off')
   const [showHistory, setShowHistory] = useState(false)
+  const [showMapGuide, setShowMapGuide] = useState(false)
   const [inspectedUnit, setInspectedUnit] = useState<{ team: Team; portrait: string; skillText: string } | null>(null)
   const [tutorial, setTutorial] = useState(() => localStorage.getItem('wargrid-tutorial') !== 'seen')
   const selectedCard = state.units.player.hand.find(c => c.id === state.selectedCardId) ?? (state.selectedAsGuose || state.selectedAsSlash && state.units.player.skills.includes('wusheng') ? Object.values(state.units.player.equipment).find(card => card?.id === state.selectedCardId) : undefined)
@@ -1485,6 +1528,7 @@ function App() {
       <div className="brand"><span className="brand-mark">W</span><div><strong>WARGRID</strong><small>{MAP_DEFINITIONS[state.mapId].name} · {state.deckMode === 'standard' ? '标准' : '扩展'} · 第 {state.turn} 回合</small></div></div>
       <div className={`turn-indicator ${state.phase}`}><span />{state.phase === 'player' ? '你的回合' : state.phase === 'ai' ? `${currentName}行动` : '战局结束'}</div>
       <div className="header-actions">
+        <button className="icon-button" onClick={() => setShowMapGuide(true)} aria-label="查看战场手册"><MapIcon /></button>
         <button className="icon-button" onClick={() => setShowHistory(true)} aria-label="查看战报"><ScrollText /></button>
         <button className="icon-button" onClick={() => setTutorial(true)} aria-label="查看规则"><CircleHelp /></button>
         <button className="icon-button" onClick={() => setSound(value => { const next = !value; localStorage.setItem('wargrid-sound', next ? 'on' : 'off'); setAudioEnabled(next); return next })} aria-label={sound ? '关闭音效' : '开启音效'} aria-pressed={sound}>{sound ? <Volume2 /> : <VolumeX />}</button>
@@ -1547,6 +1591,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingHarvest && !state.pendingResponse && <HarvestWindow />}
     {state.generalSelected && !tutorial && state.pendingFanjian && <FanjianWindow />}
     {state.generalSelected && !tutorial && state.pendingPlunder && <PlunderWindow />}
+    {state.generalSelected && showMapGuide && <BattlefieldGuide close={() => setShowMapGuide(false)} />}
     {state.generalSelected && showHistory && <BattleReport close={() => setShowHistory(false)} />}
     {state.winner && <div className="overlay"><section className={`result panel ${state.winner}`}>
       <span className="eyebrow">战局结束</span>
