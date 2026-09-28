@@ -338,4 +338,101 @@ describe('player Guicai judgement window', () => {
     expect(resolved.pendingResponse).toBeNull()
     expect(resolved.units.player.hp).toBe(hp - 1)
   })
+
+  it('lets Sima Yi turn Ganglie into a successful non-heart judgement', () => {
+    const slash = card('slash', 'heart')
+    const heartJudge = card('peach', 'heart')
+    const replacement = card('duel', 'spade')
+    const firstPayment = card('dodge', 'diamond')
+    const secondPayment = card('peach', 'club')
+    const state = useGameStore.getState()
+    const hp = state.units.player.hp
+    useGameStore.setState({
+      ...state,
+      deck: [heartJudge], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, replacement, firstPayment, secondPayment] },
+        east: { ...state.units.east, name: '夏侯惇', skill: 'ganglie', skills: ['ganglie'], position: { x: 4, y: 0 }, hand: [] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    expect(useGameStore.getState().pendingJudgement).toMatchObject({ kind: 'ganglie', team: 'east', original: heartJudge })
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'ganglie', requiredCount: 2 })
+    useGameStore.getState().respond(firstPayment.id)
+    useGameStore.getState().respond(secondPayment.id)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hp).toBe(hp)
+    expect(resolved.units.player.hand).toEqual([])
+    expect(resolved.discard).toEqual(expect.arrayContaining([slash, heartJudge, replacement, firstPayment, secondPayment]))
+  })
+
+  it('lets Sima Yi turn Ganglie into a failed heart judgement', () => {
+    const slash = card('slash', 'club')
+    const blackJudge = card('duel', 'spade')
+    const replacement = card('peach', 'heart')
+    const state = useGameStore.getState()
+    const hp = state.units.player.hp
+    useGameStore.setState({
+      ...state,
+      deck: [blackJudge], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash, replacement] },
+        east: { ...state.units.east, name: '夏侯惇', skill: 'ganglie', skills: ['ganglie'], position: { x: 4, y: 0 }, hand: [] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: slash.id, target: 'east' })
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingJudgement).toBeNull()
+    expect(resolved.pendingResponse).toBeNull()
+    expect(resolved.units.player.hp).toBe(hp)
+    expect(resolved.message).toContain('【刚烈】判定为红桃，未生效')
+    expect(resolved.history.some(entry => entry.includes('鬼才'))).toBe(true)
+  })
+
+  it('pauses a group trick for Guicai and resumes from the next unresolved seat', () => {
+    const arrows = card('arrows', 'heart')
+    const heartJudge = card('peach', 'heart')
+    const replacement = card('duel', 'club')
+    const firstPayment = card('dodge', 'diamond')
+    const secondPayment = card('peach', 'spade')
+    const state = useGameStore.getState()
+    const eastHp = state.units.east.hp, westHp = state.units.west.hp
+    useGameStore.setState({
+      ...state,
+      deck: [heartJudge], discard: [],
+      units: {
+        ...state.units,
+        player: { ...state.units.player, hand: [arrows, replacement, firstPayment, secondPayment] },
+        north: { ...state.units.north, name: '夏侯惇', skill: 'ganglie', skills: ['ganglie'], hand: [] },
+        east: { ...state.units.east, skill: 'wusheng', skills: ['wusheng'], hand: [] },
+        west: { ...state.units.west, skill: 'wusheng', skills: ['wusheng'], hand: [] },
+      },
+    })
+
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: arrows.id, target: 'north' })
+    const waiting = useGameStore.getState()
+    expect(waiting.pendingJudgement).toMatchObject({ kind: 'ganglie', team: 'north' })
+    expect(waiting.pendingGroupContinuation).toMatchObject({ kind: 'arrows', resolvedTargets: ['north'] })
+    expect(waiting.units.east.hp).toBe(eastHp)
+    expect(waiting.units.west.hp).toBe(westHp)
+
+    useGameStore.getState().chooseJudgementCard(replacement.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'ganglie' })
+    expect(useGameStore.getState().units.east.hp).toBe(eastHp)
+    useGameStore.getState().respond(null)
+
+    const resolved = useGameStore.getState()
+    expect(resolved.pendingGroupContinuation).toBeNull()
+    expect(resolved.units.east.hp).toBe(eastHp - 1)
+    expect(resolved.units.west.hp).toBe(westHp - 1)
+  })
 })

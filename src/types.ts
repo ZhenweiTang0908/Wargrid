@@ -102,6 +102,13 @@ export interface PendingTieqiContinuation {
   forcedSlashAttacksUsed?: number
 }
 
+export interface PendingGanglieContinuation {
+  attacker: Team
+  target: Team
+  message: string
+  skillText: string
+}
+
 export interface PendingGroupContinuation {
   kind: 'arrows' | 'barbarians'
   source: Team
@@ -153,6 +160,12 @@ export type PendingJudgement =
       team: Team
       original: Card
       continuation: PendingTieqiContinuation
+    }
+  | {
+      kind: 'ganglie'
+      team: Team
+      original: Card
+      continuation: PendingGanglieContinuation
     }
 
 export interface PendingGuanxing {

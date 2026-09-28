@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type PendingResponse, type PendingTieqiContinuation, type Position, type Team, type Unit } from '../types'
+import { CARD_LABEL, SUIT_GLYPH, type Card, type DeckMode, type GameAction, type GameState, type GeneralSkill, type MapId, type PendingGanglieContinuation, type PendingResponse, type PendingTieqiContinuation, type Position, type Team, type Unit } from '../types'
 import { attackRange, canBorrowedSwordTarget, canDuelTarget, canPeach, canSlash, combatDistance, createInitialState, determineWinner, drawCards, effectiveAttackRange, findPath, isEquipment, isSlashKind, pathCost, pathDistance, plunderableCards, reachableCells, resolveEndTurnTerrain, samePosition, scoreControlPoint, slashLimit, terrainAt, turnMovement } from './rules'
 import { resolveEquipmentLoss } from './equipment'
 
@@ -380,6 +380,31 @@ function rescueDyingPlayer(state: GameState, startingHp: number) {
   return { state: working, hp, helpers }
 }
 
+function finishGanglieJudgement(state: GameState, continuation: PendingGanglieContinuation, succeeded: boolean | null, judgementText = ''): GameState {
+  let { units, deck, discard } = state
+  let skillText = `${continuation.skillText}${judgementText}`
+  const target = units[continuation.target]
+  if (succeeded) {
+    const attacker = units[continuation.attacker]
+    if (attacker.hand.length >= 2) {
+      if (continuation.attacker === 'player') {
+        const prompt = `${target.name}发动【刚烈】，请选择弃置两张手牌，或受到 1 点伤害`
+        return { ...state, units, deck, discard, pendingResponse: { effect: 'ganglie', source: continuation.target, target: continuation.attacker, required: 'any', requiredCount: 2, prompt }, message: prompt, history: log(state, `${continuation.message}${skillText}；${prompt}`) }
+      }
+      const paid = attacker.hand.slice(0, 2)
+      units = { ...units, [continuation.attacker]: { ...attacker, hand: attacker.hand.slice(2), animation: 'hit' } }
+      discard = [...discard, ...paid]
+      skillText += `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
+    } else {
+      const retaliation = `${continuation.message}${skillText}；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
+      return { ...state, ...damage({ ...state, units, deck, discard }, continuation.target, continuation.attacker, 1, retaliation) }
+    }
+  } else if (succeeded === false) skillText += '；【刚烈】判定为红桃，未生效'
+  const winner = determineWinner(units)
+  const message = `${continuation.message}${skillText}`
+  return { ...state, units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message, history: log(state, message) }
+}
+
 function resolveDamageTriggers(state: GameState, attackerId: Team, targetId: Team, amount: number, message: string, sourceCards: Card[] = [], sourceLess = false): Partial<GameState> {
   const target = state.units[targetId]
   if (target.hp <= 0) return state
@@ -420,29 +445,29 @@ function resolveDamageTriggers(state: GameState, attackerId: Team, targetId: Tea
   if (!sourceLess && target.skill === 'ganglie') {
     const judged = drawWhileResolving(deck, discard, 1, sourceCards), judge = judged.drawn[0]
     deck = judged.deck; discard = judged.discard
+    const continuation: PendingGanglieContinuation = { attacker: attackerId, target: targetId, message, skillText }
+    const player = units.player
+    if (judge && player.hp > 0 && player.skills.includes('guicai') && player.hand.length) {
+      const prompt = `${target.name}发动【刚烈】，判定为${judge.suit}${judge.rank}；是否发动【鬼才】改判？`
+      return {
+        ...state,
+        units,
+        deck,
+        discard,
+        pendingJudgement: { kind: 'ganglie', team: targetId, original: judge, continuation },
+        message: prompt,
+        history: log(state, `${message}${skillText}；${prompt}`),
+      }
+    }
     const altered = judge ? applyAutomaticGuicai({ ...state, units, deck, discard }, targetId, judge, card => card.suit !== 'heart') : null
     const finalJudge = altered?.judge ?? judge
+    let judgementText = ''
     if (altered) {
       units = altered.state.units; deck = altered.state.deck
       discard = [...altered.state.discard, ...altered.displaced, altered.judge]
-      if (altered.displaced.length) skillText += `；${altered.state.message}`
+      if (altered.displaced.length) judgementText = `；${altered.state.message}`
     }
-    if (finalJudge && finalJudge.suit !== 'heart') {
-      const attacker = units[attackerId]
-      if (attacker.hand.length >= 2) {
-        if (attackerId === 'player') {
-          const prompt = `${target.name}发动【刚烈】，请选择弃置两张手牌，或受到 1 点伤害`
-          return { units, deck, discard, pendingResponse: { effect: 'ganglie', source: targetId, target: attackerId, required: 'any', requiredCount: 2, prompt }, message: prompt, history: log(state, `${message}${skillText}；${prompt}`) }
-        }
-        const paid = attacker.hand.slice(0, 2)
-        units = { ...units, [attackerId]: { ...attacker, hand: attacker.hand.slice(2), animation: 'hit' } }
-        discard = [...discard, ...paid]
-        skillText += `；${target.name}发动【刚烈】，${attacker.name}弃置两张牌`
-      } else {
-        const retaliation = `${message}${skillText}；${target.name}发动【刚烈】，${attacker.name}受到 1 点伤害`
-        return damage({ ...state, units, deck, discard }, targetId, attackerId, 1, retaliation)
-      }
-    } else if (finalJudge) skillText += `；【刚烈】判定为红桃，未生效`
+    return finishGanglieJudgement({ ...state, units, deck, discard }, continuation, finalJudge ? finalJudge.suit !== 'heart' : null, judgementText)
   }
   const winner = determineWinner(units)
   return { units, deck, discard, winner, phase: winner ? 'finished' : state.phase, message: `${message}${skillText}`, history: log(state, `${message}${skillText}`) }
@@ -982,17 +1007,18 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
     let target = working.units[targetId]
     if (targetId === 'player' && actorId !== 'player') {
       const prompt = `${working.units[actorId].name}使用【${CARD_LABEL[kind]}】，是否打出【无懈可击】？`
-      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, groupResolvedTargets: [...resolvedTargets], prompt }, message: prompt, history: log(working, prompt) }
+      return { ...working, pendingResponse: { effect: 'nullify', source: actorId, target: targetId, required: 'nullify', trick: kind, originCardId: sourceCard?.id, groupResolvedTargets: [...alreadyResolved], prompt }, message: prompt, history: log(working, prompt) }
     }
     if (target.equipment.armor?.kind === 'vineArmor') {
       const message = `${target.name}的【藤甲】使【${CARD_LABEL[kind]}】无效`
       working = { ...working, message, history: log(working, message) }
+      alreadyResolved.add(targetId)
       continue
     }
     if (kind === 'arrows' && target.equipment.armor?.kind === 'bagua') {
       const judged = judgeBagua(working, targetId, sourceCard)
       working = judged.state
-      if (judged.success) continue
+      if (judged.success) { alreadyResolved.add(targetId); continue }
       target = working.units[targetId]
     }
     const response = responseKind === 'slash' ? slashResponses(target)[0] : responseCard(target, responseKind)
@@ -1002,6 +1028,7 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       const message = `${target.name}以【无懈可击】抵消【${CARD_LABEL[kind]}】`
       working = { ...working, units: { ...working.units, [targetId]: { ...target, hand: target.hand.filter(c => c.id !== nullify.id), animation: 'cast' } }, discard: [...working.discard, nullify], message, history: log(working, message) }
       working = triggerLianying(working, targetId, [nullify, ...(sourceCard ? [sourceCard] : [])])
+      alreadyResolved.add(targetId)
       continue
     }
     if (response || guard) {
@@ -1012,13 +1039,15 @@ function resolveGroupTrick(state: GameState, actorId: Team, kind: 'arrows' | 'ba
       working = { ...working, message, history: log(working, message) }
       if (guard) working = triggerLianying(working, guard.unit.id, [guard.dodge, ...(sourceCard ? [sourceCard] : [])])
     } else working = { ...working, ...damage(working, actorId, targetId, 1, `${target.name}未能响应【${CARD_LABEL[kind]}】，受到 1 点伤害`, false, sourceCard) }
+    alreadyResolved.add(targetId)
+    if (hasDamageResolutionPrompt(working)) return { ...working, pendingGroupContinuation: { kind, source: actorId, originCardId: sourceCard?.id, resolvedTargets: [...alreadyResolved] } }
     if (working.winner) break
   }
   return working
 }
 
 function hasDamageResolutionPrompt(state: GameState) {
-  return !!(state.pendingResponse || state.pendingPlunder || state.pendingYiji)
+  return !!(state.pendingResponse || state.pendingPlunder || state.pendingYiji || state.pendingJudgement)
 }
 
 function resumePendingGroupTrick(state: GameState): GameState {
@@ -1960,6 +1989,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const next = continueTieqiJudgement(judged, pending.continuation, locked)
       set(next)
       if (next.phase === 'ai' && !next.pendingJudgement && !next.pendingResponse && !next.pendingDoubleSword && !next.winner) setTimeout(() => void get().runAI(), 120)
+      return
+    }
+    if (pending.kind === 'ganglie') {
+      const succeeded = judge.suit !== 'heart'
+      const playerAfter = replacement ? { ...player, hand: player.hand.filter(card => card.id !== replacement.id), animation: 'cast' as const } : player
+      const judgementText = replacement
+        ? `；${player.name}发动【鬼才】，以${judge.suit}${judge.rank}改判`
+        : `；${player.name}保留${judge.suit}${judge.rank}判定`
+      const judged: GameState = {
+        ...state,
+        units: { ...state.units, player: playerAfter },
+        discard: [...state.discard, pending.original, ...(replacement ? [replacement] : [])],
+        pendingJudgement: null,
+      }
+      const next = resumePendingGroupTrick(finishGanglieJudgement(judged, pending.continuation, succeeded, judgementText))
+      set(next)
+      if (next.phase === 'ai' && !hasDamageResolutionPrompt(next) && !next.winner) setTimeout(() => void get().runAI(), 120)
       return
     }
     const owner = state.units[pending.team]
