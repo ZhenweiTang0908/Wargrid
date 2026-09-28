@@ -1116,7 +1116,7 @@ function ResponseWindow() {
   const player = useGameStore(s => s.units.player)
   const currentUnit = useGameStore(s => s.currentUnit)
   const attackerWeapon = useGameStore(s => s.pendingResponse ? s.units[s.pendingResponse.source].equipment.weapon?.kind : undefined)
-  const respond = useGameStore(s => s.respond)
+  const dispatch = useGameStore(s => s.dispatch)
   const activateBagua = useGameStore(s => s.activateBagua)
   if (!pending) return null
   const requiredLabel = pending.required === 'any' ? '牌' : CARD_LABEL[pending.required]
@@ -1127,14 +1127,14 @@ function ResponseWindow() {
     <h1>{pending.prompt}</h1>
     <p>{pending.effect === 'ganglie' ? `选择手牌弃置（还需 ${pending.requiredCount} 张），或选择承受伤害。` : pending.effect === 'borrowedSword' ? '选择一张【杀】打出；放弃则将武器交给锦囊使用者。' : `选择一张【${requiredLabel}】打出${(pending.requiredCount ?? 1) > 1 ? `（还需 ${pending.requiredCount} 张）` : ''}，或放弃响应并承受效果。`}</p>
     <div className="response-cards">
-      {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => respond(card.id)}>
+      {responses.map(card => <button key={card.id} className={`card ${card.kind}`} onClick={() => dispatch({ type: 'RESPOND', cardId: card.id })}>
         <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
         <strong>{CARD_LABEL[card.kind]}</strong><small>{pending.effect === 'ganglie' ? '弃置此牌' : card.kind === pending.required ? '打出响应' : pending.effect === 'dying' ? `${player.hand.some(held => held.id === card.id) ? '手牌' : '装备'} · 急救 → 桃` : player.skills.includes('wusheng') && pending.required === 'slash' && (card.suit === 'heart' || card.suit === 'diamond') ? `${player.hand.some(held => held.id === card.id) ? '手牌' : '装备'} · 武圣 → 杀` : player.skills.includes('qingguo') && pending.required === 'dodge' ? '倾国 → 闪' : `龙胆 → ${requiredLabel}`}</small>
       </button>)}
       {!responses.length && <span className="no-response">{pending.effect === 'ganglie' ? '没有可弃置的手牌' : `没有可用的【${requiredLabel}】`}</span>}
     </div>
     {((pending.effect === 'slash' && attackerWeapon !== 'qinggang') || pending.effect === 'arrows') && player.equipment.armor?.kind === 'bagua' && !pending.armorChecked && <button className="decline-response" onClick={activateBagua}>发动【八卦阵】判定：红色视为打出【闪】</button>}
-    {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => respond(null)}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
+    {(pending.effect !== 'ganglie' || pending.requiredCount === 2) && <button className="decline-response" onClick={() => dispatch({ type: 'RESPOND', cardId: null })}>{pending.effect === 'ganglie' ? '承受 1 点伤害' : pending.effect === 'borrowedSword' ? '交出武器' : '放弃响应'}</button>}
   </section></div>
 }
 

@@ -285,6 +285,19 @@ describe('standard card scenarios', () => {
     expect(state.discard).toEqual(expect.arrayContaining([trick, nullify]))
   })
 
+  it('routes a player response through the GameAction dispatcher', () => {
+    const slash = card('slash'), dodge = card('dodge', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: { ...state.units,
+      east: { ...state.units.east, position: { x: 4, y: 1 }, hand: [slash] },
+      player: { ...state.units.player, position: { x: 4, y: 0 }, hand: [dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingResponse?.effect).toBe('slash')
+    useGameStore.getState().dispatch({ type: 'RESPOND', cardId: dodge.id })
+    expect(useGameStore.getState().pendingResponse).toBeNull()
+    expect(useGameStore.getState().units.player.hp).toBe(5)
+  })
+
   it('resolves an AI Draw Two if the player declines to nullify it', () => {
     const trick = card('drawTwo'), nullify = card('nullify'), rewardA = card('slash'), rewardB = card('dodge')
     useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', deck: [rewardA, rewardB], discard: [], units: { ...state.units,

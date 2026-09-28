@@ -197,6 +197,7 @@ export type GameAction =
   | { type: 'MOVE'; unit: Team; to: Position }
   | { type: 'INTERACT'; unit: Team; objectId: string; cardId: string }
   | { type: 'PLAY_CARD'; unit: Team; cardId: string; target?: Team; targets?: Team[]; recast?: boolean; asSlash?: boolean; asDismantle?: boolean; asFanjian?: boolean; asRende?: boolean; asGuose?: boolean; materialIds?: string[]; lordAssist?: Team }
+  | { type: 'RESPOND'; cardId: string | null }
   | { type: 'END_TURN' }
   | { type: 'RESTART' }
 
