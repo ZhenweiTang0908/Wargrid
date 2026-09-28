@@ -1274,6 +1274,26 @@ function QilinWindow() {
   </section></div>
 }
 
+function DoubleSwordWindow() {
+  const pending = useGameStore(s => s.pendingDoubleSword)
+  const attacker = useGameStore(s => pending ? s.units[pending.source] : null)
+  const player = useGameStore(s => s.units.player)
+  const choose = useGameStore(s => s.chooseDoubleSword)
+  if (!pending || !attacker) return null
+  return <div className="overlay response-overlay"><section className="response-panel choice-panel panel">
+    <span className="eyebrow">受到【杀】时 · 雌雄双股剑</span>
+    <h1>{attacker.name}发动【雌雄双股剑】</h1>
+    <p>你的性别与攻击者不同。可以弃置一张手牌令攻击继续，也可以让{attacker.name}摸一张牌。</p>
+    <div className="response-cards">
+      {player.hand.map(card => <button key={card.id} className="card" onClick={() => choose('discard', card.id)}>
+        <span className={`card-suit ${card.suit === 'heart' || card.suit === 'diamond' ? 'red' : ''}`}>{SUIT_GLYPH[card.suit]} {card.rank}</span>
+        <strong>{CARD_LABEL[card.kind]}</strong><small>弃置此牌</small>
+      </button>)}
+    </div>
+    <button className="decline-response" onClick={() => choose('draw')}>不弃牌 · 让{attacker.name}摸一张</button>
+  </section></div>
+}
+
 function YijiWindow() {
   const pending = useGameStore(s => s.pendingYiji)
   const units = useGameStore(s => s.units)
@@ -1582,6 +1602,7 @@ function App() {
     {state.generalSelected && !tutorial && state.pendingTuxi && <TuxiWindow />}
     {state.generalSelected && !tutorial && state.pendingHalberd && <HalberdWindow />}
     {state.generalSelected && !tutorial && state.pendingQilin && <QilinWindow />}
+    {state.generalSelected && !tutorial && state.pendingDoubleSword && <DoubleSwordWindow />}
     {state.generalSelected && !tutorial && state.pendingYiji && <YijiWindow />}
     {state.generalSelected && !tutorial && state.pendingLuoyi && <LuoyiWindow />}
     {state.generalSelected && !tutorial && state.pendingGreenDragon && <GreenDragonWindow />}

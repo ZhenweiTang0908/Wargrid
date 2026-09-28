@@ -2294,6 +2294,25 @@ describe('standard card scenarios', () => {
     expect(state.discard).toContainEqual(payment)
   })
 
+  it('lets the player choose the Double Sword cost before answering Slash', () => {
+    const slash = card('slash'), weapon = card('doubleSword'), payment = card('peach'), dodge = card('dodge', 'heart')
+    useGameStore.setState(state => ({ currentUnit: 'east', phase: 'ai', units: {
+      ...state.units,
+      east: { ...state.units.east, gender: 'male', position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } },
+      player: { ...state.units.player, gender: 'female', position: { x: 4, y: 0 }, hand: [payment, dodge] },
+    } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'east', cardId: slash.id, target: 'player' })
+    expect(useGameStore.getState().pendingDoubleSword).toMatchObject({ source: 'east', target: 'player' })
+    useGameStore.getState().chooseDoubleSword('discard', payment.id)
+    expect(useGameStore.getState().pendingResponse).toMatchObject({ effect: 'slash', doubleSwordChecked: true })
+    useGameStore.getState().respond(dodge.id)
+    const state = useGameStore.getState()
+    expect(state.pendingDoubleSword).toBeNull()
+    expect(state.pendingResponse).toBeNull()
+    expect(state.units.player.hp).toBe(5)
+    expect(state.discard).toEqual(expect.arrayContaining([slash, payment, dodge]))
+  })
+
   it('lets Ice Sword prevent damage and discard two target cards', () => {
     const slash = card('slash'), weapon = card('iceSword'), first = card('peach'), second = card('drawTwo')
     useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 1 }, hand: [slash], equipment: { weapon } }, north: { ...state.units.north, position: { x: 4, y: 0 }, hand: [first, second] } } }))

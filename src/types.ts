@@ -68,6 +68,7 @@ export interface PendingResponse {
   armorChecked?: boolean
   requiredCount?: number
   forcedSlashAttacksUsed?: number
+  doubleSwordChecked?: boolean
   counteredBy?: Team
   groupResolvedTargets?: Team[]
   groupContinuation?: { kind: 'arrows' | 'barbarians'; source: Team; originCardId?: string; resolvedTargets: Team[] }
@@ -115,6 +116,13 @@ export interface PendingQilin {
   originCardId: string
   amount: number
   nature: 'fire' | 'thunder' | null
+}
+
+export interface PendingDoubleSword {
+  source: Team
+  target: 'player'
+  originCardId?: string
+  tieqiChecked?: boolean
 }
 
 export interface PendingYiji {
@@ -177,6 +185,7 @@ export interface GameState {
   pendingIceSword: { target: Team; originCardId: string; amount: number; nature: 'fire' | 'thunder' | null } | null
   pendingHalberd: PendingHalberd | null
   pendingQilin: PendingQilin | null
+  pendingDoubleSword: PendingDoubleSword | null
   pendingYiji: PendingYiji | null
   pendingTurnStart: { team: Team; skipPlay: boolean } | null
   winner: Team | null
