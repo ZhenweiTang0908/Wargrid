@@ -505,6 +505,60 @@ function HuaTuoRegalia({ accent }: { accent: string }) {
   </group>
 }
 
+function ZhangLiaoRegalia({ accent }: { accent: string }) {
+  const steel = '#89979a', darkSteel = '#405258', gold = '#b99a59', crimson = '#77302e'
+  return <group>
+    {/* Winged cavalry helm, layered lamellar and captured pennants make the raider readable at distance. */}
+    <mesh position={[0, 1.5, -.04]} scale={[1.05, .58, 1]} castShadow><sphereGeometry args={[.28, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.72]} /><meshStandardMaterial color={darkSteel} metalness={.6} roughness={.38} /></mesh>
+    <mesh position={[0, 1.61, .13]} rotation-x={Math.PI / 2}><torusGeometry args={[.215, .03, 7, 20, Math.PI]} /><meshStandardMaterial color={gold} metalness={.82} roughness={.25} /></mesh>
+    <mesh position={[0, 1.73, -.02]} castShadow><coneGeometry args={[.065, .38, 6]} /><meshStandardMaterial color={crimson} roughness={.57} metalness={.2} /></mesh>
+    {[-1, 1].map(side => <group key={`zhangliao-side-${side}`}>
+      <mesh position={[side * .22, 1.67, -.02]} rotation-z={side * -.7} castShadow><coneGeometry args={[.06, .34, 6]} /><meshStandardMaterial color={steel} metalness={.82} roughness={.23} /></mesh>
+      <group position={[side * .43, 1.02, -.015]} rotation-z={side * .25}>
+        <mesh scale={[1.16, .8, .96]} castShadow><dodecahedronGeometry args={[.225, 0]} /><meshStandardMaterial color={darkSteel} metalness={.67} roughness={.35} /></mesh>
+        {[0, 1, 2].map(layer => <mesh key={layer} position={[side * layer * .018, -.09 - layer * .075, .165]}><boxGeometry args={[.2 - layer * .014, .068, .04]} /><meshStandardMaterial color={layer === 1 ? crimson : steel} metalness={.66} roughness={.33} /></mesh>)}
+      </group>
+      <mesh position={[side * .38, .53, -.31]} rotation-z={side * .16} castShadow><boxGeometry args={[.235, .77, .05]} /><meshStandardMaterial color={side > 0 ? crimson : '#512628'} roughness={.89} side={THREE.DoubleSide} /></mesh>
+    </group>)}
+    <group position={[0, .89, .412]}>
+      <mesh scale={[1.2, .8, .43]}><octahedronGeometry args={[.142]} /><meshStandardMaterial color={gold} metalness={.8} roughness={.25} /></mesh>
+      <mesh position-z={.067}><sphereGeometry args={[.047, 10, 8]} /><meshStandardMaterial color={accent} emissive="#24353a" emissiveIntensity={.35} metalness={.44} roughness={.28} /></mesh>
+    </group>
+    {[-1, 1].map(side => <group key={`zhangliao-banner-${side}`} position={[side * .3, .78, -.3]} rotation-z={side * .08}>
+      <mesh><cylinderGeometry args={[.012, .012, .85, 7]} /><meshStandardMaterial color="#5b412a" roughness={.75} /></mesh>
+      <mesh position={[side * .08, .27, 0]} rotation-z={side * -.15}><boxGeometry args={[.16, .3, .025]} /><meshStandardMaterial color={crimson} roughness={.84} side={THREE.DoubleSide} /></mesh>
+    </group>)}
+  </group>
+}
+
+function XuChuRegalia({ accent }: { accent: string }) {
+  const iron = '#85857c', bronze = '#a87948', leather = '#4b3027', ochre = '#8a5631'
+  return <group>
+    {/* Heavy brow guard, broad pauldrons and chained waist plates exaggerate the Tiger Fool's mass. */}
+    <mesh position={[0, 1.49, -.035]} scale={[1.08, .6, 1.02]} castShadow><sphereGeometry args={[.285, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.7]} /><meshStandardMaterial color={leather} roughness={.7} metalness={.25} /></mesh>
+    <mesh position={[0, 1.58, .14]} rotation-x={Math.PI / 2}><torusGeometry args={[.225, .036, 7, 20, Math.PI]} /><meshStandardMaterial color={iron} metalness={.74} roughness={.3} /></mesh>
+    <mesh position={[0, 1.66, .06]} scale={[1.4, .65, .5]}><octahedronGeometry args={[.12]} /><meshStandardMaterial color={bronze} metalness={.72} roughness={.29} /></mesh>
+    {[-1, 1].map(side => <group key={`xuchu-side-${side}`}>
+      <group position={[side * .45, 1.0, -.015]} rotation-z={side * .28}>
+        <mesh scale={[1.25, .86, 1]} castShadow><dodecahedronGeometry args={[.235, 0]} /><meshStandardMaterial color={ochre} metalness={.53} roughness={.41} /></mesh>
+        <mesh position={[side * .025, .02, .2]} scale={[1.15, .9, .55]}><octahedronGeometry args={[.075]} /><meshStandardMaterial color={iron} metalness={.77} roughness={.27} /></mesh>
+        {[0, 1, 2].map(layer => <mesh key={layer} position={[0, -.12 - layer * .075, .15]}><boxGeometry args={[.215 - layer * .015, .064, .045]} /><meshStandardMaterial color={layer === 1 ? bronze : iron} metalness={.67} roughness={.32} /></mesh>)}
+      </group>
+      <mesh position={[side * .39, .51, -.31]} rotation-z={side * .17} castShadow><boxGeometry args={[.25, .78, .052]} /><meshStandardMaterial color={side > 0 ? ochre : '#65402b'} roughness={.9} side={THREE.DoubleSide} /></mesh>
+      {[0, 1, 2].map(index => <mesh key={index} position={[side * (.22 + index * .015), .58 - index * .13, .31]} rotation-z={side * .06}><boxGeometry args={[.18, .09, .042]} /><meshStandardMaterial color={index === 1 ? bronze : iron} metalness={.64} roughness={.35} /></mesh>)}
+    </group>)}
+    <group position={[0, .88, .414]}>
+      <mesh scale={[1.25, .82, .45]}><octahedronGeometry args={[.15]} /><meshStandardMaterial color={bronze} metalness={.76} roughness={.27} /></mesh>
+      <mesh position-z={.07} scale={[1.1, .8, .5]}><dodecahedronGeometry args={[.058, 0]} /><meshStandardMaterial color={accent} emissive="#3b2119" emissiveIntensity={.36} metalness={.42} roughness={.29} /></mesh>
+    </group>
+    <group position={[-.37, .64, -.04]} rotation-z={.18}>
+      <mesh castShadow><cylinderGeometry args={[.045, .055, .68, 10]} /><meshStandardMaterial color="#513723" roughness={.72} /></mesh>
+      <mesh position-y={.39} castShadow><boxGeometry args={[.3, .16, .12]} /><meshStandardMaterial color={iron} metalness={.78} roughness={.25} /></mesh>
+      <mesh position-y={.5}><cylinderGeometry args={[.09, .12, .16, 8]} /><meshStandardMaterial color={bronze} metalness={.7} roughness={.3} /></mesh>
+    </group>
+  </group>
+}
+
 function BowAndQuiver({ accent }: { accent: string }) {
   return <group>
     <group position={[.37, .73, .05]} rotation={[0, -.18, -.2]}>
@@ -611,6 +665,8 @@ function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }
   if (skill === 'jizhi') return <HuangYueyingRegalia accent={accent} />
   if (skill === 'yiji') return <GuoJiaRegalia accent={accent} />
   if (skill === 'qingnang') return <HuaTuoRegalia accent={accent} />
+  if (skill === 'tuxi') return <ZhangLiaoRegalia accent={accent} />
+  if (skill === 'luoyi') return <XuChuRegalia accent={accent} />
   if (skill === 'kongcheng' || skill === 'qicai') return <group>
     <mesh position={[0, 1.61, -.08]} rotation-z={-.06} castShadow><cylinderGeometry args={[.17, .2, .075, 12]} /><meshStandardMaterial color="#443d33" roughness={.8} /></mesh>
     <mesh position={[0, 1.69, -.07]} castShadow><coneGeometry args={[.19, .17, 12]} /><meshStandardMaterial color={skill === 'kongcheng' ? '#e0d4b8' : accent} roughness={.72} /></mesh>
@@ -625,11 +681,11 @@ function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }
     {[-1, 1].map(side => <mesh key={side} position={[side * .15, 1.72, -.02]} rotation-z={side * -.18} castShadow><coneGeometry args={[.07, .28, 6]} /><meshStandardMaterial color={accent} metalness={.25} roughness={.56} /></mesh>)}
     <mesh position={[0, 1.72, -.02]}><sphereGeometry args={[.042, 10, 8]} /><meshStandardMaterial color={gold} metalness={.8} roughness={.25} /></mesh>
   </group>
-  if (skill === 'qixi' || skill === 'tuxi' || skill === 'kurou') return <group>
+  if (skill === 'qixi' || skill === 'kurou') return <group>
     <mesh position={[0, 1.49, -.01]} rotation-z={-.05} castShadow><torusGeometry args={[.27, .035, 7, 18, Math.PI * 1.35]} /><meshStandardMaterial color={skill === 'qixi' ? '#1b5d65' : '#4b3030'} roughness={.78} /></mesh>
     <mesh position={[.26, 1.38, .13]} rotation-z={-.35}><boxGeometry args={[.07, .42, .045]} /><meshStandardMaterial color={skill === 'qixi' ? '#2b8b92' : '#6b4c3c'} roughness={.74} /></mesh>
   </group>
-  if (skill === 'tieqi' || skill === 'mashu' || skill === 'luoyi') return <group>
+  if (skill === 'tieqi' || skill === 'mashu') return <group>
     <mesh position={[0, 1.66, -.04]} rotation-z={-.1} castShadow><coneGeometry args={[.055, .42, 6]} /><meshStandardMaterial color={accent} metalness={.32} roughness={.5} /></mesh>
     <mesh position={[0, 1.49, .12]} rotation-z={Math.PI / 2}><torusGeometry args={[.25, .026, 7, 18, Math.PI]} /><meshStandardMaterial color={gold} metalness={.72} roughness={.3} /></mesh>
   </group>
