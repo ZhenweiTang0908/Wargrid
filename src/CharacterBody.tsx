@@ -176,6 +176,63 @@ function FeatherFan({ accent }: { accent: string }) {
   </group>
 }
 
+function GuanYuRegalia({ accent }: { accent: string }) {
+  const bronze = '#c7a15b', jade = '#2f8b64', deepGreen = '#173f35', leather = '#3b2620'
+  return <group>
+    {/* Layered head scarf, brow band and trailing ties echo the portrait without copying it literally. */}
+    <mesh position={[0, 1.5, -.045]} scale={[1.08, .62, 1]} castShadow><sphereGeometry args={[.282, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.75]} /><meshStandardMaterial color={deepGreen} roughness={.72} /></mesh>
+    <mesh position={[0, 1.49, .205]} rotation-x={Math.PI / 2}><torusGeometry args={[.205, .027, 7, 20, Math.PI]} /><meshStandardMaterial color={bronze} metalness={.78} roughness={.29} /></mesh>
+    <mesh position={[0, 1.61, -.08]} rotation-z={-.06} castShadow><capsuleGeometry args={[.065, .24, 6, 11]} /><meshStandardMaterial color={accent} roughness={.7} /></mesh>
+    <mesh position={[0, 1.74, -.08]}><sphereGeometry args={[.048, 10, 8]} /><meshStandardMaterial color={bronze} metalness={.82} roughness={.25} /></mesh>
+    {[-1, 1].map(side => <group key={`guan-tie-${side}`} position={[side * .19, 1.52, -.18]} rotation-z={side * .22}>
+      <mesh position-y={-.18} castShadow><capsuleGeometry args={[.035, .35, 5, 9]} /><meshStandardMaterial color={side > 0 ? jade : deepGreen} roughness={.84} /></mesh>
+      <mesh position-y={-.39} scale={[1.4, 1, .45]}><sphereGeometry args={[.048, 9, 7]} /><meshStandardMaterial color={bronze} metalness={.7} roughness={.31} /></mesh>
+    </group>)}
+    {[-1, 1].map(side => <group key={`guan-pauldron-${side}`} position={[side * .43, 1.065, -.01]} rotation-z={side * .25}>
+      <mesh scale={[1.18, .78, .94]} castShadow><dodecahedronGeometry args={[.235, 1]} /><meshStandardMaterial color={deepGreen} metalness={.52} roughness={.4} /></mesh>
+      {[0, 1, 2].map(layer => <mesh key={layer} position={[side * (.04 + layer * .022), -.09 - layer * .09, .14]} rotation-z={side * (.06 + layer * .03)}>
+        <boxGeometry args={[.21 - layer * .018, .09, .045]} /><meshStandardMaterial color={layer === 1 ? jade : bronze} metalness={layer === 1 ? .38 : .72} roughness={.34} />
+      </mesh>)}
+      <mesh position={[0, .015, .205]}><sphereGeometry args={[.058, 10, 8]} /><meshStandardMaterial color={bronze} metalness={.84} roughness={.23} /></mesh>
+    </group>)}
+    <group position={[0, .9, .405]}>
+      <mesh scale={[1.2, .78, .42]}><octahedronGeometry args={[.145]} /><meshStandardMaterial color={bronze} metalness={.8} roughness={.24} /></mesh>
+      <mesh position-z={.065}><torusGeometry args={[.058, .015, 6, 16]} /><meshStandardMaterial color={jade} emissive="#153d31" emissiveIntensity={.35} metalness={.5} roughness={.28} /></mesh>
+      <mesh position={[0, 0, .077]} rotation-z={Math.PI / 4}><boxGeometry args={[.055, .055, .018]} /><meshStandardMaterial color="#e1c678" metalness={.82} roughness={.22} /></mesh>
+    </group>
+    {[-1, 1].map(side => <mesh key={`guan-tasset-${side}`} position={[side * .225, .5, .305]} rotation-z={side * .08} castShadow>
+      <boxGeometry args={[.185, .43, .045]} /><meshStandardMaterial color={leather} roughness={.78} />
+    </mesh>)}
+  </group>
+}
+
+function ZhaoYunRegalia({ accent }: { accent: string }) {
+  const silver = '#d2d8d5', steel = '#71818a', blue = '#315d78', gold = '#c7a35f'
+  return <group>
+    {/* A narrow silver helm and white-blue lamellar plates create Zhao Yun's lighter cavalry silhouette. */}
+    <mesh position={[0, 1.51, -.035]} scale={[1.03, .6, .98]} castShadow><sphereGeometry args={[.278, 18, 12, 0, Math.PI * 2, 0, Math.PI / 1.72]} /><meshStandardMaterial color={steel} metalness={.66} roughness={.3} /></mesh>
+    <mesh position={[0, 1.58, .17]} rotation-x={Math.PI / 2}><torusGeometry args={[.23, .026, 7, 20, Math.PI]} /><meshStandardMaterial color={silver} metalness={.86} roughness={.2} /></mesh>
+    <mesh position={[0, 1.72, -.055]} castShadow><coneGeometry args={[.07, .42, 7]} /><meshStandardMaterial color={silver} metalness={.84} roughness={.21} /></mesh>
+    <group position={[.02, 1.91, -.07]} rotation-z={-.18}>
+      {[0, 1, 2].map(segment => <mesh key={segment} position={[segment * .035, segment * .17, 0]} rotation-z={segment * -.1} castShadow>
+        <capsuleGeometry args={[.034 - segment * .004, .2, 5, 9]} /><meshStandardMaterial color={segment === 1 ? '#e7edf0' : accent} roughness={.72} />
+      </mesh>)}
+    </group>
+    {[-1, 1].map(side => <group key={`zhao-pauldron-${side}`} position={[side * .42, 1.055, 0]} rotation-z={side * .24}>
+      <mesh scale={[1.2, .76, .92]} castShadow><dodecahedronGeometry args={[.23, 1]} /><meshStandardMaterial color={silver} metalness={.7} roughness={.27} /></mesh>
+      {[0, 1, 2].map(layer => <mesh key={layer} position={[side * layer * .025, -.1 - layer * .085, .145]} rotation-z={side * layer * .04}>
+        <boxGeometry args={[.205 - layer * .012, .082, .04]} /><meshStandardMaterial color={layer === 1 ? blue : silver} metalness={.62} roughness={.31} />
+      </mesh>)}
+      <mesh position={[0, .015, .205]} scale={[1, 1.15, .55]}><octahedronGeometry args={[.07]} /><meshStandardMaterial color={gold} metalness={.84} roughness={.23} /></mesh>
+    </group>)}
+    <mesh position={[0, .9, .405]} scale={[1.2, .82, .42]}><octahedronGeometry args={[.14]} /><meshStandardMaterial color={silver} metalness={.76} roughness={.25} /></mesh>
+    <mesh position={[0, .9, .47]}><sphereGeometry args={[.052, 10, 8]} /><meshStandardMaterial color={accent} emissive="#183c52" emissiveIntensity={.42} metalness={.45} roughness={.28} /></mesh>
+    {[-1, 1].map(side => <mesh key={`zhao-skirt-${side}`} position={[side * .22, .48, .3]} rotation-z={side * .07} castShadow>
+      <boxGeometry args={[.18, .46, .04]} /><meshStandardMaterial color={side > 0 ? blue : '#e3e6df'} roughness={.78} />
+    </mesh>)}
+  </group>
+}
+
 function BowAndQuiver({ accent }: { accent: string }) {
   return <group>
     <group position={[.37, .73, .05]} rotation={[0, -.18, -.2]}>
@@ -256,6 +313,8 @@ function SignatureGear({ unit, accent }: { unit: Unit; accent: string }) {
 
 function HeroRegalia({ skill, accent }: { skill: Unit['skill']; accent: string }) {
   const gold = '#c9a766'
+  if (skill === 'wusheng') return <GuanYuRegalia accent={accent} />
+  if (skill === 'longdan') return <ZhaoYunRegalia accent={accent} />
   if (skill === 'paoxiao') return <ZhangFeiRegalia accent={accent} />
   if (skill === 'wushuang') return <LuBuRegalia accent={accent} />
   if (skill === 'keji') return <LuMengRegalia accent={accent} />
