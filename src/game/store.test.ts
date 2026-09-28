@@ -1306,7 +1306,7 @@ describe('standard card scenarios', () => {
   it('places supply shortage into the target judgement area and rejects a duplicate', () => {
     const first = card('supplyShortage', 'heart', 4), duplicate = card('supplyShortage', 'club', 7)
     useGameStore.setState(state => ({
-      units: { ...state.units, player: { ...state.units.player, hand: [first, duplicate] }, north: { ...state.units.north, hand: [] } },
+      units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [first, duplicate] }, north: { ...state.units.north, position: { x: 4, y: 7 }, hand: [] } },
     }))
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: first.id, target: 'north' })
     expect(useGameStore.getState().units.north.judgement).toEqual([first])
@@ -1314,6 +1314,16 @@ describe('standard card scenarios', () => {
     useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: duplicate.id, target: 'north' })
     expect(useGameStore.getState().units.north.judgement).toHaveLength(1)
     expect(useGameStore.getState().units.player.hand).toContainEqual(duplicate)
+  })
+
+  it('requires distance one for supply shortage unless Qicai removes the limit', () => {
+    const shortage = card('supplyShortage', 'spade', 10)
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, position: { x: 4, y: 8 }, hand: [shortage] }, north: { ...state.units.north, position: { x: 0, y: 0 }, judgement: [] } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: shortage.id, target: 'north' })
+    expect(useGameStore.getState().units.player.hand).toContainEqual(shortage)
+    useGameStore.setState(state => ({ units: { ...state.units, player: { ...state.units.player, skills: ['qicai'], position: { x: 4, y: 8 } }, north: { ...state.units.north, position: { x: 0, y: 0 } } } }))
+    useGameStore.getState().dispatch({ type: 'PLAY_CARD', unit: 'player', cardId: shortage.id, target: 'north' })
+    expect(useGameStore.getState().units.north.judgement).toEqual([shortage])
   })
 
   it('skips drawing but keeps the play stage when supply shortage hits', () => {

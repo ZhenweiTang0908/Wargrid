@@ -400,7 +400,7 @@ function UnitPiece({ team, previewUnit }: { team: Team; previewUnit?: Unit }) {
     (selectedKind === 'slash' && canSlash(state, attackSource, unit)) ||
     (selectedKind === 'duel' && !(unit.skills.includes('kongcheng') && unit.hand.length === 0)) || (selectedKind === 'dismantle' && plunderableCards(unit).length > 0) ||
     canBorrowedWielder || canBorrowedVictim ||
-    selectedKind === 'indulgence' || selectedKind === 'supplyShortage' || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
+    selectedKind === 'indulgence' || (selectedKind === 'supplyShortage' && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || selectedKind === 'fireAttack' || selectedKind === 'ironChain' ||
     (selectedKind === 'snatch' && plunderableCards(unit).length > 0 && (state.units.player.skills.includes('qicai') || combatDistance(state, state.units.player, unit) <= 1)) || state.selectedAsFanjian || state.selectedAsRende
   ))
 

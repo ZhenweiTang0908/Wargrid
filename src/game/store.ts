@@ -1148,6 +1148,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const nullifiable = ['duel', 'dismantle', 'snatch', 'borrowedSword', 'indulgence', 'supplyShortage', 'fireAttack', 'ironChain'].includes(kind)
       if (kind === 'borrowedSword' && !target.equipment.weapon) return
       if (kind === 'snatch' && !unit.skills.includes('qicai') && combatDistance(state, unit, target) > 1) return
+      if (kind === 'supplyShortage' && !unit.skills.includes('qicai') && combatDistance(state, unit, target) > 1) return
       if (nullifiable && targetId === 'player' && action.unit !== 'player') {
         const trick = kind as 'duel' | 'dismantle' | 'snatch' | 'borrowedSword' | 'indulgence' | 'supplyShortage' | 'fireAttack' | 'ironChain'
         const prompt = `${unit.name}对你使用【${CARD_LABEL[trick]}】，是否打出【无懈可击】？`
@@ -2196,8 +2197,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (kind === 'borrowedSword') target = targetsFor(state, aiId).find(unit => !!unit.equipment.weapon) ?? target
       if (kind === 'borrowedSword' && !target.equipment.weapon) continue
       if (kind === 'dismantle' || kind === 'snatch') target = targetsFor(state, aiId).find(unit => plunderableCards(unit).length > 0) ?? target
+      if (kind === 'supplyShortage' && !ai.skills.includes('qicai')) target = targetsFor(state, aiId).find(candidate => candidate.judgement.every(delayed => delayed.kind !== 'supplyShortage') && combatDistance(state, ai, candidate) <= 1) ?? target
       if (kind === 'slash' && !canSlash(state, equippedCards(ai).some(item => item.id === card.id) ? { ...ai, equipment: Object.fromEntries(Object.entries(ai.equipment).filter(([, item]) => item?.id !== card.id)) as Unit['equipment'] } : ai, target)) continue
       if (kind === 'snatch' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
+      if (kind === 'supplyShortage' && !ai.skills.includes('qicai') && combatDistance(state, ai, target) > 1) continue
       get().dispatch({ type: 'PLAY_CARD', unit: aiId, cardId: card.id, target: target.id, asSlash: kind === 'slash' && !isSlashKind(card.kind), asDismantle: kind === 'dismantle' && card.kind !== 'dismantle' }); await wait(420); state = get(); ai = state.units[aiId]
       if (state.pendingResponse || state.pendingLiuli || state.pendingAxe || state.pendingIceSword || state.pendingHalberd || state.pendingQilin || state.pendingDoubleSword || state.pendingYiji) return
       if (state.phase === 'finished') return
